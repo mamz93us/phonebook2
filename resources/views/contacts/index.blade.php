@@ -33,6 +33,13 @@
             </div>
         </form>
 
+        <!-- Print Button -->
+        <div class="text-center mb-4">
+            <a href="{{ route('public.contacts.print') }}" class="btn btn-success btn-lg" target="_blank">
+                🖨️ Print Directory
+            </a>
+        </div>
+
         <!-- Contacts Grid -->
         <div class="row g-4">
             @forelse($contacts as $contact)

@@ -29,6 +29,10 @@ Route::get('/phonebook.xml', [PhonebookController::class, 'generate'])
 Route::get('/contacts', [PublicContactController::class, 'index'])
     ->name('public.contacts');
 
+// Public Contact Print
+Route::get('/contacts/print', [PublicContactController::class, 'print'])
+    ->name('public.contacts.print');
+
 /*
 |--------------------------------------------------------------------------
 | Authenticated Routes
@@ -67,35 +71,29 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Contacts
     Route::resource('contacts', ContactController::class)
         ->except(['show']);
-	Route::get('/contacts', [PublicContactController::class, 'index'])
-    ->name('public.contacts');
-
-	// Add this new route:
-	Route::get('/contacts/print', [PublicContactController::class, 'print'])
-    ->name('public.contacts.print');
 
     // Contact Export
-    Route::get('/contacts-export', [ContactController::class, 'export'])
+    Route::get('contacts-export', [ContactController::class, 'export'])
         ->name('contacts.export');
 
     // Check Duplicate Email (AJAX)
-    Route::post('/contacts/check-duplicate', [ContactController::class, 'checkDuplicate'])
+    Route::post('contacts/check-duplicate', [ContactController::class, 'checkDuplicate'])
         ->name('contacts.check-duplicate');
 
     // Settings
-    Route::get('/settings', [SettingsController::class, 'index'])
+    Route::get('settings', [SettingsController::class, 'index'])
         ->name('settings.index');
-    Route::post('/settings', [SettingsController::class, 'update'])
+    Route::post('settings', [SettingsController::class, 'update'])
         ->name('settings.update');
-    Route::delete('/settings/logo', [SettingsController::class, 'deleteLogo'])
+    Route::delete('settings/logo', [SettingsController::class, 'deleteLogo'])
         ->name('settings.delete-logo');
 
     // Activity Logs
-    Route::get('/activity-logs', [ActivityLogController::class, 'index'])
+    Route::get('activity-logs', [ActivityLogController::class, 'index'])
         ->name('activity-logs');
 
     // XML preview
-    Route::get('/xml-preview', [PhonebookController::class, 'preview'])
+    Route::get('xml-preview', [PhonebookController::class, 'preview'])
         ->name('xml.preview');
 });
 
