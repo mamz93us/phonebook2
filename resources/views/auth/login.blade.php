@@ -1,47 +1,238 @@
-<x-guest-layout>
-    <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
-
-    <form method="POST" action="{{ route('login') }}">
-        @csrf
-
-        <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - {{ config('app.name') }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+            padding: 15px;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .login-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 30px;
+            text-align: center;
+            color: white;
+        }
+        
+        .login-logo {
+            max-width: 120px;
+            max-height: 80px;
+            margin-bottom: 15px;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        
+        .login-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .login-body {
+            padding: 40px 30px;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .form-control {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 12px 15px;
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            padding: 12px;
+            font-size: 16px;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        
+        .forgot-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .forgot-link:hover {
+            color: #764ba2;
+        }
+        
+        .alert {
+            border-radius: 10px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <!-- Header with Logo -->
+            <div class="login-header">
+                @php
+                    $settings = App\Models\Setting::first();
+                @endphp
+                
+                @if($settings && $settings->company_logo)
+                    <img 
+                        src="{{ asset('storage/' . $settings->company_logo) }}" 
+                        alt="{{ $settings->company_name ?? 'Company' }} Logo" 
+                        class="login-logo"
+                    >
+                @else
+                    <div style="font-size: 48px; margin-bottom: 10px;">📱</div>
+                @endif
+                
+                <h1 class="login-title">
+                    {{ $settings->company_name ?? 'Admin Panel' }}
+                </h1>
+                <p style="margin: 5px 0 0 0; opacity: 0.9;">Sign in to continue</p>
+            </div>
+            
+            <!-- Login Form -->
+            <div class="login-body">
+                <!-- Session Status -->
+                @if (session('status'))
+                    <div class="alert alert-success mb-3">
+                        {{ session('status') }}
+                    </div>
+                @endif
+                
+                <!-- Validation Errors -->
+                @if ($errors->any())
+                    <div class="alert alert-danger mb-3">
+                        <strong>Whoops!</strong> There were some problems with your input.
+                    </div>
+                @endif
+                
+                <form method="POST" action="{{ route('login') }}">
+                    @csrf
+                    
+                    <!-- Email -->
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input 
+                            type="email" 
+                            class="form-control @error('email') is-invalid @enderror" 
+                            id="email" 
+                            name="email" 
+                            value="{{ old('email') }}" 
+                            required 
+                            autofocus
+                            placeholder="Enter your email"
+                        >
+                        @error('email')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    
+                    <!-- Password -->
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input 
+                            type="password" 
+                            class="form-control @error('password') is-invalid @enderror" 
+                            id="password" 
+                            name="password" 
+                            required
+                            placeholder="Enter your password"
+                        >
+                        @error('password')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    
+                    <!-- Remember Me & Forgot Password -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="remember" name="remember">
+                            <label class="form-check-label" for="remember">
+                                Remember me
+                            </label>
+                        </div>
+                        
+                        @if (Route::has('password.request'))
+                            <a href="{{ route('password.request') }}" class="forgot-link">
+                                Forgot password?
+                            </a>
+                        @endif
+                    </div>
+                    
+                    <!-- Login Button -->
+                    <button type="submit" class="btn btn-login">
+                        Sign In
+                    </button>
+                </form>
+            </div>
         </div>
-
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+        
+        <!-- Footer -->
+        <div class="text-center mt-3">
+            <small style="color: rgba(255,255,255,0.8);">
+                &copy; {{ date('Y') }} {{ $settings->company_name ?? 'Company' }}. All rights reserved.
+            </small>
         </div>
-
-        <!-- Remember Me -->
-        <div class="block mt-4">
-            <label for="remember_me" class="inline-flex items-center">
-                <input id="remember_me" type="checkbox" class="rounded dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:focus:ring-offset-gray-800" name="remember">
-                <span class="ms-2 text-sm text-gray-600 dark:text-gray-400">{{ __('Remember me') }}</span>
-            </label>
-        </div>
-
-        <div class="flex items-center justify-end mt-4">
-            @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800" href="{{ route('password.request') }}">
-                    {{ __('Forgot your password?') }}
-                </a>
-            @endif
-
-            <x-primary-button class="ms-3">
-                {{ __('Log in') }}
-            </x-primary-button>
-        </div>
-    </form>
-</x-guest-layout>
+    </div>
+</body>
+</html>
