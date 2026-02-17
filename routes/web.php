@@ -15,6 +15,11 @@ use App\Http\Controllers\PublicContactController;
 |--------------------------------------------------------------------------
 */
 
+// Welcome page
+Route::get('/', function () {
+    return view('welcome');
+});
+
 // XML for Phones
 Route::get('/phonebook.xml', [PhonebookController::class, 'generate'])
     ->withoutMiddleware(['web'])
@@ -24,10 +29,16 @@ Route::get('/phonebook.xml', [PhonebookController::class, 'generate'])
 Route::get('/contacts', [PublicContactController::class, 'index'])
     ->name('public.contacts');
 
+/*
+|--------------------------------------------------------------------------
+| Authenticated Routes
+|--------------------------------------------------------------------------
+*/
+
 // Dashboard redirect
 Route::get('/dashboard', function () {
     return redirect()->route('admin.dashboard');
-})->middleware(['auth'])->name('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
 
 // Profile routes
 Route::middleware('auth')->group(function () {
@@ -87,10 +98,5 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 | Auth Routes (Laravel Breeze)
 |--------------------------------------------------------------------------
 */
-
-// Disable registration
-Route::any('/register', function () {
-    abort(404);
-});
 
 require __DIR__.'/auth.php';
