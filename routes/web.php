@@ -22,6 +22,10 @@ Route::get('/phonebook.xml', [PhonebookController::class, 'generate'])
 // Public Contact Directory
 Route::get('/contacts', [PublicContactController::class, 'index'])
     ->name('public.contacts');
+// Dashboard redirect
+Route::get('/dashboard', function () {
+    return redirect()->route('admin.dashboard');
+})->middleware(['auth'])->name('dashboard');
 
 /*
 |--------------------------------------------------------------------------
