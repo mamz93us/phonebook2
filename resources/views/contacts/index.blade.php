@@ -141,8 +141,16 @@
             font-size: 19px;
             font-weight: 700;
             color: #2c3e50;
-            margin-bottom: 15px;
-            padding-bottom: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .job-title {
+            font-size: 14px;
+            color: #e74c3c;
+            font-weight: 500;
+            font-style: italic;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
             border-bottom: 2px solid #ffe0e0;
         }
         
@@ -300,6 +308,12 @@
                                 <div class="contact-name">
                                     {{ $contact->first_name }} {{ $contact->last_name }}
                                 </div>
+                                
+                                @if($contact->job_title)
+                                    <div class="job-title">
+                                        💼 {{ $contact->job_title }}
+                                    </div>
+                                @endif
                                 
                                 <div class="contact-info">
                                     <strong>Phone:</strong>

@@ -25,7 +25,16 @@
                 <span class="text-danger small">{{ $message }}</span>
             @enderror
         </div>
-
+		<!-- Job Title -->
+<div class="mb-3">
+    <label for="job_title" class="form-label">Job Title</label>
+    <input type="text" class="form-control @error('job_title') is-invalid @enderror" 
+           id="job_title" name="job_title" value="{{ old('job_title', $contact->job_title ?? '') }}" 
+           placeholder="e.g., Software Engineer, Sales Manager">
+    @error('job_title')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+</div>
         <div class="col-md-6 mb-3">
             <label class="form-label">Phone Number</label>
             <input type="text" name="phone" class="form-control"

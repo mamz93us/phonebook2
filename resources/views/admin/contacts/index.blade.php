@@ -53,6 +53,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Name</th>
+                            <th>Job Title</th>
                             <th>Phone</th>
                             <th>Email</th>
                             <th>Branch</th>
@@ -63,6 +64,7 @@
                         @foreach($contacts as $contact)
                             <tr>
                                 <td>{{ $contact->first_name }} {{ $contact->last_name }}</td>
+                                <td>{{ $contact->job_title ?? '-' }}</td>
                                 <td>{{ $contact->phone }}</td>
                                 <td>{{ $contact->email }}</td>
                                 <td>{{ $contact->branch->name ?? '-' }}</td>
