@@ -3,18 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Company Directory</title>
+    <title>{{ $settings->first()->company_name ?? 'Company' }} Directory</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background: #f8f9fa; }
         .contact-card { transition: transform 0.2s; }
         .contact-card:hover { transform: translateY(-5px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .company-logo { max-height: 100px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
     <div class="container py-5">
+        <!-- Company Logo & Header -->
         <div class="text-center mb-5">
-            <h1 class="display-4">📱 Company Directory</h1>
+            @if($settings->first() && $settings->first()->company_logo)
+                <img 
+                    src="{{ asset('storage/' . $settings->first()->company_logo) }}" 
+                    alt="{{ $settings->first()->company_name ?? 'Company' }} Logo" 
+                    class="company-logo"
+                >
+            @endif
+            <h1 class="display-4">
+                📱 {{ $settings->first()->company_name ?? 'Company' }} Directory
+            </h1>
             <p class="lead text-muted">Find contact information for all employees</p>
         </div>
         
