@@ -41,15 +41,22 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <strong>{{ ucfirst($log->subject_type) }}</strong>
+                                    <strong>{{ ucfirst(str_replace('_', ' ', $log->subject_type)) }}</strong>
                                     @if($log->subject_id)
                                         <br><small class="text-muted">ID: {{ $log->subject_id }}</small>
                                     @endif
                                 </td>
                                 <td>
-                                    <small>{{ $log->description }}</small>
+                                    <small>{{ $log->description ?? '-' }}</small>
                                     @if($log->changes)
-                                        <br><small class="text-muted">{{ Str::limit($log->changes, 100) }}</small>
+                                        <br>
+                                        <small class="text-muted">
+                                            @if(is_array($log->changes))
+                                                {{ Str::limit(json_encode($log->changes), 100) }}
+                                            @else
+                                                {{ Str::limit($log->changes, 100) }}
+                                            @endif
+                                        </small>
                                     @endif
                                 </td>
                             </tr>
