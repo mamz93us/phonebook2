@@ -113,9 +113,8 @@
                 <thead>
                     <tr>
                         <th style="width: 5%;">#</th>
-                        <th style="width: 20%;">First Name</th>
-                        <th style="width: 20%;">Last Name</th>
-                        <th style="width: 15%;">Phone</th>
+                        <th style="width: 35%;">Name</th>
+                        <th style="width: 20%;">Phone</th>
                         <th style="width: 25%;">Email</th>
                         <th style="width: 15%;">Branch</th>
                     </tr>
@@ -124,8 +123,7 @@
                     @foreach($contacts as $index => $contact)
                         <tr>
                             <td>{{ $index + 1 }}</td>
-                            <td>{{ $contact->first_name }}</td>
-                            <td>{{ $contact->last_name }}</td>
+                            <td>{{ $contact->first_name }} {{ $contact->last_name }}</td>
                             <td>{{ $contact->phone }}</td>
                             <td>{{ $contact->email }}</td>
                             <td>{{ $contact->branch->name ?? '-' }}</td>
