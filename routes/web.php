@@ -1,87 +1,48 @@
 <?php
 
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\BranchController;
-use App\Http\Controllers\Admin\ContactController;
-use App\Http\Controllers\Admin\SettingsController;
-use App\Http\Controllers\Admin\ActivityLogController;
-use App\Http\Controllers\PhonebookController;
-use App\Http\Controllers\PublicContactController;
 
-/*
-|--------------------------------------------------------------------------
-| Public Routes
-|--------------------------------------------------------------------------
-*/
+Route::get('/', function () {
+    return view('welcome');
+});
 
-// XML for Phones
-Route::get('/phonebook.xml', [PhonebookController::class, 'generate'])
-    ->withoutMiddleware(['web'])
-    ->name('phonebook.xml');
-
-// Public Contact Directory
-Route::get('/contacts', [PublicContactController::class, 'index'])
-    ->name('public.contacts');
 // Dashboard redirect
 Route::get('/dashboard', function () {
     return redirect()->route('admin.dashboard');
-})->middleware(['auth'])->name('dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
 
-/*
-|--------------------------------------------------------------------------
-| Admin Routes (Protected by auth)
-|--------------------------------------------------------------------------
-*/
+// Profile routes
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
 
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-
+// Admin routes
+Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
     // Dashboard
     Route::get('/', function () {
         return view('admin.dashboard');
     })->name('dashboard');
-
+    
     // Branches
-    Route::resource('branches', BranchController::class)
-        ->except(['show']);
-
+    Route::resource('branches', \App\Http\Controllers\Admin\BranchController::class);
+    
     // Contacts
-    Route::resource('contacts', ContactController::class)
-        ->except(['show']);
-
-    // Contact Export
-    Route::get('/contacts-export', [ContactController::class, 'export'])
-        ->name('contacts.export');
-
-    // Check Duplicate Email (AJAX)
-    Route::post('/contacts/check-duplicate', [ContactController::class, 'checkDuplicate'])
-        ->name('contacts.check-duplicate');
-
-    // Settings
-    Route::get('/settings', [SettingsController::class, 'index'])
-        ->name('settings.index');
-    Route::post('/settings', [SettingsController::class, 'update'])
-        ->name('settings.update');
-    Route::delete('/settings/logo', [SettingsController::class, 'deleteLogo'])
-        ->name('settings.delete-logo');
-
+    Route::resource('contacts', \App\Http\Controllers\Admin\ContactController::class);
+    Route::post('contacts/check-duplicate', [\App\Http\Controllers\Admin\ContactController::class, 'checkDuplicate'])->name('contacts.check-duplicate');
+    Route::get('contacts/export/excel', [\App\Http\Controllers\Admin\ContactController::class, 'exportExcel'])->name('contacts.export');
+    
     // Activity Logs
-    Route::get('/activity-logs', [ActivityLogController::class, 'index'])
-        ->name('activity-logs');
-
-    // XML preview
-    Route::get('/xml-preview', [PhonebookController::class, 'preview'])
-        ->name('xml.preview');
+    Route::get('activity-logs', [\App\Http\Controllers\Admin\ActivityLogController::class, 'index'])->name('activity-logs');
+    
+    // Settings
+    Route::get('settings', [\App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('settings.index');
+    Route::post('settings', [\App\Http\Controllers\Admin\SettingsController::class, 'update'])->name('settings.update');
 });
 
-/*
-|--------------------------------------------------------------------------
-| Auth Routes (Laravel Breeze)
-|--------------------------------------------------------------------------
-*/
-
-// Disable registration
-Route::any('/register', function () {
-    abort(404);
-});
+// Public contacts directory (no auth required)
+Route::get('/contacts', [\App\Http\Controllers\PublicContactController::class, 'index'])->name('public.contacts');
 
 require __DIR__.'/auth.php';
