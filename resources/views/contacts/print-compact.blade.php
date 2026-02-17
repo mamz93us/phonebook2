@@ -8,7 +8,7 @@
     <style>
         body { 
             background: white; 
-            font-size: 11px;
+            font-size: 10px;
             font-family: Arial, sans-serif;
         }
         
@@ -32,32 +32,34 @@
             margin-bottom: 20px;
         }
         
-        /* 5-column grid layout */
+        /* 6-column grid layout */
         .contacts-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
             margin-top: 15px;
         }
         
         .contact-item {
             border: 1px solid #ddd;
-            padding: 8px;
+            padding: 6px 8px;
             background: #f9f9f9;
-            border-radius: 4px;
+            border-radius: 3px;
             page-break-inside: avoid;
+            font-size: 9px;
+            line-height: 1.3;
         }
         
         .contact-name {
             font-weight: bold;
-            font-size: 11px;
-            margin-bottom: 4px;
             color: #333;
+            display: inline;
         }
         
         .contact-phone {
-            font-size: 10px;
             color: #666;
+            display: inline;
+            margin-left: 4px;
         }
         
         @media print {
@@ -67,12 +69,12 @@
             
             body {
                 margin: 0;
-                padding: 10px;
+                padding: 8px;
             }
             
             @page {
                 size: landscape;
-                margin: 1cm;
+                margin: 0.8cm;
             }
             
             .contact-item {
@@ -125,23 +127,19 @@
                     <button onclick="window.print()" class="btn btn-success">
                         🖨️ Print
                     </button>
-                    <a href="/contacts/print" class="btn btn-secondary">Full Layout</a>
+                    <a href="{{ route('public.contacts.print') }}" class="btn btn-secondary">Full Layout</a>
                     <a href="/contacts" class="btn btn-secondary">← Back</a>
                 </div>
             </div>
         </div>
 
-        <!-- Contacts Grid (5 Columns) -->
+        <!-- Contacts Grid (6 Columns) -->
         @if($contacts->count() > 0)
             <div class="contacts-grid">
                 @foreach($contacts as $contact)
                     <div class="contact-item">
-                        <div class="contact-name">
-                            {{ $contact->first_name }} {{ $contact->last_name }}
-                        </div>
-                        <div class="contact-phone">
-                            📞 {{ $contact->phone }}
-                        </div>
+                        <span class="contact-name">{{ $contact->first_name }} {{ $contact->last_name }}</span>
+                        <span class="contact-phone">📞 {{ $contact->phone }}</span>
                     </div>
                 @endforeach
             </div>
