@@ -15,22 +15,6 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-                    
-                    <x-nav-link :href="route('admin.branches.index')" :active="request()->routeIs('admin.branches.*')">
-                        {{ __('Branches') }}
-                    </x-nav-link>
-                    
-                    <x-nav-link :href="route('admin.contacts.index')" :active="request()->routeIs('admin.contacts.*')">
-                        {{ __('Contacts') }}
-                    </x-nav-link>
-                    
-                    <x-nav-link :href="route('admin.activity-logs')" :active="request()->routeIs('admin.activity-logs')">
-                        {{ __('Activity Logs') }}
-                    </x-nav-link>
-                    
-                    <x-nav-link :href="route('admin.settings.index')" :active="request()->routeIs('admin.settings.*')">
-                        {{ __('Settings') }}
-                    </x-nav-link>
                 </div>
             </div>
 
@@ -52,11 +36,6 @@
                     <x-slot name="content">
                         <x-dropdown-link :href="route('profile.edit')">
                             {{ __('Profile') }}
-                        </x-dropdown-link>
-                        
-                        <!-- Public Directory Link -->
-                        <x-dropdown-link :href="route('public.contacts')" target="_blank">
-                            {{ __('Public Directory') }}
                         </x-dropdown-link>
 
                         <!-- Authentication -->
@@ -91,22 +70,6 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
-            
-            <x-responsive-nav-link :href="route('admin.branches.index')" :active="request()->routeIs('admin.branches.*')">
-                {{ __('Branches') }}
-            </x-responsive-nav-link>
-            
-            <x-responsive-nav-link :href="route('admin.contacts.index')" :active="request()->routeIs('admin.contacts.*')">
-                {{ __('Contacts') }}
-            </x-responsive-nav-link>
-            
-            <x-responsive-nav-link :href="route('admin.activity-logs')" :active="request()->routeIs('admin.activity-logs')">
-                {{ __('Activity Logs') }}
-            </x-responsive-nav-link>
-            
-            <x-responsive-nav-link :href="route('admin.settings.index')" :active="request()->routeIs('admin.settings.*')">
-                {{ __('Settings') }}
-            </x-responsive-nav-link>
         </div>
 
         <!-- Responsive Settings Options -->
@@ -119,11 +82,6 @@
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">
                     {{ __('Profile') }}
-                </x-responsive-nav-link>
-                
-                <!-- Public Directory Link -->
-                <x-responsive-nav-link :href="route('public.contacts')" target="_blank">
-                    {{ __('Public Directory') }}
                 </x-responsive-nav-link>
 
                 <!-- Authentication -->

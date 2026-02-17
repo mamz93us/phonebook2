@@ -3,10 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use App\Models\Contact;
-use App\Models\Branch;
-use App\Observers\ContactObserver;
-use App\Observers\BranchObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,8 +19,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Register observers
-        Contact::observe(ContactObserver::class);
-        Branch::observe(BranchObserver::class);
+        //
     }
 }
