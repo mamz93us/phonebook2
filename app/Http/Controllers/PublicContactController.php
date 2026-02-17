@@ -33,9 +33,28 @@ class PublicContactController extends Controller
 
         $contacts = $query->paginate(50);
         $branches = Branch::orderBy('name')->get();
-        $settings = Setting::get();
+        $settings = Setting::first();
 
         return view('contacts.index', compact('contacts', 'branches', 'settings'));
-
     }
-}
+
+    /**
+     * Print view for contacts
+     */
+    public function print(Request $request)
+    {
+        $query = Contact::with('branch')->orderBy('first_name');
+
+        // Filter by branch
+        if ($request->has('branch_id') && $request->branch_id !== '') {
+            $query->where('branch_id', $request->branch_id);
+        }
+
+        $contacts = $query->get();
+        $branches = Branch::orderBy('name')->get();
+        $settings = Setting::first();
+        $selectedBranch = $request->branch_id ? Branch::find($request->branch_id) : null;
+
+        return view('contacts.print', compact('contacts', 'branches', 'settings', 'selectedBranch'));
+    }
+} // <-- Class closes HERE, after both methods

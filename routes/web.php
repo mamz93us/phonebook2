@@ -67,6 +67,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Contacts
     Route::resource('contacts', ContactController::class)
         ->except(['show']);
+	Route::get('/contacts', [PublicContactController::class, 'index'])
+    ->name('public.contacts');
+
+	// Add this new route:
+	Route::get('/contacts/print', [PublicContactController::class, 'print'])
+    ->name('public.contacts.print');
 
     // Contact Export
     Route::get('/contacts-export', [ContactController::class, 'export'])
