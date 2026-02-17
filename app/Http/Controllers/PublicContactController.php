@@ -35,6 +35,7 @@ class PublicContactController extends Controller
         $branches = Branch::orderBy('name')->get();
         $settings = Setting::get();
 
-        return view('public.contacts', compact('contacts', 'branches', 'settings'));
+        return view('contacts.index', compact('contacts', 'branches', 'settings'));
+
     }
 }
