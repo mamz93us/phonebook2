@@ -7,74 +7,83 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { 
-            background: #f5f7fa;
+            background: linear-gradient(to bottom, #fff5f5 0%, #ffe8e8 100%);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
         }
         
         .header-section {
-            background: white;
-            padding: 30px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            margin-bottom: 30px;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            padding: 35px 0;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+            margin-bottom: 35px;
         }
         
         .company-logo {
-            max-height: 70px;
+            max-height: 80px;
             margin-bottom: 15px;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
         }
         
         .company-title {
-            font-size: 32px;
-            font-weight: 600;
-            color: #2c3e50;
+            font-size: 34px;
+            font-weight: 700;
+            color: white;
             margin: 0 0 5px 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         .company-subtitle {
-            color: #7f8c8d;
-            font-size: 15px;
+            color: rgba(255,255,255,0.95);
+            font-size: 16px;
         }
         
         .search-bar {
             background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 25px;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
         }
         
         .search-input {
-            border: 1px solid #dfe6e9;
-            border-radius: 8px;
-            padding: 12px 18px;
+            border: 2px solid #ffe0e0;
+            border-radius: 10px;
+            padding: 14px 20px;
             font-size: 15px;
+            transition: all 0.3s;
         }
         
         .search-input:focus {
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+            border-color: #e74c3c;
+            box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.1);
         }
         
         .btn-search {
-            background: #3498db;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
             border: none;
-            border-radius: 8px;
-            padding: 12px 25px;
+            border-radius: 10px;
+            padding: 14px 28px;
             color: white;
-            font-weight: 500;
+            font-weight: 600;
+            transition: all 0.3s;
         }
         
         .btn-search:hover {
-            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
             color: white;
         }
         
         .btn-clear {
             background: #95a5a6;
             border: none;
-            border-radius: 8px;
-            padding: 12px 20px;
+            border-radius: 10px;
+            padding: 14px 22px;
             color: white;
+            font-weight: 500;
         }
         
         .btn-clear:hover {
@@ -83,99 +92,163 @@
         }
         
         .btn-print {
-            background: #27ae60;
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
             border: none;
-            border-radius: 8px;
-            padding: 10px 22px;
+            border-radius: 10px;
+            padding: 14px 24px;
             color: white;
-            font-weight: 500;
+            font-weight: 600;
             text-decoration: none;
             display: inline-block;
+            transition: all 0.3s;
         }
         
         .btn-print:hover {
-            background: #229954;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
             color: white;
         }
         
         .contact-card {
             background: white;
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 22px;
             height: 100%;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
             transition: all 0.3s;
-            border-left: 4px solid #3498db;
+            border-left: 5px solid #e74c3c;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .contact-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.05) 0%, rgba(192, 57, 43, 0.1) 100%);
+            border-radius: 0 0 0 100%;
         }
         
         .contact-card:hover {
-            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.2);
+            transform: translateY(-5px);
         }
         
         .contact-name {
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 19px;
+            font-weight: 700;
             color: #2c3e50;
-            margin-bottom: 12px;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #ffe0e0;
         }
         
         .contact-info {
             font-size: 14px;
             color: #555;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
         }
         
         .contact-info strong {
             display: inline-block;
-            width: 60px;
-            color: #7f8c8d;
+            width: 65px;
+            color: #e74c3c;
+            font-weight: 600;
         }
         
         .contact-info a {
-            color: #3498db;
+            color: #34495e;
             text-decoration: none;
+            transition: color 0.3s;
         }
         
         .contact-info a:hover {
-            text-decoration: underline;
+            color: #e74c3c;
         }
         
+        /* Branch Color Variations */
         .branch-tag {
             display: inline-block;
-            background: #ecf0f1;
-            color: #555;
-            padding: 4px 12px;
-            border-radius: 15px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 13px;
-            margin-top: 8px;
+            font-weight: 600;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .branch-tag.red { 
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
+            color: white; 
+        }
+        .branch-tag.orange { 
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
+            color: white; 
+        }
+        .branch-tag.yellow { 
+            background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%); 
+            color: white; 
+        }
+        .branch-tag.coral { 
+            background: linear-gradient(135deg, #ff7675 0%, #d63031 100%); 
+            color: white; 
+        }
+        .branch-tag.pink { 
+            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); 
+            color: white; 
+        }
+        .branch-tag.purple { 
+            background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); 
+            color: white; 
+        }
+        .branch-tag.blue { 
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); 
+            color: white; 
+        }
+        .branch-tag.teal { 
+            background: linear-gradient(135deg, #00cec9 0%, #00b894 100%); 
+            color: white; 
         }
         
         .pagination .page-link {
-            color: #3498db;
-            border: 1px solid #dfe6e9;
-            border-radius: 6px;
-            margin: 0 3px;
-            padding: 8px 14px;
+            color: #e74c3c;
+            border: 2px solid #ffe0e0;
+            border-radius: 8px;
+            margin: 0 4px;
+            padding: 10px 16px;
+            font-weight: 600;
+            transition: all 0.3s;
         }
         
         .pagination .page-link:hover {
-            background: #3498db;
-            border-color: #3498db;
+            background: #e74c3c;
+            border-color: #e74c3c;
             color: white;
+            transform: translateY(-2px);
         }
         
         .pagination .page-item.active .page-link {
-            background: #3498db;
-            border-color: #3498db;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            border-color: #e74c3c;
         }
         
         .no-results {
             text-align: center;
-            padding: 50px;
+            padding: 60px;
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+        
+        .no-results h4 {
+            color: #e74c3c;
+            font-weight: 700;
         }
     </style>
 </head>
@@ -193,7 +266,7 @@
             <h1 class="company-title">
                 {{ $settings->first()->company_name ?? 'Company' }} Directory
             </h1>
-            <p class="company-subtitle">Employee Contact Information</p>
+            <p class="company-subtitle">📱 Employee Contact Information</p>
         </div>
     </div>
 
@@ -201,23 +274,23 @@
         <!-- Search Bar -->
         <div class="search-bar">
             <form method="GET">
-                <div class="row g-3">
+                <div class="row g-3 align-items-center">
                     <div class="col-md-7">
                         <input 
                             type="text" 
                             name="search" 
                             class="form-control search-input" 
-                            placeholder="Search by name, phone, or email..." 
+                            placeholder="🔍 Search by name, phone, or email..." 
                             value="{{ request('search') }}"
                         >
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-5 text-end">
                         <button class="btn btn-search me-2" type="submit">Search</button>
                         @if(request('search'))
-                            <a href="/contacts" class="btn btn-clear">Clear</a>
+                            <a href="/contacts" class="btn btn-clear me-2">Clear</a>
                         @endif
-                        <a href="{{ route('public.contacts.print') }}" class="btn btn-print float-end" target="_blank">
-                            Print Directory
+                        <a href="{{ route('public.contacts.print') }}" class="btn btn-print" target="_blank">
+                            🖨️ Print
                         </a>
                     </div>
                 </div>
@@ -228,6 +301,11 @@
         @if($contacts->count() > 0)
             <div class="row g-4 mb-5">
                 @foreach($contacts as $contact)
+                    @php
+                        // Assign random color to each branch
+                        $colors = ['red', 'orange', 'yellow', 'coral', 'pink', 'purple', 'blue', 'teal'];
+                        $branchColor = $colors[($contact->branch_id ?? 0) % count($colors)];
+                    @endphp
                     <div class="col-md-6 col-lg-4">
                         <div class="contact-card">
                             <div class="contact-name">
@@ -242,12 +320,14 @@
                             @if($contact->email)
                                 <div class="contact-info">
                                     <strong>Email:</strong>
-                                    <a href="mailto:{{ $contact->email }}">{{ $contact->email }}</a>
+                                    <a href="mailto:{{ $contact->email }}">{{ Str::limit($contact->email, 30) }}</a>
                                 </div>
                             @endif
                             
                             @if($contact->branch)
-                                <span class="branch-tag">{{ $contact->branch->name }}</span>
+                                <span class="branch-tag {{ $branchColor }}">
+                                    🏢 {{ $contact->branch->name }}
+                                </span>
                             @endif
                         </div>
                     </div>
