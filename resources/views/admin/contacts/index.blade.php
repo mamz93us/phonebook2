@@ -84,7 +84,7 @@
 
     <!-- Pagination -->
     <div class="mt-4 d-flex justify-content-center">
-        {{ $contacts->withQueryString()->links() }}
+     {{ $contacts->withQueryString()->links('pagination::bootstrap-5') }}
     </div>
 @else
     <div class="alert alert-info text-center">

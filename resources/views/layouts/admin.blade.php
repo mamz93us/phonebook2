@@ -44,6 +44,18 @@
                             Contacts
                         </a>
                     </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->is('admin/activity-logs*') ? 'active' : '' }}" href="/admin/activity-logs">
+                            Activity Logs
+                        </a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}" href="/admin/settings">
+                            Settings
+                        </a>
+                    </li>
                 </ul>
 
                 <form action="/logout" method="POST" class="d-flex">
