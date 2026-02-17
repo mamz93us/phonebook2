@@ -89,11 +89,45 @@
         </div>
 
         <!-- Pagination -->
-        @if($contacts->hasPages())
-            <div class="mt-5 d-flex justify-content-center">
-                {{ $contacts->withQueryString()->links() }}
-            </div>
-        @endif
+@if($contacts->hasPages())
+    <div class="mt-5 d-flex justify-content-center">
+        <nav aria-label="Page navigation">
+            <ul class="pagination">
+                {{-- Previous Page Link --}}
+                @if ($contacts->onFirstPage())
+                    <li class="page-item disabled">
+                        <span class="page-link">‹</span>
+                    </li>
+                @else
+                    <li class="page-item">
+                        <a class="page-link" href="{{ $contacts->previousPageUrl() }}" rel="prev">‹</a>
+                    </li>
+                @endif
+
+                {{-- Pagination Elements --}}
+                @foreach ($contacts->links()->elements[0] as $page => $url)
+                    @if ($page == $contacts->currentPage())
+                        <li class="page-item active"><span class="page-link">{{ $page }}</span></li>
+                    @else
+                        <li class="page-item"><a class="page-link" href="{{ $url }}">{{ $page }}</a></li>
+                    @endif
+                @endforeach
+
+                {{-- Next Page Link --}}
+                @if ($contacts->hasMorePages())
+                    <li class="page-item">
+                        <a class="page-link" href="{{ $contacts->nextPageUrl() }}" rel="next">›</a>
+                    </li>
+                @else
+                    <li class="page-item disabled">
+                        <span class="page-link">›</span>
+                    </li>
+                @endif
+            </ul>
+        </nav>
+    </div>
+@endif
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
