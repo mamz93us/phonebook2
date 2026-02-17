@@ -171,7 +171,6 @@
             color: #e74c3c;
         }
         
-        /* Branch Color Variations */
         .branch-tag {
             display: inline-block;
             padding: 6px 14px;
@@ -183,38 +182,14 @@
             letter-spacing: 0.5px;
         }
         
-        .branch-tag.red { 
-            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
-            color: white; 
-        }
-        .branch-tag.orange { 
-            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
-            color: white; 
-        }
-        .branch-tag.yellow { 
-            background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%); 
-            color: white; 
-        }
-        .branch-tag.coral { 
-            background: linear-gradient(135deg, #ff7675 0%, #d63031 100%); 
-            color: white; 
-        }
-        .branch-tag.pink { 
-            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); 
-            color: white; 
-        }
-        .branch-tag.purple { 
-            background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); 
-            color: white; 
-        }
-        .branch-tag.blue { 
-            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); 
-            color: white; 
-        }
-        .branch-tag.teal { 
-            background: linear-gradient(135deg, #00cec9 0%, #00b894 100%); 
-            color: white; 
-        }
+        .branch-tag.red { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; }
+        .branch-tag.orange { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); color: white; }
+        .branch-tag.yellow { background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%); color: white; }
+        .branch-tag.coral { background: linear-gradient(135deg, #ff7675 0%, #d63031 100%); color: white; }
+        .branch-tag.pink { background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); color: white; }
+        .branch-tag.purple { background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); color: white; }
+        .branch-tag.blue { background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white; }
+        .branch-tag.teal { background: linear-gradient(135deg, #00cec9 0%, #00b894 100%); color: white; }
         
         .pagination .page-link {
             color: #e74c3c;
@@ -250,6 +225,17 @@
             color: #e74c3c;
             font-weight: 700;
         }
+        
+        .loading-spinner {
+            text-align: center;
+            padding: 40px;
+            color: #e74c3c;
+            display: none;
+        }
+        
+        .loading-spinner.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -273,79 +259,148 @@
     <div class="container">
         <!-- Search Bar -->
         <div class="search-bar">
-            <form method="GET">
-                <div class="row g-3 align-items-center">
-                    <div class="col-md-7">
-                        <input 
-                            type="text" 
-                            name="search" 
-                            class="form-control search-input" 
-                            placeholder="🔍 Search by name, phone, or email..." 
-                            value="{{ request('search') }}"
-                        >
-                    </div>
-                    <div class="col-md-5 text-end">
-                        <button class="btn btn-search me-2" type="submit">Search</button>
-                        @if(request('search'))
-                            <a href="/contacts" class="btn btn-clear me-2">Clear</a>
-                        @endif
-                        <a href="{{ route('public.contacts.print') }}" class="btn btn-print" target="_blank">
-                            🖨️ Print
-                        </a>
-                    </div>
+            <div class="row g-3 align-items-center">
+                <div class="col-md-7">
+                    <input 
+                        type="text" 
+                        id="searchInput"
+                        class="form-control search-input" 
+                        placeholder="🔍 Type to search..." 
+                        value="{{ request('search') }}"
+                    >
                 </div>
-            </form>
+                <div class="col-md-5 text-end">
+                    <button class="btn btn-clear me-2" id="clearBtn" style="display: {{ request('search') ? 'inline-block' : 'none' }}">Clear</button>
+                    <a href="{{ route('public.contacts.print') }}" class="btn btn-print" target="_blank">
+                        🖨️ Print
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div class="loading-spinner" id="loadingSpinner">
+            <div class="spinner-border text-danger" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Searching...</p>
         </div>
 
         <!-- Contacts Grid -->
-        @if($contacts->count() > 0)
-            <div class="row g-4 mb-5">
-                @foreach($contacts as $contact)
-                    @php
-                        // Assign random color to each branch
-                        $colors = ['red', 'orange', 'yellow', 'coral', 'pink', 'purple', 'blue', 'teal'];
-                        $branchColor = $colors[($contact->branch_id ?? 0) % count($colors)];
-                    @endphp
-                    <div class="col-md-6 col-lg-4">
-                        <div class="contact-card">
-                            <div class="contact-name">
-                                {{ $contact->first_name }} {{ $contact->last_name }}
-                            </div>
-                            
-                            <div class="contact-info">
-                                <strong>Phone:</strong>
-                                <a href="tel:{{ $contact->phone }}">{{ $contact->phone }}</a>
-                            </div>
-                            
-                            @if($contact->email)
-                                <div class="contact-info">
-                                    <strong>Email:</strong>
-                                    <a href="mailto:{{ $contact->email }}">{{ Str::limit($contact->email, 30) }}</a>
+        <div id="contactsContainer">
+            @if($contacts->count() > 0)
+                <div class="row g-4 mb-5">
+                    @foreach($contacts as $contact)
+                        @php
+                            $colors = ['red', 'orange', 'yellow', 'coral', 'pink', 'purple', 'blue', 'teal'];
+                            $branchColor = $colors[($contact->branch_id ?? 0) % count($colors)];
+                        @endphp
+                        <div class="col-md-6 col-lg-4">
+                            <div class="contact-card">
+                                <div class="contact-name">
+                                    {{ $contact->first_name }} {{ $contact->last_name }}
                                 </div>
-                            @endif
-                            
-                            @if($contact->branch)
-                                <span class="branch-tag {{ $branchColor }}">
-                                    🏢 {{ $contact->branch->name }}
-                                </span>
-                            @endif
+                                
+                                <div class="contact-info">
+                                    <strong>Phone:</strong>
+                                    <a href="tel:{{ $contact->phone }}">{{ $contact->phone }}</a>
+                                </div>
+                                
+                                @if($contact->email)
+                                    <div class="contact-info">
+                                        <strong>Email:</strong>
+                                        <a href="mailto:{{ $contact->email }}">{{ Str::limit($contact->email, 30) }}</a>
+                                    </div>
+                                @endif
+                                
+                                @if($contact->branch)
+                                    <span class="branch-tag {{ $branchColor }}">
+                                        🏢 {{ $contact->branch->name }}
+                                    </span>
+                                @endif
+                            </div>
                         </div>
+                    @endforeach
+                </div>
+                
+                @if($contacts->hasPages())
+                    <div class="d-flex justify-content-center mb-5">
+                        {{ $contacts->withQueryString()->links('pagination::bootstrap-5') }}
                     </div>
-                @endforeach
-            </div>
-            
-            <!-- Pagination -->
-            @if($contacts->hasPages())
-                <div class="d-flex justify-content-center mb-5">
-                    {{ $contacts->withQueryString()->links('pagination::bootstrap-5') }}
+                @endif
+            @else
+                <div class="no-results">
+                    <h4>No contacts found</h4>
+                    <p class="text-muted">Try adjusting your search</p>
                 </div>
             @endif
-        @else
-            <div class="no-results">
-                <h4>No contacts found</h4>
-                <p class="text-muted">Try adjusting your search</p>
-            </div>
-        @endif
+        </div>
     </div>
+
+    <script>
+        // Live search with debounce
+        let searchTimeout;
+        const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('clearBtn');
+        const contactsContainer = document.getElementById('contactsContainer');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            
+            // Show/hide clear button
+            clearBtn.style.display = query ? 'inline-block' : 'none';
+            
+            // Debounce: wait 500ms after user stops typing
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
+            }, 500);
+        });
+        
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            clearBtn.style.display = 'none';
+            performSearch('');
+        });
+        
+        function performSearch(query) {
+            // Show loading
+            loadingSpinner.classList.add('active');
+            contactsContainer.style.opacity = '0.5';
+            
+            // Fetch results
+            const url = new URL(window.location.href);
+            url.searchParams.set('search', query);
+            
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    // Parse the response
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newContainer = doc.getElementById('contactsContainer');
+                    
+                    // Update content
+                    contactsContainer.innerHTML = newContainer.innerHTML;
+                    
+                    // Update URL without reload
+                    if (query) {
+                        window.history.pushState({}, '', url);
+                    } else {
+                        window.history.pushState({}, '', '/contacts');
+                    }
+                    
+                    // Hide loading
+                    loadingSpinner.classList.remove('active');
+                    contactsContainer.style.opacity = '1';
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    loadingSpinner.classList.remove('active');
+                    contactsContainer.style.opacity = '1';
+                });
+        }
+    </script>
 </body>
 </html>
