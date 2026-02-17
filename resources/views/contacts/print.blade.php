@@ -106,6 +106,14 @@
                 </div>
             </div>
         </div>
+		<div class="col-md-6 text-end">
+    <button onclick="window.print()" class="btn btn-success">
+        🖨️ Print Directory
+    </button>
+    <a href="{{ route('public.contacts.print.compact') }}" class="btn btn-info">Compact Layout</a>
+    <a href="/contacts" class="btn btn-secondary">← Back</a>
+</div>
+
 
         <!-- Contacts Table -->
         @if($contacts->count() > 0)

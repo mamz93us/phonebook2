@@ -280,8 +280,12 @@
                 <div class="col-md-5 text-end">
                     <button class="btn btn-clear me-2" id="clearBtn" style="display: {{ request('search') ? 'inline-block' : 'none' }}">Clear</button>
                     <a href="{{ route('public.contacts.print') }}" class="btn btn-print" target="_blank">
-                        🖨️ Print
-                    </a>
+    🖨️ Print
+</a>
+<a href="{{ route('public.contacts.print.compact') }}" class="btn btn-print" target="_blank" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
+    📄 Compact
+</a>
+
                 </div>
             </div>
         </div>
