@@ -71,48 +71,45 @@ class GdmsService
         return hash('sha256', $toSign);
     }
 
-    public function listSipAccounts(int $pageNum = 1, int $pageSize = 1000): array
-    {
-        $token     = $this->getToken();
-        $timestamp = $this->serverTimestamp();
+   public function listSipAccounts(int $pageNum = 1, int $pageSize = 1000): array
+{
+    $token     = $this->getToken();
+    $timestamp = $this->serverTimestamp();
 
-        $bodyArray = [
-            'pageNum'  => $pageNum,
-            'pageSize' => $pageSize,
-            'orgId'    => $this->orgId,
-        ];
-        $body = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $bodyArray = [
+        'pageNum'  => $pageNum,
+        'pageSize' => $pageSize,
+        'orgId'    => $this->orgId,
+    ];
+    $body = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-        $sigParams = [
-            'access_token' => $token,
-            'orgId'        => $this->orgId,
-            'pageNum'      => $pageNum,
-            'pageSize'     => $pageSize,
-            'timestamp'    => $timestamp,
-        ];
+    // Params used in signature
+    $sigParams = [
+        'access_token' => $token,
+        'orgId'        => $this->orgId,
+        'pageNum'      => $pageNum,
+        'pageSize'     => $pageSize,
+        'timestamp'    => $timestamp,
+    ];
 
-        $signature = $this->buildSignature($sigParams, $body);
+    $signature = $this->buildSignature($sigParams, $body);
 
-        $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-            ])
-            ->post("{$this->baseUrl}/v1.0.0/sip/account/list", $bodyArray)
-            ->throwIf($body === null)
-            ->withOptions([]); // only to hint; actual query done via URL params below
+    $url = "{$this->baseUrl}/v1.0.0/sip/account/list"
+         . "?access_token={$token}"
+         . "&timestamp={$timestamp}"
+         . "&signature={$signature}";
 
-        // Better: build full URL with query:
-        $url = "{$this->baseUrl}/v1.0.0/sip/account/list?access_token={$token}&timestamp={$timestamp}&signature={$signature}";
+    $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+        ])->post($url, $bodyArray);
 
-        $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-            ])->post($url, $bodyArray);
+    $data = $response->json();
 
-        $data = $response->json();
-
-        if (($data['retCode'] ?? -1) !== 0) {
-            throw new \RuntimeException('GDMS error: '.$data['msg'] ?? 'unknown');
-        }
-
-        return $data['data'] ?? [];
+    if (($data['retCode'] ?? -1) !== 0) {
+        throw new \RuntimeException('GDMS error: '.($data['msg'] ?? 'unknown'));
     }
+
+    return $data['data'] ?? [];
+}
+
 }
