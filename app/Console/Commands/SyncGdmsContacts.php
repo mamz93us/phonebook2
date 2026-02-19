@@ -2,83 +2,88 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
+use App\Models\Contact;
+use App\Models\ActivityLog; // your existing activity log model
 use App\Services\GdmsService;
 use App\Services\GdmsBranchMapper;
-use App\Models\Contact;
+use Illuminate\Console\Command;
+       use App\Models\User; // at top if you want to link to a user
 
 class SyncGdmsContacts extends Command
 {
     protected $signature = 'gdms:sync-contacts';
-    protected $description = 'Sync SIP accounts from GDMS into contacts table';
+    protected $description = 'Sync contacts from GDMS SIP accounts into local contacts table';
 
-    public function handle(GdmsService $gdms, GdmsBranchMapper $branchMapper)
+    public function handle(GdmsService $gdms, GdmsBranchMapper $branchMapper): int
     {
-        $pageNum  = 1;
-        $pageSize = 1000;
-
         $this->info('Fetching SIP accounts from GDMS...');
 
-        $data = $gdms->listSipAccounts($pageNum, $pageSize);
-
-        $total  = $data['total']  ?? 0;
-        $pages  = $data['pages']  ?? 1;
-        $result = $data['result'] ?? [];
-
-        $this->info("Total accounts: {$total}, pages: {$pages}");
-
+        $pageNum   = 1;
+        $pageSize  = 200;
         $processed = 0;
 
-        for ($p = 1; $p <= $pages; $p++) {
-            if ($p > 1) {
-                $data   = $gdms->listSipAccounts($p, $pageSize);
-                $result = $data['result'] ?? [];
+        do {
+            $pageData = $gdms->listSipAccounts($pageNum, $pageSize);
+            $accounts = $pageData['list'] ?? [];
+            $total    = $pageData['total'] ?? count($accounts);
+
+            if ($pageNum === 1) {
+                $pages = (int) ceil($total / $pageSize);
+                $this->info("Total accounts: {$total}, pages: {$pages}");
             }
 
-            foreach ($result as $acc) {
-                $processed++;
+            foreach ($accounts as $acc) {
+                $sipUserId    = $acc['sipUserId'] ?? null;
+                $displayName  = $acc['displayName'] ?? '';
+                $sipServer    = $acc['sipServer'] ?? '';
 
-                $sipUserId      = $acc['sipUserId'] ?? null;      // extension
-                $accountName    = $acc['accountName'] ?? null;
-                $displayName    = $acc['displayName'] ?? null;
-                $sipServer      = $acc['sipServer'] ?? '';
-                $extensionEmail = $acc['extensionEmail'] ?? null; // if available in your version
-
-                if (! $sipUserId) {
+                if (!$sipUserId) {
                     continue;
                 }
 
-                $fullName = $accountName ?: ($displayName ?: $sipUserId);
-                [$first, $last] = $this->splitName($fullName);
-
                 $branchId = $branchMapper->resolveBranchId($sipServer);
+
+                $parts     = preg_split('/\s+/', trim($displayName));
+                $firstName = $parts[0] ?? (string) $sipUserId;
+                $lastName  = isset($parts[1]) ? implode(' ', array_slice($parts, 1)) : '';
 
                 Contact::updateOrCreate(
                     ['phone' => $sipUserId],
                     [
-                        'first_name' => $first,
-                        'last_name'  => $last,
-                        'phone'      => $sipUserId,
-                        'email'      => $extensionEmail,
+                        'first_name' => $firstName,
+                        'last_name'  => $lastName,
+                        'email'      => null,
                         'branch_id'  => $branchId,
                     ]
                 );
+
+                $processed++;
             }
 
-            $this->info("Page {$p} processed ({$processed} accounts so far)");
-        }
+            $pageNum++;
+        } while (!empty($accounts) && isset($total) && $processed < $total);
 
-        $this->info('GDMS contacts sync complete.');
+        $this->info("GDMS contacts sync complete. Processed {$processed} accounts.");
+
+        // Activity log entry – adjust fields to match your table
+
+// ...
+
+if (class_exists(\App\Models\ActivityLog::class)) {
+    \App\Models\ActivityLog::create([
+        'model_type' => User::class,                 // or 'system' if you prefer
+        'model_id'   => 1,                           // some existing user id, or 0
+        'action'     => 'gdms_sync_contacts',
+        'changes'    => json_encode([
+            'processed' => $processed,
+            'source'    => 'gdms',
+            'run_from'  => 'cli',
+        ]),
+        'user_id'    => 1,                           // same system user id
+    ]);
+}
+
+
         return Command::SUCCESS;
-    }
-
-    protected function splitName(string $name): array
-    {
-        $name = trim(preg_replace('/\s+/', ' ', $name));
-        if ($name === '') {
-            return ['', ''];
-        }
-        $parts = explode(' ', $name, 2);
-        return [$parts[0], $parts[1] ?? ''];
     }
 }
