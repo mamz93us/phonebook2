@@ -4,7 +4,6 @@ namespace App\Services;
 
 class GdmsBranchMapper
 {
-    // Map SIP server (with port) to branch_id
     protected array $map = [
         '10.1.8.10:5060'  => 10, // JED
         '10.2.88.10:5060' => 20, // RYD
@@ -15,17 +14,18 @@ class GdmsBranchMapper
         '10.6.0.10:5060'  => 20, // RYD
     ];
 
-    public function resolveBranchId(string $sipServer): ?int
+    // Set this to a valid branch id for “Unknown / Default”
+    protected int $defaultBranchId = 10; // for example JED, change as needed
+
+    public function resolveBranchId(string $sipServer): int
     {
-        // sipServer may contain multiple servers separated by comma
-        // take the first one
+        // sipServer may contain multiple entries, separated by comma
         $first = trim(explode(',', $sipServer)[0]);
 
-        // normalize: if only IP without port, you can add :5060 if needed
         if (!str_contains($first, ':')) {
             $first .= ':5060';
         }
 
-        return $this->map[$first] ?? null;
+        return $this->map[$first] ?? $this->defaultBranchId;
     }
 }
