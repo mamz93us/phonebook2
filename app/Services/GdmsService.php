@@ -9,22 +9,25 @@ class GdmsService
     protected string $baseUrl;
     protected string $clientId;
     protected string $clientSecret;
+    protected int $orgId;
     protected string $username;
     protected string $passwordHash;
-    protected int $orgId;
 
     public function __construct()
     {
-        $this->baseUrl      = rtrim(config('services.gdms.base_url'), '/');
-        $this->clientId     = config('services.gdms.client_id');
-        $this->clientSecret = config('services.gdms.client_secret');
+        $this->baseUrl      = rtrim(config('services.gdms.base_url', 'https://www.gdms.cloud/oapi'), '/');
+        $this->clientId     = (string) config('services.gdms.client_id');
+        $this->clientSecret = (string) config('services.gdms.client_secret');
         $this->orgId        = (int) config('services.gdms.org_id');
 
-        // Optional: move username/passwordHash to env if you want to auto-get token
-        $this->username     = env('GDMS_USERNAME');
-        $this->passwordHash = env('GDMS_PASSWORD_HASH'); // sha256(md5(password))
+        // From .env
+        $this->username     = (string) env('GDMS_USERNAME');       // GDMS login username
+        $this->passwordHash = (string) env('GDMS_PASSWORD_HASH');  // sha256(md5(password))
     }
 
+    /**
+     * Obtain access token using password grant (same as in Postman).
+     */
     protected function getToken(): string
     {
         $response = Http::asForm()->get("{$this->baseUrl}/oauth/token", [
@@ -37,79 +40,81 @@ class GdmsService
 
         $data = $response->json();
 
+        if (!isset($data['access_token'])) {
+            throw new \RuntimeException('GDMS token error: '.($data['error_description'] ?? 'unknown'));
+        }
+
         return $data['access_token'];
     }
 
-    protected function serverTimestamp(): string
+    /**
+     * List SIP accounts (v1.0.0) with same pattern as your working Postman request.
+     */
+    public function listSipAccounts(int $pageNum = 1, int $pageSize = 1000): array
     {
-        // You already saw serverTimestamp in error; you can call any endpoint once
-        // or just use current time in ms. Here we use local time:
-        return (string) round(microtime(true) * 1000);
-    }
+        $token     = $this->getToken();
 
-    protected function buildSignature(array $params, string $body = null): string
-    {
-        // Add client_id and client_secret for signature only
-        $params['client_id']     = $this->clientId;
-        $params['client_secret'] = $this->clientSecret;
+        // Use current time in ms; if you get timestamp errors, you can switch to serverTimestamp
+        $timestamp = (string) round(microtime(true) * 1000);
+        $orgId     = $this->orgId;
 
-        ksort($params, SORT_STRING);
+        // Body JSON – must match exactly what we sign and send
+        $bodyArray = [
+            'pageNum'  => $pageNum,
+            'pageSize' => $pageSize,
+            'orgId'    => $orgId,
+        ];
+        $bodyJson = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        // Signature parameters (query + body fields)
+        $sigParams = [
+            'access_token'  => $token,
+            'orgId'         => $orgId,
+            'pageNum'       => $pageNum,
+            'pageSize'      => $pageSize,
+            'timestamp'     => $timestamp,
+        ];
+
+        // Add client_id and client_secret only for signature
+        $sigParams['client_id']     = $this->clientId;
+        $sigParams['client_secret'] = $this->clientSecret;
+
+        // Sort keys ASC
+        ksort($sigParams, SORT_STRING);
 
         $pairs = [];
-        foreach ($params as $key => $value) {
+        foreach ($sigParams as $key => $value) {
             $pairs[] = $key.'='.$value;
         }
         $paramString = implode('&', $pairs);
 
-        if ($body !== null) {
-            $bodyHash = hash('sha256', $body);
-            $toSign   = '&'.$paramString.'&'.$bodyHash.'&';
-        } else {
-            $toSign   = '&'.$paramString.'&';
-        }
+        // sha256(body)
+        $bodyHash = hash('sha256', $bodyJson);
 
-        return hash('sha256', $toSign);
-    }
+        // Final string: &params&sha256(body)&
+        $toSign = '&'.$paramString.'&'.$bodyHash.'&';
 
-   public function listSipAccounts(int $pageNum = 1, int $pageSize = 1000): array
-{
-    $token     = $this->getToken();
-    $timestamp = $this->serverTimestamp();
+        $signature = hash('sha256', $toSign);
 
-    $bodyArray = [
-        'pageNum'  => $pageNum,
-        'pageSize' => $pageSize,
-        'orgId'    => $this->orgId,
-    ];
-    $body = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        // Build URL exactly like your working Postman call
+        $url = "{$this->baseUrl}/v1.0.0/sip/account/list"
+             . "?access_token={$token}"
+             . "&timestamp={$timestamp}"
+             . "&signature={$signature}"
+             . "&pageSize={$pageSize}"
+             . "&pageNum={$pageNum}"
+             . "&orgId={$orgId}";
 
-    // Params used in signature
-    $sigParams = [
-        'access_token' => $token,
-        'orgId'        => $this->orgId,
-        'pageNum'      => $pageNum,
-        'pageSize'     => $pageSize,
-        'timestamp'    => $timestamp,
-    ];
-
-    $signature = $this->buildSignature($sigParams, $body);
-
-    $url = "{$this->baseUrl}/v1.0.0/sip/account/list"
-         . "?access_token={$token}"
-         . "&timestamp={$timestamp}"
-         . "&signature={$signature}";
-
-    $response = Http::withHeaders([
+        $response = Http::withHeaders([
             'Content-Type' => 'application/json',
         ])->post($url, $bodyArray);
 
-    $data = $response->json();
+        $data = $response->json();
 
-    if (($data['retCode'] ?? -1) !== 0) {
-        throw new \RuntimeException('GDMS error: '.($data['msg'] ?? 'unknown'));
+        if (($data['retCode'] ?? -1) !== 0) {
+            throw new \RuntimeException('GDMS error: '.($data['msg'] ?? 'unknown'));
+        }
+
+        return $data['data'] ?? [];
     }
-
-    return $data['data'] ?? [];
-}
-
 }
