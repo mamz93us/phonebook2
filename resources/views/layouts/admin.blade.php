@@ -50,6 +50,12 @@
                             Activity Logs
                         </a>
                     </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->is('admin/phone-logs*') ? 'active' : '' }}" href="/admin/phone-logs">
+                            Phone XML Logs
+                        </a>
+                    </li>
                     
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}" href="/admin/settings">
