@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
+use App\Http\Controllers\PhoneRequestLogController;
 
 /*
 |--------------------------------------------------------------------------
@@ -87,6 +88,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('settings.update');
     Route::delete('settings/logo', [SettingsController::class, 'deleteLogo'])
         ->name('settings.delete-logo');
+	Route::get('phone-logs', [PhoneRequestLogController::class, 'index'])
+		->name('phone-logs.index');
 
     // Activity Logs
     Route::get('activity-logs', [ActivityLogController::class, 'index'])

@@ -27,7 +27,10 @@
                     <x-nav-link :href="route('admin.activity-logs')" :active="request()->routeIs('admin.activity-logs')">
                         {{ __('Activity Logs') }}
                     </x-nav-link>
-                    
+                    <x-nav-link href="{{ route('admin.phone-logs.index') }}":active="request()->routeIs('admin.phone-logs.*')">
+						 {{ __('Phone XML Logs') }}
+					</x-nav-link>
+
                     <x-nav-link :href="route('admin.settings.index')" :active="request()->routeIs('admin.settings.*')">
                         {{ __('Settings') }}
                     </x-nav-link>
