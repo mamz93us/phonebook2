@@ -13,31 +13,29 @@ class PhonebookController extends Controller
      * Generate phonebook.xml for Grandstream UCM
      */
     public function generate(Request $request)
-{
-    $ip        = $request->ip();
-    $userAgent = $request->header('User-Agent', '');
+    {
+        // Log requesting phone (IP, User-Agent, MAC, model)
+        $ip        = $request->ip();
+        $userAgent = $request->header('User-Agent', '');
 
-    $mac   = null;
-    $model = null;
+        $mac   = null;
+        $model = null;
 
-    // Example: "Grandstream Model HW GRP2616 SW 1.0.13.59 DevId ec74d7800474"
-    if (preg_match('/Model HW\s+([A-Z0-9\-]+)/i', $userAgent, $m)) {
-        $model = strtoupper($m[1]); // GRP2616
-    }
+        // Example UA: "Grandstream Model HW GRP2616 SW 1.0.13.59 DevId ec74d7800474"
+        if (preg_match('/Model HW\s+([A-Z0-9\-]+)/i', $userAgent, $m)) {
+            $model = strtoupper($m[1]); // GRP2616
+        }
 
-    if (preg_match('/DevId\s+([0-9a-fA-F]+)/', $userAgent, $m)) {
-        $mac = strtolower($m[1]);   // ec74d7800474
-    }
+        if (preg_match('/DevId\s+([0-9a-fA-F]+)/', $userAgent, $m)) {
+            $mac = strtolower($m[1]);   // ec74d7800474
+        }
 
-    PhoneRequestLog::create([
-        'ip'         => $ip,
-        'user_agent' => $userAgent,
-        'mac'        => $mac,
-        'model'      => $model,
-    ]);
-
-    // ... rest of your XML generation code ...
-}
+        PhoneRequestLog::create([
+            'ip'         => $ip,
+            'user_agent' => $userAgent,
+            'mac'        => $mac,
+            'model'      => $model,
+        ]);
 
         // Build XML phonebook
         $xmlString = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
