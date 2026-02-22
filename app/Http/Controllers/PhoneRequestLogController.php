@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Contact;
 use App\Models\PhoneAccount;
 use App\Models\PhoneRequestLog;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
 class PhoneRequestLogController extends Controller
@@ -41,5 +42,19 @@ class PhoneRequestLogController extends Controller
             ->keyBy('phone');
 
         return view('admin.phone-logs.index', compact('logs', 'accounts', 'contactsByPhone'));
+    }
+
+    /**
+     * Trigger a full GDMS device-account sync (called from the admin "Sync" button).
+     * Runs synchronously — allow enough PHP execution time for all devices.
+     */
+    public function sync()
+    {
+        set_time_limit(0); // Each device can take up to 60 s; no hard cap
+
+        Artisan::call('gdms:sync-device-accounts');
+
+        return redirect()->route('admin.phone-logs.index')
+            ->with('success', 'SIP accounts synced successfully from GDMS.');
     }
 }

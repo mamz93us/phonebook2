@@ -88,8 +88,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('settings.update');
     Route::delete('settings/logo', [SettingsController::class, 'deleteLogo'])
         ->name('settings.delete-logo');
-	Route::get('phone-logs', [PhoneRequestLogController::class, 'index'])
-		->name('phone-logs.index');
+    Route::get('phone-logs', [PhoneRequestLogController::class, 'index'])
+        ->name('phone-logs.index');
+    Route::post('phone-logs/sync', [PhoneRequestLogController::class, 'sync'])
+        ->name('phone-logs.sync');
 
     // Activity Logs
     Route::get('activity-logs', [ActivityLogController::class, 'index'])

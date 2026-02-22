@@ -5,11 +5,22 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0">Phone XML Request Logs</h4>
-    <div class="text-muted small">
-        To refresh SIP accounts, run:<br>
-        <code>php artisan gdms:sync-device-accounts</code>
-    </div>
+
+    <form method="POST" action="{{ route('admin.phone-logs.sync') }}" id="sync-form">
+        @csrf
+        <button type="submit" class="btn btn-primary" id="sync-btn">
+            🔄 Sync SIP Accounts
+        </button>
+    </form>
 </div>
+
+<script>
+document.getElementById('sync-form').addEventListener('submit', function () {
+    var btn = document.getElementById('sync-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Syncing… (may take up to 1 min)';
+});
+</script>
 
 <div class="card shadow-sm">
     <div class="card-body p-0">
