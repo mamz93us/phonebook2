@@ -63,14 +63,36 @@ class IppbxApiService
     }
 
     /**
-     * Apply pending changes to the UCM
+     * Apply pending changes to the UCM.
+     * Retries once with a fresh login if the cookie expired (status -6).
      */
     public function applyChanges(): array
     {
-        return $this->post([
+        // applyChanges can take longer — use 30s timeout
+        $resp = $this->post([
             'action' => 'applyChanges',
             'cookie' => $this->cookie,
-        ]);
+        ], 30);
+
+        // -6 = invalid/expired cookie → re-login and retry once
+        if (($resp['status'] ?? null) === -6) {
+            Log::warning('IppbxApiService: applyChanges got -6 (expired cookie), re-logging in.');
+            $this->cookie = null;
+            $this->login();
+
+            $resp = $this->post([
+                'action' => 'applyChanges',
+                'cookie' => $this->cookie,
+            ], 30);
+        }
+
+        if (($resp['status'] ?? -1) !== 0) {
+            Log::error('IppbxApiService: applyChanges failed', ['response' => $resp]);
+            throw new \RuntimeException('applyChanges failed: ' . json_encode($resp));
+        }
+
+        Log::info('IppbxApiService: applyChanges OK');
+        return $resp;
     }
 
     // ─────────────────────────────────────────────
@@ -194,13 +216,13 @@ class IppbxApiService
         }
     }
 
-    protected function post(array $payload): array
+    protected function post(array $payload, int $timeout = 15): array
     {
         try {
             $body = json_encode(['request' => $payload]);
 
             $response = Http::withoutVerifying()
-                ->timeout(15)
+                ->timeout($timeout)
                 ->withHeaders([
                     'Content-Type'     => 'application/json;charset=UTF-8',
                     'Accept'           => 'application/json',
