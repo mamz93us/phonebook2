@@ -109,7 +109,7 @@ class IppbxApiService
         $resp = $this->post([
             'action'   => 'listAccount',
             'cookie'   => $this->cookie,
-            'options'  => 'extension,account_type,fullname,status,addr,hasvoicemail,call_waiting,dnd,email,permission,max_contacts',
+            'options'  => 'extension,account_type,fullname,status,addr',
             'page'     => (string) $page,
             'item_num' => (string) $itemNum,
             'sidx'     => 'extension',

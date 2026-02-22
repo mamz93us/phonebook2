@@ -138,10 +138,10 @@
                                 onclick="loadWave('{{ $ext['extension'] }}', {{ $selectedUcm->id }})">
                                 <i class="bi bi-qr-code"></i>
                             </button>
-                            {{-- Edit button --}}
+                            {{-- Edit button — loads current data via AJAX --}}
                             <button class="btn btn-sm btn-outline-primary me-1"
-                                data-bs-toggle="modal"
-                                data-bs-target="#editModal{{ $ext['extension'] }}">
+                                title="Edit"
+                                onclick="loadEdit('{{ $ext['extension'] }}', {{ $selectedUcm->id }})">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             {{-- Delete button --}}
@@ -158,123 +158,128 @@
                             </form>
                         </td>
                     </tr>
-
-                    {{-- Edit Modal for this extension --}}
-                    <div class="modal fade" id="editModal{{ $ext['extension'] }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-lg">
-                            <div class="modal-content">
-                                <form method="POST" action="{{ route('admin.extensions.update', $ext['extension']) }}">
-                                    @csrf @method('PUT')
-                                    <input type="hidden" name="ucm_id" value="{{ $selectedUcm->id }}">
-                                    <div class="modal-header bg-primary text-white">
-                                        <h5 class="modal-title">
-                                            <i class="bi bi-pencil-square me-2"></i>Edit Extension {{ $ext['extension'] }}
-                                        </h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <div class="row g-3">
-                                            <div class="col-md-3">
-                                                <label class="form-label fw-semibold">Extension</label>
-                                                <input type="text" class="form-control bg-light" value="{{ $ext['extension'] }}" disabled>
-                                            </div>
-                                            <div class="col-md-5">
-                                                <label class="form-label fw-semibold">Full Name</label>
-                                                <input type="text" name="fullname" class="form-control"
-                                                    value="{{ $ext['fullname'] ?? '' }}" placeholder="e.g. John Doe">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label fw-semibold">Email</label>
-                                                <input type="email" name="email" class="form-control"
-                                                    value="{{ $ext['email'] ?? '' }}" placeholder="user@company.com">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold">Permission <span class="text-danger">*</span></label>
-                                                <select name="permission" class="form-select" required>
-                                                    @foreach(['internal','local','national','international'] as $perm)
-                                                        <option value="{{ $perm }}" {{ ($ext['permission'] ?? 'internal') === $perm ? 'selected' : '' }}>
-                                                            {{ ucfirst($perm) }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold">Max Contacts</label>
-                                                <input type="number" name="max_contacts" class="form-control"
-                                                    value="{{ $ext['max_contacts'] ?? 3 }}" min="1" max="10">
-                                            </div>
-                                            <div class="col-12">
-                                                <label class="form-label fw-semibold">New SIP Password
-                                                    <small class="text-muted fw-normal">(leave blank to keep current)</small>
-                                                </label>
-                                                <div class="input-group">
-                                                    <input type="text" name="secret"
-                                                        id="edit_secret_{{ $ext['extension'] }}"
-                                                        class="form-control font-monospace"
-                                                        placeholder="Leave blank to keep unchanged">
-                                                    <button type="button" class="btn btn-outline-secondary" title="Generate"
-                                                        onclick="generatePassword('edit_secret_{{ $ext['extension'] }}')">
-                                                        <i class="bi bi-arrow-repeat"></i>
-                                                    </button>
-                                                    <button type="button" class="btn btn-outline-secondary" title="Copy"
-                                                        onclick="copyToClipboard('edit_secret_{{ $ext['extension'] }}')">
-                                                        <i class="bi bi-clipboard"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div class="col-12">
-                                                <label class="form-label fw-semibold d-block mb-2">Features</label>
-                                                <div class="d-flex flex-wrap gap-4">
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox"
-                                                            name="voicemail_enable"
-                                                            id="edit_vm_{{ $ext['extension'] }}"
-                                                            value="yes"
-                                                            {{ ($ext['hasvoicemail'] ?? 'yes') === 'yes' ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="edit_vm_{{ $ext['extension'] }}">
-                                                            <i class="bi bi-voicemail me-1"></i>Voicemail
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox"
-                                                            name="call_waiting"
-                                                            id="edit_cw_{{ $ext['extension'] }}"
-                                                            value="yes"
-                                                            {{ ($ext['call_waiting'] ?? 'yes') === 'yes' ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="edit_cw_{{ $ext['extension'] }}">
-                                                            <i class="bi bi-telephone-plus me-1"></i>Call Waiting
-                                                        </label>
-                                                    </div>
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox"
-                                                            name="dnd"
-                                                            id="edit_dnd_{{ $ext['extension'] }}"
-                                                            value="yes"
-                                                            {{ ($ext['dnd'] ?? 'no') === 'yes' ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="edit_dnd_{{ $ext['extension'] }}">
-                                                            <i class="bi bi-slash-circle me-1"></i>Do Not Disturb
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="bi bi-save me-1"></i>Save Changes
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
                     @endforeach
                 </tbody>
             </table>
         </div>
     </div>
     @endif
+</div>
+@endif
+
+{{-- ─── Shared Edit Modal (populated via AJAX) ──────────────── --}}
+@if($selectedUcm)
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Extension
+                    <span id="editExtNum" class="ms-1 fw-light"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            {{-- Loading spinner --}}
+            <div id="editLoading" class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">Loading extension data…</p>
+            </div>
+
+            {{-- Error --}}
+            <div id="editError" class="modal-body d-none">
+                <div class="alert alert-danger mb-0" id="editErrorMsg"></div>
+            </div>
+
+            {{-- The actual form (hidden until loaded) --}}
+            <form id="editForm" method="POST" action="" class="d-none">
+                @csrf @method('PUT')
+                <input type="hidden" name="ucm_id" id="edit_ucm_id">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Extension</label>
+                            <input type="text" id="edit_ext_display" class="form-control bg-light" disabled>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">Full Name</label>
+                            <input type="text" name="fullname" id="edit_fullname" class="form-control"
+                                placeholder="e.g. John Doe">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email" name="email" id="edit_email" class="form-control"
+                                placeholder="user@company.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Permission <span class="text-danger">*</span></label>
+                            <select name="permission" id="edit_permission" class="form-select" required>
+                                <option value="internal">Internal</option>
+                                <option value="local">Local</option>
+                                <option value="national">National</option>
+                                <option value="international">International</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Max Contacts</label>
+                            <input type="number" name="max_contacts" id="edit_max_contacts"
+                                class="form-control" min="1" max="10" value="3">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">New SIP Password
+                                <small class="text-muted fw-normal">(leave blank to keep current)</small>
+                            </label>
+                            <div class="input-group">
+                                <input type="text" name="secret" id="edit_secret"
+                                    class="form-control font-monospace"
+                                    placeholder="Leave blank to keep unchanged">
+                                <button type="button" class="btn btn-outline-secondary" title="Generate"
+                                    onclick="generatePassword('edit_secret')">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" title="Copy"
+                                    onclick="copyToClipboard('edit_secret')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold d-block mb-2">Features</label>
+                            <div class="d-flex flex-wrap gap-4">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox"
+                                        name="voicemail_enable" id="edit_vm" value="yes">
+                                    <label class="form-check-label" for="edit_vm">
+                                        <i class="bi bi-voicemail me-1"></i>Voicemail
+                                    </label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox"
+                                        name="call_waiting" id="edit_cw" value="yes">
+                                    <label class="form-check-label" for="edit_cw">
+                                        <i class="bi bi-telephone-plus me-1"></i>Call Waiting
+                                    </label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox"
+                                        name="dnd" id="edit_dnd" value="yes">
+                                    <label class="form-check-label" for="edit_dnd">
+                                        <i class="bi bi-slash-circle me-1"></i>Do Not Disturb
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 @endif
 
@@ -499,27 +504,19 @@ function generatePassword(fieldId) {
     const special = '@#$!';
     const all     = upper + lower + digits + special;
 
-    // Guarantee at least one of each type
     let pwd = [
         upper  [Math.floor(Math.random() * upper.length)],
         lower  [Math.floor(Math.random() * lower.length)],
         digits [Math.floor(Math.random() * digits.length)],
         special[Math.floor(Math.random() * special.length)],
     ];
-
-    // Fill to 12 characters
     for (let i = pwd.length; i < 12; i++) {
         pwd.push(all[Math.floor(Math.random() * all.length)]);
     }
-
-    // Shuffle
     pwd = pwd.sort(() => Math.random() - 0.5).join('');
 
     const field = document.getElementById(fieldId);
-    if (field) {
-        field.value = pwd;
-        field.type  = 'text';   // show it so user can copy
-    }
+    if (field) { field.value = pwd; field.type = 'text'; }
 }
 
 function generateAllPasswords() {
@@ -545,25 +542,30 @@ function copyText(text) {
     navigator.clipboard.writeText(text).catch(() => {});
 }
 
-// ── Wave Credentials ────────────────────────────────────────
-let waveQrInstance = null;
+// ── Edit Modal (AJAX) ───────────────────────────────────────
+const detailsBaseUrl = '{{ rtrim(url("admin/extensions"), "/") }}';
 
-function loadWave(extension, ucmId) {
-    // Reset modal
-    document.getElementById('waveLoading').classList.remove('d-none');
-    document.getElementById('waveError').classList.add('d-none');
-    document.getElementById('waveContent').classList.add('d-none');
-    document.getElementById('waveExtNum').textContent = '— ' + extension;
-    document.getElementById('waveQr').innerHTML = '';
+function loadEdit(extension, ucmId) {
+    // Reset modal state
+    document.getElementById('editLoading').classList.remove('d-none');
+    document.getElementById('editError').classList.add('d-none');
+    document.getElementById('editForm').classList.add('d-none');
+    document.getElementById('editExtNum').textContent = extension;
+    document.getElementById('edit_secret').value = '';
 
     // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('waveModal'));
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
     modal.show();
 
-    // Build URL
-    const url = '{{ route("admin.extensions.wave", ["extension" => "__EXT__"]) }}'
-        .replace('__EXT__', extension) + '?ucm_id=' + ucmId;
+    // Set form action
+    const form = document.getElementById('editForm');
+    form.action = detailsBaseUrl + '/' + extension;
+    document.getElementById('edit_ucm_id').value = ucmId;
+    // Override PUT method
+    form.querySelector('input[name="_method"]').value = 'PUT';
 
+    // Fetch current data
+    const url = detailsBaseUrl + '/' + extension + '/details?ucm_id=' + ucmId;
     fetch(url, {
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
     })
@@ -571,22 +573,68 @@ function loadWave(extension, ucmId) {
     .then(data => {
         if (data.error) throw new Error(data.error);
 
-        document.getElementById('waveServer').textContent   = data.server   || '—';
+        document.getElementById('edit_ext_display').value  = data.extension    || extension;
+        document.getElementById('edit_fullname').value     = data.fullname     || '';
+        document.getElementById('edit_email').value        = data.email        || '';
+        document.getElementById('edit_max_contacts').value = data.max_contacts || 3;
+
+        // Permission dropdown
+        const permSel = document.getElementById('edit_permission');
+        const perm = (data.permission || 'internal').toLowerCase();
+        for (let opt of permSel.options) {
+            opt.selected = opt.value === perm;
+        }
+
+        // Feature toggles — read actual UCM values
+        document.getElementById('edit_vm').checked  = (data.hasvoicemail  || 'yes') === 'yes';
+        document.getElementById('edit_cw').checked  = (data.call_waiting  || 'yes') === 'yes';
+        document.getElementById('edit_dnd').checked = (data.dnd           || 'no')  === 'yes';
+
+        document.getElementById('editLoading').classList.add('d-none');
+        document.getElementById('editForm').classList.remove('d-none');
+    })
+    .catch(err => {
+        document.getElementById('editLoading').classList.add('d-none');
+        const errEl = document.getElementById('editError');
+        document.getElementById('editErrorMsg').textContent = 'Failed to load extension: ' + err.message;
+        errEl.classList.remove('d-none');
+    });
+}
+
+// ── Wave Credentials ────────────────────────────────────────
+function loadWave(extension, ucmId) {
+    document.getElementById('waveLoading').classList.remove('d-none');
+    document.getElementById('waveError').classList.add('d-none');
+    document.getElementById('waveContent').classList.add('d-none');
+    document.getElementById('waveExtNum').textContent = '— ' + extension;
+    document.getElementById('waveQr').innerHTML = '';
+
+    const modal = new bootstrap.Modal(document.getElementById('waveModal'));
+    modal.show();
+
+    const url = detailsBaseUrl + '/' + extension + '/wave?ucm_id=' + ucmId;
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) throw new Error(data.error);
+
+        document.getElementById('waveServer').textContent   = data.server    || '—';
         document.getElementById('waveUsername').textContent = data.extension || '—';
-        document.getElementById('waveSecret').textContent   = data.secret   || '(not available)';
-        document.getElementById('waveFullname').textContent = data.fullname || '—';
+        document.getElementById('waveSecret').textContent   = data.secret    || '(not available)';
+        document.getElementById('waveFullname').textContent = data.fullname  || '—';
 
         const sipUri = data.sip_uri || ('sip:' + data.extension + '@' + data.server);
         document.getElementById('waveSipUri').textContent = sipUri;
 
-        // Generate QR code from the SIP URI
-        waveQrInstance = new QRCode(document.getElementById('waveQr'), {
-            text:          sipUri,
-            width:         200,
-            height:        200,
-            colorDark:     '#000000',
-            colorLight:    '#ffffff',
-            correctLevel:  QRCode.CorrectLevel.M,
+        new QRCode(document.getElementById('waveQr'), {
+            text:         sipUri,
+            width:        200,
+            height:       200,
+            colorDark:    '#000000',
+            colorLight:   '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M,
         });
 
         document.getElementById('waveLoading').classList.add('d-none');

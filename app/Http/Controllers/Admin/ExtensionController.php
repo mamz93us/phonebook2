@@ -202,6 +202,26 @@ class ExtensionController extends Controller
     }
 
     /**
+     * Return full extension details for the edit modal (AJAX).
+     * Calls getSIPAccount which returns all fields including hasvoicemail,
+     * call_waiting, dnd, permission, max_contacts, email, etc.
+     */
+    public function details(Request $request, string $extension)
+    {
+        $ucmId = $request->get('ucm_id');
+        $ucm   = UcmServer::findOrFail($ucmId);
+
+        try {
+            $api  = new IppbxApiService($ucm);
+            $data = $api->getExtension($extension);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+
+        return response()->json($data);
+    }
+
+    /**
      * Return Wave / SIP-client credentials for a single extension (AJAX).
      */
     public function wave(Request $request, string $extension)
