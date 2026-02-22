@@ -9,15 +9,17 @@ use Illuminate\Support\Facades\Log;
 class IppbxApiService
 {
     protected string $baseUrl;
+    protected string $originUrl;   // base URL without /api — used for headers
     protected string $username;
     protected string $password;
     protected ?string $cookie = null;
 
     public function __construct(UcmServer $server)
     {
-        $this->baseUrl  = rtrim($server->url, '/') . '/api';
-        $this->username = $server->api_username;
-        $this->password = $server->api_password;
+        $this->originUrl = rtrim($server->url, '/');
+        $this->baseUrl   = $this->originUrl . '/api';
+        $this->username  = $server->api_username;
+        $this->password  = $server->api_password;
     }
 
     // ─────────────────────────────────────────────
@@ -195,25 +197,34 @@ class IppbxApiService
     protected function post(array $payload): array
     {
         try {
+            $body = json_encode(['request' => $payload]);
+
             $response = Http::withoutVerifying()
                 ->timeout(15)
-                ->withHeaders(['Content-Type' => 'application/json'])
-                ->post($this->baseUrl, ['request' => $payload]);
+                ->withHeaders([
+                    'Content-Type'     => 'application/json;charset=UTF-8',
+                    'Accept'           => 'application/json',
+                    'Connection'       => 'close',
+                    'Origin'           => $this->originUrl,
+                    'Referer'          => $this->originUrl . '/',
+                    'X-Requested-With' => 'XMLHttpRequest',
+                ])
+                ->withBody($body, 'application/json')
+                ->post($this->baseUrl);
 
             $json = $response->json();
 
             if ($json === null) {
                 $httpStatus = $response->status();
-                $body       = substr($response->body(), 0, 300);
+                $bodyPreview = substr($response->body(), 0, 400);
                 Log::error('IppbxApiService: non-JSON response', [
                     'url'    => $this->baseUrl,
                     'status' => $httpStatus,
-                    'body'   => $body,
+                    'body'   => $bodyPreview,
                 ]);
                 throw new \RuntimeException(
                     "UCM returned HTTP {$httpStatus} (non-JSON). " .
-                    "Check: (1) URL is correct, (2) for local UCM add :8089, (3) for GDMS cloud use URL as-is. " .
-                    "Response preview: " . ($body ?: '(empty)')
+                    "Response: " . ($bodyPreview ?: '(empty)')
                 );
             }
 
@@ -224,8 +235,7 @@ class IppbxApiService
         } catch (\Exception $e) {
             Log::error('IppbxApiService error: ' . $e->getMessage(), ['url' => $this->baseUrl]);
             throw new \RuntimeException(
-                'UCM connection failed: ' . $e->getMessage() .
-                ' — Check that the URL + port are correct and the UCM is reachable.'
+                'UCM connection failed: ' . $e->getMessage()
             );
         }
     }
