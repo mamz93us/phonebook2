@@ -6,6 +6,8 @@ use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\ActivityLogController;
+use App\Http\Controllers\Admin\ExtensionController;
+use App\Http\Controllers\Admin\UcmServerController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
 use App\Http\Controllers\PhoneRequestLogController;
@@ -98,6 +100,26 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // XML preview
     Route::get('xml-preview', [PhonebookController::class, 'preview'])
         ->name('xml.preview');
+
+    // ─── Extensions (IPPBX) ───────────────────────────────────
+    Route::get('extensions', [ExtensionController::class, 'index'])
+        ->name('extensions.index');
+    Route::post('extensions', [ExtensionController::class, 'store'])
+        ->name('extensions.store');
+    Route::put('extensions/{extension}', [ExtensionController::class, 'update'])
+        ->name('extensions.update');
+    Route::delete('extensions/{extension}', [ExtensionController::class, 'destroy'])
+        ->name('extensions.destroy');
+
+    // ─── UCM Servers (managed from Settings page) ─────────────
+    Route::post('ucm-servers', [UcmServerController::class, 'store'])
+        ->name('ucm-servers.store');
+    Route::put('ucm-servers/{ucmServer}', [UcmServerController::class, 'update'])
+        ->name('ucm-servers.update');
+    Route::delete('ucm-servers/{ucmServer}', [UcmServerController::class, 'destroy'])
+        ->name('ucm-servers.destroy');
+    Route::patch('ucm-servers/{ucmServer}/toggle', [UcmServerController::class, 'toggleActive'])
+        ->name('ucm-servers.toggle');
 });
 
 /*

@@ -33,6 +33,10 @@
                         {{ __('Phone XML Logs') }}
                     </x-nav-link>
 
+                    <x-nav-link :href="route('admin.extensions.index')" :active="request()->routeIs('admin.extensions.*')">
+                        {{ __('Extensions') }}
+                    </x-nav-link>
+
                     <x-nav-link :href="route('admin.settings.index')" :active="request()->routeIs('admin.settings.*')">
                         {{ __('Settings') }}
                     </x-nav-link>
@@ -114,6 +118,10 @@
                 {{ __('Phone XML Logs') }}
             </x-responsive-nav-link>
             
+            <x-responsive-nav-link :href="route('admin.extensions.index')" :active="request()->routeIs('admin.extensions.*')">
+                {{ __('Extensions') }}
+            </x-responsive-nav-link>
+
             <x-responsive-nav-link :href="route('admin.settings.index')" :active="request()->routeIs('admin.settings.*')">
                 {{ __('Settings') }}
             </x-responsive-nav-link>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Setting;
+use App\Models\UcmServer;
 use Illuminate\Support\Facades\Storage;
 
 class SettingsController extends Controller
@@ -14,8 +15,9 @@ class SettingsController extends Controller
      */
     public function index()
     {
-        $settings = Setting::get();
-        return view('admin.settings', compact('settings'));
+        $settings   = Setting::get();
+        $ucmServers = UcmServer::orderBy('name')->get();
+        return view('admin.settings', compact('settings', 'ucmServers'));
     }
 
     /**

@@ -7,6 +7,8 @@
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
     <style>
         body {
@@ -58,6 +60,12 @@
                     </li>
                     
                     <li class="nav-item">
+                        <a class="nav-link {{ request()->is('admin/extensions*') ? 'active' : '' }}" href="/admin/extensions">
+                            <i class="bi bi-telephone-fill me-1"></i>Extensions
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}" href="/admin/settings">
                             Settings
                         </a>
@@ -94,6 +102,8 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    @stack('scripts')
 
 </body>
 </html>
