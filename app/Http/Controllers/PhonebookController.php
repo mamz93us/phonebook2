@@ -21,13 +21,17 @@ class PhonebookController extends Controller
         $mac   = null;
         $model = null;
 
-        // Example UA: "Grandstream Model HW GRP2616 SW 1.0.13.59 DevId ec74d7800474"
+        // UA examples:
+        //   "Grandstream Model HW GRP2616 SW 1.0.13.59 DevId ec74d7800474"   (no colons)
+        //   "Grandstream Model HW GRP2601W SW 1.0.7.32 DevId EC:74:D7:89:1A:76" (with colons)
         if (preg_match('/Model HW\s+([A-Z0-9\-]+)/i', $userAgent, $m)) {
-            $model = strtoupper($m[1]); // GRP2616
+            $model = strtoupper($m[1]); // GRP2616 / GRP2601W
         }
 
-        if (preg_match('/DevId\s+([0-9a-fA-F]+)/', $userAgent, $m)) {
-            $mac = strtolower($m[1]);   // ec74d7800474
+        // Allow both formats: plain hex (ec74d7800474) or colon-separated (EC:74:D7:89:1A:76)
+        if (preg_match('/DevId\s+([0-9a-fA-F:]+)/i', $userAgent, $m)) {
+            // Normalize: strip colons → lowercase hex, e.g. ec74d789001a76 → ec74d789001a76
+            $mac = strtolower(str_replace(':', '', $m[1]));
         }
 
         PhoneRequestLog::create([
