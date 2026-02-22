@@ -57,13 +57,17 @@ class ExtensionController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ucm_id'        => 'required|exists:ucm_servers,id',
-            'extension'     => 'required|string|max:20',
-            'secret'        => 'required|string|min:6|max:100',
-            'user_password' => 'required|string|min:6|max:100',
-            'fullname'      => 'nullable|string|max:100',
-            'permission'    => 'required|in:internal,local,national,international',
-            'max_contacts'  => 'nullable|integer|min:1|max:10',
+            'ucm_id'           => 'required|exists:ucm_servers,id',
+            'extension'        => 'required|string|max:20',
+            'secret'           => 'required|string|min:6|max:100',
+            'user_password'    => 'required|string|min:6|max:100',
+            'fullname'         => 'nullable|string|max:100',
+            'email'            => 'nullable|email|max:150',
+            'permission'       => 'required|in:internal,local,national,international',
+            'max_contacts'     => 'nullable|integer|min:1|max:10',
+            'voicemail_enable' => 'nullable|in:yes,no',
+            'call_waiting'     => 'nullable|in:yes,no',
+            'dnd'              => 'nullable|in:yes,no',
         ]);
 
         $ucm = UcmServer::findOrFail($data['ucm_id']);
@@ -71,12 +75,16 @@ class ExtensionController extends Controller
         try {
             $api = new IppbxApiService($ucm);
             $api->createExtension([
-                'extension'     => $data['extension'],
-                'secret'        => $data['secret'],
-                'user_password' => $data['user_password'],
-                'fullname'      => $data['fullname'] ?? '',
-                'permission'    => $data['permission'],
-                'max_contacts'  => (string) ($data['max_contacts'] ?? 3),
+                'extension'        => $data['extension'],
+                'secret'           => $data['secret'],
+                'user_password'    => $data['user_password'],
+                'fullname'         => $data['fullname'] ?? '',
+                'email'            => $data['email'] ?? '',
+                'permission'       => $data['permission'],
+                'max_contacts'     => (string) ($data['max_contacts'] ?? 3),
+                'voicemail_enable' => $request->has('voicemail_enable') ? 'yes' : 'no',
+                'call_waiting'     => $request->has('call_waiting')     ? 'yes' : 'no',
+                'dnd'              => $request->has('dnd')              ? 'yes' : 'no',
             ]);
         } catch (\Exception $e) {
             return back()
@@ -94,22 +102,32 @@ class ExtensionController extends Controller
     public function update(Request $request, string $extension)
     {
         $data = $request->validate([
-            'ucm_id'       => 'required|exists:ucm_servers,id',
-            'fullname'     => 'nullable|string|max:100',
-            'permission'   => 'required|in:internal,local,national,international',
-            'max_contacts' => 'nullable|integer|min:1|max:10',
-            'secret'       => 'nullable|string|min:6|max:100',
+            'ucm_id'           => 'required|exists:ucm_servers,id',
+            'fullname'         => 'nullable|string|max:100',
+            'email'            => 'nullable|email|max:150',
+            'permission'       => 'required|in:internal,local,national,international',
+            'max_contacts'     => 'nullable|integer|min:1|max:10',
+            'secret'           => 'nullable|string|min:6|max:100',
+            'voicemail_enable' => 'nullable|in:yes,no',
+            'call_waiting'     => 'nullable|in:yes,no',
+            'dnd'              => 'nullable|in:yes,no',
         ]);
 
         $ucm = UcmServer::findOrFail($data['ucm_id']);
 
         $updateData = [
-            'permission'   => $data['permission'],
-            'max_contacts' => (string) ($data['max_contacts'] ?? 3),
+            'permission'       => $data['permission'],
+            'max_contacts'     => (string) ($data['max_contacts'] ?? 3),
+            'voicemail_enable' => $request->has('voicemail_enable') ? 'yes' : 'no',
+            'call_waiting'     => $request->has('call_waiting')     ? 'yes' : 'no',
+            'dnd'              => $request->has('dnd')              ? 'yes' : 'no',
         ];
 
         if (!empty($data['fullname'])) {
             $updateData['fullname'] = $data['fullname'];
+        }
+        if (!empty($data['email'])) {
+            $updateData['email'] = $data['email'];
         }
         if (!empty($data['secret'])) {
             $updateData['secret'] = $data['secret'];
