@@ -132,11 +132,19 @@
                             @endif
                         </td>
                         <td class="text-end">
+                            {{-- Wave credentials button --}}
+                            <button class="btn btn-sm btn-outline-info me-1"
+                                title="Wave / SIP Credentials"
+                                onclick="loadWave('{{ $ext['extension'] }}', {{ $selectedUcm->id }})">
+                                <i class="bi bi-qr-code"></i>
+                            </button>
+                            {{-- Edit button --}}
                             <button class="btn btn-sm btn-outline-primary me-1"
                                 data-bs-toggle="modal"
                                 data-bs-target="#editModal{{ $ext['extension'] }}">
                                 <i class="bi bi-pencil"></i>
                             </button>
+                            {{-- Delete button --}}
                             <form method="POST"
                                 action="{{ route('admin.extensions.destroy', $ext['extension']) }}"
                                 class="d-inline"
@@ -222,7 +230,7 @@
                                                             name="voicemail_enable"
                                                             id="edit_vm_{{ $ext['extension'] }}"
                                                             value="yes"
-                                                            {{ ($ext['voicemail_enable'] ?? 'yes') === 'yes' ? 'checked' : '' }}>
+                                                            {{ ($ext['hasvoicemail'] ?? 'yes') === 'yes' ? 'checked' : '' }}>
                                                         <label class="form-check-label" for="edit_vm_{{ $ext['extension'] }}">
                                                             <i class="bi bi-voicemail me-1"></i>Voicemail
                                                         </label>
@@ -377,6 +385,13 @@
                                         <i class="bi bi-slash-circle me-1"></i>Do Not Disturb (DND)
                                     </label>
                                 </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="sync_contact"
+                                        id="add_sync_contact" value="yes" checked>
+                                    <label class="form-check-label" for="add_sync_contact">
+                                        <i class="bi bi-arrow-repeat me-1"></i>Sync Contact
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -397,8 +412,75 @@
 </div>
 @endif
 
+{{-- ─── Wave Credentials Modal (shared, loaded via AJAX) ──────── --}}
+<div class="modal fade" id="waveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-qr-code me-2"></i>Wave / SIP Credentials
+                    <span id="waveExtNum" class="ms-2 fw-light"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {{-- Loading spinner --}}
+                <div id="waveLoading" class="text-center py-4">
+                    <div class="spinner-border text-info" role="status"></div>
+                    <p class="mt-2 text-muted">Loading credentials…</p>
+                </div>
+
+                {{-- Error --}}
+                <div id="waveError" class="alert alert-danger d-none"></div>
+
+                {{-- Content --}}
+                <div id="waveContent" class="d-none">
+                    <table class="table table-bordered table-sm mb-3">
+                        <tr>
+                            <th class="table-light" style="width:35%">SIP Server</th>
+                            <td id="waveServer" class="font-monospace"></td>
+                        </tr>
+                        <tr>
+                            <th class="table-light">Username</th>
+                            <td id="waveUsername" class="font-monospace fw-bold"></td>
+                        </tr>
+                        <tr>
+                            <th class="table-light">SIP Password</th>
+                            <td>
+                                <span id="waveSecret" class="font-monospace"></span>
+                                <button class="btn btn-sm btn-outline-secondary ms-2 py-0"
+                                    onclick="copyText(document.getElementById('waveSecret').innerText)"
+                                    title="Copy password">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="table-light">Full Name</th>
+                            <td id="waveFullname"></td>
+                        </tr>
+                    </table>
+
+                    {{-- QR Code --}}
+                    <div class="text-center">
+                        <p class="text-muted small mb-2">Scan with Grandstream Wave to register</p>
+                        <div id="waveQr" class="d-inline-block p-2 border rounded bg-white"></div>
+                        <br>
+                        <small class="text-muted" id="waveSipUri"></small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- ─── Scripts ────────────────────────────────────────────────── --}}
 @push('scripts')
+{{-- QR Code library --}}
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
 // ── Live Search ────────────────────────────────────────────
 document.getElementById('extSearch')?.addEventListener('keyup', function () {
@@ -449,7 +531,6 @@ function copyToClipboard(fieldId) {
     const field = document.getElementById(fieldId);
     if (!field || !field.value) return;
     navigator.clipboard.writeText(field.value).then(() => {
-        // Brief visual feedback on the copy button
         const btn = field.nextElementSibling?.nextElementSibling
                  ?? field.parentElement.querySelector('[onclick*="copyToClipboard"]');
         if (btn) {
@@ -457,6 +538,65 @@ function copyToClipboard(fieldId) {
             btn.innerHTML = '<i class="bi bi-check text-success"></i>';
             setTimeout(() => btn.innerHTML = orig, 1500);
         }
+    });
+}
+
+function copyText(text) {
+    navigator.clipboard.writeText(text).catch(() => {});
+}
+
+// ── Wave Credentials ────────────────────────────────────────
+let waveQrInstance = null;
+
+function loadWave(extension, ucmId) {
+    // Reset modal
+    document.getElementById('waveLoading').classList.remove('d-none');
+    document.getElementById('waveError').classList.add('d-none');
+    document.getElementById('waveContent').classList.add('d-none');
+    document.getElementById('waveExtNum').textContent = '— ' + extension;
+    document.getElementById('waveQr').innerHTML = '';
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('waveModal'));
+    modal.show();
+
+    // Build URL
+    const url = '{{ route("admin.extensions.wave", ["extension" => "__EXT__"]) }}'
+        .replace('__EXT__', extension) + '?ucm_id=' + ucmId;
+
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) throw new Error(data.error);
+
+        document.getElementById('waveServer').textContent   = data.server   || '—';
+        document.getElementById('waveUsername').textContent = data.extension || '—';
+        document.getElementById('waveSecret').textContent   = data.secret   || '(not available)';
+        document.getElementById('waveFullname').textContent = data.fullname || '—';
+
+        const sipUri = data.sip_uri || ('sip:' + data.extension + '@' + data.server);
+        document.getElementById('waveSipUri').textContent = sipUri;
+
+        // Generate QR code from the SIP URI
+        waveQrInstance = new QRCode(document.getElementById('waveQr'), {
+            text:          sipUri,
+            width:         200,
+            height:        200,
+            colorDark:     '#000000',
+            colorLight:    '#ffffff',
+            correctLevel:  QRCode.CorrectLevel.M,
+        });
+
+        document.getElementById('waveLoading').classList.add('d-none');
+        document.getElementById('waveContent').classList.remove('d-none');
+    })
+    .catch(err => {
+        document.getElementById('waveLoading').classList.add('d-none');
+        const errEl = document.getElementById('waveError');
+        errEl.textContent = 'Failed to load credentials: ' + err.message;
+        errEl.classList.remove('d-none');
     });
 }
 </script>

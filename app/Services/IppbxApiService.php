@@ -109,7 +109,7 @@ class IppbxApiService
         $resp = $this->post([
             'action'   => 'listAccount',
             'cookie'   => $this->cookie,
-            'options'  => 'extension,account_type,fullname,status,addr',
+            'options'  => 'extension,account_type,fullname,status,addr,hasvoicemail,call_waiting,dnd,email,permission,max_contacts',
             'page'     => (string) $page,
             'item_num' => (string) $itemNum,
             'sidx'     => 'extension',
@@ -141,6 +141,27 @@ class IppbxApiService
         }
 
         return $resp['response']['extension'] ?? [];
+    }
+
+    /**
+     * Get extension details for Wave / SIP client provisioning.
+     * Returns extension, fullname, secret, email, and the UCM SIP domain.
+     */
+    public function getExtensionWave(string $extension): array
+    {
+        $details = $this->getExtension($extension);
+
+        // Parse domain from originUrl (strip scheme + any port)
+        $host = parse_url($this->originUrl, PHP_URL_HOST) ?? $this->originUrl;
+
+        return [
+            'extension' => $details['extension'] ?? $extension,
+            'fullname'  => $details['fullname']  ?? '',
+            'secret'    => $details['secret']    ?? '',
+            'email'     => $details['email']     ?? '',
+            'server'    => $host,
+            'sip_uri'   => 'sip:' . ($details['extension'] ?? $extension) . '@' . $host,
+        ];
     }
 
     /**

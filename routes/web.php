@@ -114,6 +114,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('extensions.update');
     Route::delete('extensions/{extension}', [ExtensionController::class, 'destroy'])
         ->name('extensions.destroy');
+    Route::get('extensions/{extension}/wave', [ExtensionController::class, 'wave'])
+        ->name('extensions.wave');
 
     // ─── UCM Servers (managed from Settings page) ─────────────
     Route::post('ucm-servers', [UcmServerController::class, 'store'])

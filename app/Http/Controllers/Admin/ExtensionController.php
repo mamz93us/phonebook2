@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\UcmServer;
 use App\Services\IppbxApiService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ExtensionController extends Controller
 {
@@ -68,6 +70,7 @@ class ExtensionController extends Controller
             'voicemail_enable' => 'nullable|in:yes,no',
             'call_waiting'     => 'nullable|in:yes,no',
             'dnd'              => 'nullable|in:yes,no',
+            'sync_contact'     => 'nullable|in:yes,no',
         ]);
 
         $ucm = UcmServer::findOrFail($data['ucm_id']);
@@ -75,18 +78,20 @@ class ExtensionController extends Controller
         try {
             $api = new IppbxApiService($ucm);
 
-            // Build payload — only include optional fields if not empty
+            // Build payload
             $payload = [
-                'extension'    => $data['extension'],
-                'secret'       => $data['secret'],
-                'user_password'=> $data['user_password'],
-                'permission'   => $data['permission'],
-                'max_contacts' => (string) ($data['max_contacts'] ?? 3),
-                'hasvoicemail' => $request->has('voicemail_enable') ? 'yes' : 'no',
-                'call_waiting' => $request->has('call_waiting')     ? 'yes' : 'no',
-                'dnd'          => $request->has('dnd')              ? 'yes' : 'no',
+                'extension'     => $data['extension'],
+                'secret'        => $data['secret'],
+                'user_password' => $data['user_password'],
+                'permission'    => $data['permission'],
+                'max_contacts'  => (string) ($data['max_contacts'] ?? 3),
+                'hasvoicemail'  => $request->has('voicemail_enable') ? 'yes' : 'no',
+                'call_waiting'  => $request->has('call_waiting')     ? 'yes' : 'no',
+                'dnd'           => $request->has('dnd')              ? 'yes' : 'no',
+                'sync_contact'  => $request->has('sync_contact')     ? 'yes' : 'no',
             ];
 
+            // Include optional string fields only when they have a value
             if (!empty($data['fullname'])) $payload['fullname'] = $data['fullname'];
             if (!empty($data['email']))    $payload['email']    = $data['email'];
 
@@ -96,6 +101,21 @@ class ExtensionController extends Controller
                 ->withInput()
                 ->with('error', 'Failed to create extension: ' . $e->getMessage());
         }
+
+        // Activity log
+        ActivityLog::create([
+            'model_type' => 'Extension',
+            'model_id'   => 0,
+            'action'     => 'created',
+            'changes'    => [
+                'extension'  => $data['extension'],
+                'fullname'   => $data['fullname'] ?? null,
+                'email'      => $data['email'] ?? null,
+                'permission' => $data['permission'],
+                'ucm'        => $ucm->name,
+            ],
+            'user_id' => Auth::id(),
+        ]);
 
         return redirect()->route('admin.extensions.index', ['ucm_id' => $data['ucm_id']])
             ->with('success', "Extension {$data['extension']} created successfully.");
@@ -128,9 +148,10 @@ class ExtensionController extends Controller
             'dnd'          => $request->has('dnd')              ? 'yes' : 'no',
         ];
 
-        if (!empty($data['fullname'])) $updateData['fullname'] = $data['fullname'];
-        if (!empty($data['email']))    $updateData['email']    = $data['email'];
-        if (!empty($data['secret']))   $updateData['secret']   = $data['secret'];
+        // Always send fullname/email so they can be updated (skip only if truly null/not sent)
+        if ($data['fullname'] !== null) $updateData['fullname'] = $data['fullname'];
+        if ($data['email']    !== null) $updateData['email']    = $data['email'];
+        if (!empty($data['secret']))    $updateData['secret']   = $data['secret'];
 
         try {
             $api = new IppbxApiService($ucm);
@@ -138,6 +159,15 @@ class ExtensionController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to update extension: ' . $e->getMessage());
         }
+
+        // Activity log
+        ActivityLog::create([
+            'model_type' => 'Extension',
+            'model_id'   => 0,
+            'action'     => 'updated',
+            'changes'    => array_merge(['extension' => $extension, 'ucm' => $ucm->name], $updateData),
+            'user_id'    => Auth::id(),
+        ]);
 
         return redirect()->route('admin.extensions.index', ['ucm_id' => $data['ucm_id']])
             ->with('success', "Extension {$extension} updated successfully.");
@@ -158,7 +188,34 @@ class ExtensionController extends Controller
             return back()->with('error', 'Failed to delete extension: ' . $e->getMessage());
         }
 
+        // Activity log
+        ActivityLog::create([
+            'model_type' => 'Extension',
+            'model_id'   => 0,
+            'action'     => 'deleted',
+            'changes'    => ['extension' => $extension, 'ucm' => $ucm->name],
+            'user_id'    => Auth::id(),
+        ]);
+
         return redirect()->route('admin.extensions.index', ['ucm_id' => $ucmId])
             ->with('success', "Extension {$extension} deleted successfully.");
+    }
+
+    /**
+     * Return Wave / SIP-client credentials for a single extension (AJAX).
+     */
+    public function wave(Request $request, string $extension)
+    {
+        $ucmId = $request->get('ucm_id');
+        $ucm   = UcmServer::findOrFail($ucmId);
+
+        try {
+            $api  = new IppbxApiService($ucm);
+            $data = $api->getExtensionWave($extension);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+
+        return response()->json($data);
     }
 }
