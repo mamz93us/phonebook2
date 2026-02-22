@@ -200,10 +200,33 @@ class IppbxApiService
                 ->withHeaders(['Content-Type' => 'application/json'])
                 ->post($this->baseUrl, ['request' => $payload]);
 
-            return $response->json() ?? ['status' => -99, 'error' => 'Empty response'];
+            $json = $response->json();
+
+            if ($json === null) {
+                $httpStatus = $response->status();
+                $body       = substr($response->body(), 0, 300);
+                Log::error('IppbxApiService: non-JSON response', [
+                    'url'    => $this->baseUrl,
+                    'status' => $httpStatus,
+                    'body'   => $body,
+                ]);
+                throw new \RuntimeException(
+                    "UCM returned HTTP {$httpStatus} (non-JSON). " .
+                    "Check: (1) URL is correct, (2) for local UCM add :8089, (3) for GDMS cloud use URL as-is. " .
+                    "Response preview: " . ($body ?: '(empty)')
+                );
+            }
+
+            return $json;
+
+        } catch (\RuntimeException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            Log::error('IppbxApiService error: ' . $e->getMessage());
-            throw new \RuntimeException('UCM API connection error: ' . $e->getMessage());
+            Log::error('IppbxApiService error: ' . $e->getMessage(), ['url' => $this->baseUrl]);
+            throw new \RuntimeException(
+                'UCM connection failed: ' . $e->getMessage() .
+                ' — Check that the URL + port are correct and the UCM is reachable.'
+            );
         }
     }
 }

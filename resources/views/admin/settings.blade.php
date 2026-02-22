@@ -156,9 +156,12 @@
                                             <input type="text" name="name" class="form-control" value="{{ $ucm->name }}" required>
                                         </div>
                                         <div class="mb-3">
-                                            <label class="form-label">URL + Port <span class="text-danger">*</span></label>
-                                            <input type="url" name="url" class="form-control" value="{{ $ucm->url }}" required
-                                                placeholder="https://192.168.1.100:8089">
+                                            <label class="form-label">URL <span class="text-danger">*</span></label>
+                                            <input type="text" name="url" class="form-control" value="{{ $ucm->url }}" required
+                                                placeholder="https://msc1abc.gdms.cloud  or  https://192.168.1.100:8089">
+                                            <div class="form-text">
+                                                Cloud (GDMS): no port needed &nbsp;|&nbsp; Local UCM: add <code>:8089</code>
+                                            </div>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">API Username <span class="text-danger">*</span></label>
@@ -203,9 +206,12 @@
                             placeholder="e.g. Main Office UCM">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">URL + Port <span class="text-danger">*</span></label>
-                        <input type="url" name="url" class="form-control" required
-                            placeholder="https://192.168.1.100:8089">
+                        <label class="form-label">URL <span class="text-danger">*</span></label>
+                        <input type="text" name="url" class="form-control" required
+                            placeholder="https://msc1abc.gdms.cloud  or  https://192.168.1.100:8089">
+                        <div class="form-text">
+                            Cloud (GDMS): no port needed &nbsp;|&nbsp; Local UCM: add <code>:8089</code>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">API Username <span class="text-danger">*</span></label>

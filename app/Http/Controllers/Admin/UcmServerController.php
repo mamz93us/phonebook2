@@ -8,14 +8,17 @@ use Illuminate\Http\Request;
 
 class UcmServerController extends Controller
 {
+    // Accepts URLs with ports like https://host:8089
+    protected array $urlRules = [
+        'name'         => 'required|string|max:100',
+        'url'          => ['required', 'string', 'max:255', 'regex:/^https?:\/\/.+/'],
+        'api_username' => 'required|string|max:100',
+        'api_password' => 'required|string|max:255',
+    ];
+
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'name'         => 'required|string|max:100',
-            'url'          => 'required|url|max:255',
-            'api_username' => 'required|string|max:100',
-            'api_password' => 'required|string|max:255',
-        ]);
+        $data = $request->validate($this->urlRules);
 
         UcmServer::create($data);
 
@@ -27,7 +30,7 @@ class UcmServerController extends Controller
     {
         $data = $request->validate([
             'name'         => 'required|string|max:100',
-            'url'          => 'required|url|max:255',
+            'url'          => ['required', 'string', 'max:255', 'regex:/^https?:\/\/.+/'],
             'api_username' => 'required|string|max:100',
             'api_password' => 'nullable|string|max:255',
         ]);
