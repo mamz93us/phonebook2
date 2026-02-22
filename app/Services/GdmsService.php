@@ -117,4 +117,95 @@ class GdmsService
 
         return $data['data'] ?? [];
     }
+
+    /**
+     * Fetch SIP accounts for a device via the device/detail polling API.
+     *
+     * Mirrors the PHP script pattern: trigger with isFirst=1, then poll
+     * with isFirst=0 until accounts arrive (up to 20 × 3 s = 60 s).
+     *
+     * @param  string $rawMac  MAC in any format (ec74d7800474 or EC:74:D7:80:04:74)
+     * @return array|null      sipAccountList array, or null if device unreachable
+     */
+    public function getDeviceAccounts(string $rawMac): ?array
+    {
+        $token = $this->getToken();
+        $mac   = $this->formatMacForApi($rawMac); // → EC:74:D7:80:04:74
+
+        // Step 1: trigger device to push its data
+        $this->callDeviceDetail($token, $mac, 1);
+
+        // Step 2: poll until accounts appear
+        for ($i = 0; $i < 20; $i++) {
+            sleep(3);
+            $res     = $this->callDeviceDetail($token, $mac, 0);
+            $retCode = $res['retCode'] ?? -1;
+            $sipList = $res['data']['sipAccountList']
+                    ?? $res['data']['fxsPortList']
+                    ?? [];
+
+            if ($retCode === 0 && ! empty($sipList)) {
+                return $sipList;
+            }
+
+            if ($retCode !== 0) {
+                break; // API error – stop polling
+            }
+            // retCode=0 but empty → device hasn't responded yet, keep polling
+        }
+
+        return null;
+    }
+
+    /**
+     * Call /v1.0.0/device/detail with the signature pattern from the PHP reference script.
+     * Signature covers: access_token, client_id, client_secret, timestamp (no orgId).
+     */
+    private function callDeviceDetail(string $token, string $mac, int $isFirst): array
+    {
+        $timestamp = (string) round(microtime(true) * 1000);
+        $bodyJson  = json_encode(
+            ['mac' => $mac, 'isFirst' => (string) $isFirst],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        $sigParams = [
+            'access_token'  => $token,
+            'client_id'     => $this->clientId,
+            'client_secret' => $this->clientSecret,
+            'timestamp'     => $timestamp,
+        ];
+
+        ksort($sigParams, SORT_STRING);
+
+        $pairs = [];
+        foreach ($sigParams as $k => $v) {
+            $pairs[] = "$k=$v";
+        }
+
+        $toSign    = '&' . implode('&', $pairs) . '&' . hash('sha256', $bodyJson) . '&';
+        $signature = hash('sha256', $toSign);
+
+        $url = "{$this->baseUrl}/v1.0.0/device/detail"
+             . '?access_token=' . urlencode($token)
+             . "&timestamp={$timestamp}"
+             . "&signature={$signature}";
+
+        $response = Http::withOptions(['verify' => false])
+            ->withBody($bodyJson, 'application/json')
+            ->post($url);
+
+        return $response->json() ?? [];
+    }
+
+    /**
+     * Normalize any MAC format to colon-separated uppercase.
+     * ec74d7800474  →  EC:74:D7:80:04:74
+     */
+    private function formatMacForApi(string $mac): string
+    {
+        $hex = strtoupper(preg_replace('/[^0-9a-fA-F]/', '', $mac));
+
+        return implode(':', str_split($hex, 2));
+    }
 }
