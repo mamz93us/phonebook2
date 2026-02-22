@@ -74,18 +74,23 @@ class ExtensionController extends Controller
 
         try {
             $api = new IppbxApiService($ucm);
-            $api->createExtension([
-                'extension'        => $data['extension'],
-                'secret'           => $data['secret'],
-                'user_password'    => $data['user_password'],
-                'fullname'         => $data['fullname'] ?? '',
-                'email'            => $data['email'] ?? '',
-                'permission'       => $data['permission'],
-                'max_contacts'     => (string) ($data['max_contacts'] ?? 3),
-                'voicemail_enable' => $request->has('voicemail_enable') ? 'yes' : 'no',
-                'call_waiting'     => $request->has('call_waiting')     ? 'yes' : 'no',
-                'dnd'              => $request->has('dnd')              ? 'yes' : 'no',
-            ]);
+
+            // Build payload — only include optional fields if not empty
+            $payload = [
+                'extension'    => $data['extension'],
+                'secret'       => $data['secret'],
+                'user_password'=> $data['user_password'],
+                'permission'   => $data['permission'],
+                'max_contacts' => (string) ($data['max_contacts'] ?? 3),
+                'hasvoicemail' => $request->has('voicemail_enable') ? 'yes' : 'no',
+                'call_waiting' => $request->has('call_waiting')     ? 'yes' : 'no',
+                'dnd'          => $request->has('dnd')              ? 'yes' : 'no',
+            ];
+
+            if (!empty($data['fullname'])) $payload['fullname'] = $data['fullname'];
+            if (!empty($data['email']))    $payload['email']    = $data['email'];
+
+            $api->createExtension($payload);
         } catch (\Exception $e) {
             return back()
                 ->withInput()
@@ -116,22 +121,16 @@ class ExtensionController extends Controller
         $ucm = UcmServer::findOrFail($data['ucm_id']);
 
         $updateData = [
-            'permission'       => $data['permission'],
-            'max_contacts'     => (string) ($data['max_contacts'] ?? 3),
-            'voicemail_enable' => $request->has('voicemail_enable') ? 'yes' : 'no',
-            'call_waiting'     => $request->has('call_waiting')     ? 'yes' : 'no',
-            'dnd'              => $request->has('dnd')              ? 'yes' : 'no',
+            'permission'   => $data['permission'],
+            'max_contacts' => (string) ($data['max_contacts'] ?? 3),
+            'hasvoicemail' => $request->has('voicemail_enable') ? 'yes' : 'no',
+            'call_waiting' => $request->has('call_waiting')     ? 'yes' : 'no',
+            'dnd'          => $request->has('dnd')              ? 'yes' : 'no',
         ];
 
-        if (!empty($data['fullname'])) {
-            $updateData['fullname'] = $data['fullname'];
-        }
-        if (!empty($data['email'])) {
-            $updateData['email'] = $data['email'];
-        }
-        if (!empty($data['secret'])) {
-            $updateData['secret'] = $data['secret'];
-        }
+        if (!empty($data['fullname'])) $updateData['fullname'] = $data['fullname'];
+        if (!empty($data['email']))    $updateData['email']    = $data['email'];
+        if (!empty($data['secret']))   $updateData['secret']   = $data['secret'];
 
         try {
             $api = new IppbxApiService($ucm);
