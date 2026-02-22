@@ -57,4 +57,23 @@ class PhoneRequestLogController extends Controller
         return redirect()->route('admin.phone-logs.index')
             ->with('success', 'SIP accounts synced successfully from GDMS.');
     }
+
+    /**
+     * Sync only devices that have no entries in phone_accounts yet.
+     */
+    public function syncUnsynced()
+    {
+        set_time_limit(0);
+
+        Artisan::call('gdms:sync-device-accounts', ['--unsynced' => true]);
+
+        $output = Artisan::output();
+
+        $message = str_contains($output, 'Nothing to do')
+            ? 'All devices were already synced — nothing to do.'
+            : 'Unsynced devices fetched from GDMS successfully.';
+
+        return redirect()->route('admin.phone-logs.index')
+            ->with('success', $message);
+    }
 }

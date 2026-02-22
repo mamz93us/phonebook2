@@ -11,18 +11,32 @@ use Illuminate\Support\Facades\Log;
 class SyncDeviceAccounts extends Command
 {
     protected $signature   = 'gdms:sync-device-accounts
-                                {--mac= : Sync a single MAC address only (any format)}';
+                                {--mac=      : Sync a single MAC address only (any format)}
+                                {--unsynced  : Only sync devices that have no account data yet}';
 
     protected $description = 'Fetch SIP accounts for known phone MACs from GDMS and store in phone_accounts table';
 
     public function handle(GdmsService $gdms): int
     {
-        $onlyMac = $this->option('mac');
+        $onlyMac     = $this->option('mac');
+        $onlyUnsynced = $this->option('unsynced');
 
         if ($onlyMac) {
             // Normalize to the stored format: lowercase, no separators
             $normalizedMac = strtolower(preg_replace('/[^0-9a-fA-F]/', '', $onlyMac));
             $macs = collect([$normalizedMac]);
+        } elseif ($onlyUnsynced) {
+            // Devices in phone_request_logs that have NO rows in phone_accounts yet
+            $syncedMacs = PhoneAccount::distinct()->pluck('mac');
+            $macs = PhoneRequestLog::whereNotNull('mac')
+                ->whereNotIn('mac', $syncedMacs)
+                ->distinct()
+                ->pluck('mac');
+
+            if ($macs->isEmpty()) {
+                $this->info('All devices are already synced. Nothing to do.');
+                return self::SUCCESS;
+            }
         } else {
             $macs = PhoneRequestLog::whereNotNull('mac')
                 ->distinct()

@@ -92,6 +92,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('phone-logs.index');
     Route::post('phone-logs/sync', [PhoneRequestLogController::class, 'sync'])
         ->name('phone-logs.sync');
+    Route::post('phone-logs/sync-unsynced', [PhoneRequestLogController::class, 'syncUnsynced'])
+        ->name('phone-logs.sync-unsynced');
 
     // Activity Logs
     Route::get('activity-logs', [ActivityLogController::class, 'index'])
