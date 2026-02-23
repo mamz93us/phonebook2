@@ -68,7 +68,7 @@
                             {{ \App\Models\User::roleLabel($user->role) }}
                         </span>
                     </td>
-                    <td class="text-muted small">{{ $user->created_at->format('d M Y') }}</td>
+                    <td class="text-muted small">{{ $user->created_at?->format('d M Y') ?? '—' }}</td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-outline-primary me-1"
                             data-bs-toggle="modal"
