@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\ExtensionController;
 use App\Http\Controllers\Admin\TrunkController;
 use App\Http\Controllers\Admin\UcmServerController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\PermissionsController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
@@ -66,30 +67,96 @@ Route::middleware('auth')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Admin Routes (Protected by auth)
+| Admin Routes (Protected by auth + per-route permissions)
 |--------------------------------------------------------------------------
 */
 
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
 
-    // Dashboard
+    // Dashboard (all authenticated users)
     Route::get('/', function () {
         return view('admin.dashboard');
     })->name('dashboard');
 
-    // Branches
-    Route::resource('branches', BranchController::class)->except(['show']);
+    // XML preview (all authenticated)
+    Route::get('xml-preview', [PhonebookController::class, 'preview'])
+        ->name('xml.preview');
 
-    // Contacts
-    Route::resource('contacts', ContactController::class)->except(['show']);
+    // ─── Branches ─────────────────────────────────────────────
+    Route::middleware('permission:view-branches')->group(function () {
+        Route::get('branches', [BranchController::class, 'index'])->name('branches.index');
+        Route::get('branches/create', [BranchController::class, 'create'])->name('branches.create');
+        Route::get('branches/{branch}/edit', [BranchController::class, 'edit'])->name('branches.edit');
+    });
+    Route::middleware('permission:manage-branches')->group(function () {
+        Route::post('branches', [BranchController::class, 'store'])->name('branches.store');
+        Route::put('branches/{branch}', [BranchController::class, 'update'])->name('branches.update');
+        Route::patch('branches/{branch}', [BranchController::class, 'update']);
+        Route::delete('branches/{branch}', [BranchController::class, 'destroy'])->name('branches.destroy');
+    });
 
-    Route::get('contacts-export', [ContactController::class, 'export'])
-        ->name('contacts.export');
-    Route::post('contacts/check-duplicate', [ContactController::class, 'checkDuplicate'])
-        ->name('contacts.check-duplicate');
+    // ─── Contacts ─────────────────────────────────────────────
+    Route::middleware('permission:view-contacts')->group(function () {
+        Route::get('contacts', [ContactController::class, 'index'])->name('contacts.index');
+        Route::get('contacts/create', [ContactController::class, 'create'])->name('contacts.create');
+        Route::get('contacts/{contact}/edit', [ContactController::class, 'edit'])->name('contacts.edit');
+        Route::post('contacts/check-duplicate', [ContactController::class, 'checkDuplicate'])
+            ->name('contacts.check-duplicate');
+    });
+    Route::middleware('permission:manage-contacts')->group(function () {
+        Route::post('contacts', [ContactController::class, 'store'])->name('contacts.store');
+        Route::put('contacts/{contact}', [ContactController::class, 'update'])->name('contacts.update');
+        Route::patch('contacts/{contact}', [ContactController::class, 'update']);
+        Route::delete('contacts/{contact}', [ContactController::class, 'destroy'])->name('contacts.destroy');
+    });
+    Route::middleware('permission:export-contacts')->group(function () {
+        Route::get('contacts-export', [ContactController::class, 'export'])->name('contacts.export');
+    });
 
-    // Settings (admin + super_admin only)
-    Route::middleware('role:super_admin,admin')->group(function () {
+    // ─── Activity Logs ────────────────────────────────────────
+    Route::middleware('permission:view-activity-logs')->group(function () {
+        Route::get('activity-logs', [ActivityLogController::class, 'index'])
+            ->name('activity-logs');
+    });
+
+    // ─── Phone XML Logs ───────────────────────────────────────
+    Route::middleware('permission:view-phone-logs')->group(function () {
+        Route::get('phone-logs', [PhoneRequestLogController::class, 'index'])
+            ->name('phone-logs.index');
+    });
+    Route::middleware('permission:sync-phone-logs')->group(function () {
+        Route::post('phone-logs/sync', [PhoneRequestLogController::class, 'sync'])
+            ->name('phone-logs.sync');
+        Route::post('phone-logs/sync-unsynced', [PhoneRequestLogController::class, 'syncUnsynced'])
+            ->name('phone-logs.sync-unsynced');
+    });
+
+    // ─── Extensions (IPPBX) ───────────────────────────────────
+    Route::middleware('permission:view-extensions')->group(function () {
+        Route::get('extensions', [ExtensionController::class, 'index'])
+            ->name('extensions.index');
+        Route::get('extensions/{extension}/details', [ExtensionController::class, 'details'])
+            ->name('extensions.details');
+        Route::get('extensions/{extension}/wave', [ExtensionController::class, 'wave'])
+            ->name('extensions.wave');
+    });
+    Route::middleware('permission:manage-extensions')->group(function () {
+        Route::post('extensions', [ExtensionController::class, 'store'])
+            ->name('extensions.store');
+        Route::put('extensions/{extension}', [ExtensionController::class, 'update'])
+            ->name('extensions.update');
+        Route::delete('extensions/{extension}', [ExtensionController::class, 'destroy'])
+            ->name('extensions.destroy');
+    });
+
+    // ─── VoIP Trunks ──────────────────────────────────────────
+    Route::middleware('permission:view-trunks')->group(function () {
+        Route::get('trunks', [TrunkController::class, 'index'])
+            ->name('trunks.index');
+    });
+
+    // ─── Settings ─────────────────────────────────────────────
+    Route::middleware('permission:manage-settings')->group(function () {
         Route::get('settings', [SettingsController::class, 'index'])
             ->name('settings.index');
         Route::post('settings', [SettingsController::class, 'update'])
@@ -100,44 +167,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('settings.sso');
     });
 
-    // Phone Logs
-    Route::get('phone-logs', [PhoneRequestLogController::class, 'index'])
-        ->name('phone-logs.index');
-    Route::post('phone-logs/sync', [PhoneRequestLogController::class, 'sync'])
-        ->name('phone-logs.sync');
-    Route::post('phone-logs/sync-unsynced', [PhoneRequestLogController::class, 'syncUnsynced'])
-        ->name('phone-logs.sync-unsynced');
-
-    // Activity Logs
-    Route::get('activity-logs', [ActivityLogController::class, 'index'])
-        ->name('activity-logs');
-
-    // XML preview
-    Route::get('xml-preview', [PhonebookController::class, 'preview'])
-        ->name('xml.preview');
-
-    // ─── Extensions (IPPBX) ───────────────────────────────────
-    Route::get('extensions', [ExtensionController::class, 'index'])
-        ->name('extensions.index');
-    Route::get('extensions/{extension}/details', [ExtensionController::class, 'details'])
-        ->name('extensions.details');
-    Route::get('extensions/{extension}/wave', [ExtensionController::class, 'wave'])
-        ->name('extensions.wave');
-    Route::middleware('role:super_admin,admin')->group(function () {
-        Route::post('extensions', [ExtensionController::class, 'store'])
-            ->name('extensions.store');
-        Route::put('extensions/{extension}', [ExtensionController::class, 'update'])
-            ->name('extensions.update');
-        Route::delete('extensions/{extension}', [ExtensionController::class, 'destroy'])
-            ->name('extensions.destroy');
-    });
-
-    // ─── VoIP Trunks ──────────────────────────────────────────
-    Route::get('trunks', [TrunkController::class, 'index'])
-        ->name('trunks.index');
-
     // ─── UCM Servers (managed from Settings page) ─────────────
-    Route::middleware('role:super_admin,admin')->group(function () {
+    Route::middleware('permission:manage-settings')->group(function () {
         Route::post('ucm-servers', [UcmServerController::class, 'store'])
             ->name('ucm-servers.store');
         Route::put('ucm-servers/{ucmServer}', [UcmServerController::class, 'update'])
@@ -148,8 +179,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('ucm-servers.toggle');
     });
 
-    // ─── User Management (super_admin only) ───────────────────
-    Route::middleware('role:super_admin')->group(function () {
+    // ─── User Management ──────────────────────────────────────
+    Route::middleware('permission:manage-users')->group(function () {
         Route::get('users', [UserController::class, 'index'])
             ->name('users.index');
         Route::post('users', [UserController::class, 'store'])
@@ -158,6 +189,14 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('users.update');
         Route::delete('users/{user}', [UserController::class, 'destroy'])
             ->name('users.destroy');
+    });
+
+    // ─── Role Permissions ─────────────────────────────────────
+    Route::middleware('permission:manage-permissions')->group(function () {
+        Route::get('permissions', [PermissionsController::class, 'index'])
+            ->name('permissions.index');
+        Route::put('permissions', [PermissionsController::class, 'update'])
+            ->name('permissions.update');
     });
 });
 

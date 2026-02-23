@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use App\Models\Contact;
 use App\Models\Branch;
+use App\Models\RolePermission;
 use App\Observers\ContactObserver;
 use App\Observers\BranchObserver;
 
@@ -29,14 +30,23 @@ class AppServiceProvider extends ServiceProvider
             \SocialiteProviders\Microsoft\MicrosoftExtendSocialite::class.'@handle'
         );
 
-        // ── Permission Gates ───────────────────────────────────
-        // manage-users: create/edit/delete users (super_admin only)
-        Gate::define('manage-users', fn($user) => $user->role === 'super_admin');
+        // ── Permission Gates (DB-driven via role_permissions table) ──
+        // Each gate maps to a permission slug. Falls back gracefully if
+        // the table doesn't exist yet (before migration runs).
+        $gateCheck = function ($user, string $permission): bool {
+            try {
+                return RolePermission::roleHas($user->role ?? '', $permission);
+            } catch (\Exception) {
+                return false;
+            }
+        };
 
-        // edit-content: create/edit/delete any data (super_admin + admin)
-        Gate::define('edit-content', fn($user) => in_array($user->role, ['super_admin', 'admin']));
+        // Register a gate for every known permission slug
+        foreach (RolePermission::allSlugs() as $slug) {
+            Gate::define($slug, fn($user) => $gateCheck($user, $slug));
+        }
 
-        // manage-settings: access settings page (super_admin + admin)
-        Gate::define('manage-settings', fn($user) => in_array($user->role, ['super_admin', 'admin']));
+        // Legacy aliases for existing @can() calls in blade templates
+        Gate::define('edit-content', fn($user) => $gateCheck($user, 'manage-contacts'));
     }
 }

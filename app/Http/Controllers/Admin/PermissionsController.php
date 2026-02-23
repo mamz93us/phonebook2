@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\RolePermission;
+use Illuminate\Http\Request;
+
+class PermissionsController extends Controller
+{
+    public function index()
+    {
+        $roles       = ['super_admin', 'admin', 'viewer'];
+        $permissions = RolePermission::allPermissions();   // grouped
+        $allSlugs    = RolePermission::allSlugs();
+
+        // Build a quick-lookup: role => [slug => bool]
+        $matrix = [];
+        foreach ($roles as $role) {
+            $granted = RolePermission::forRole($role);
+            foreach ($allSlugs as $slug) {
+                $matrix[$role][$slug] = in_array($slug, $granted);
+            }
+        }
+
+        return view('admin.permissions.index', compact('roles', 'permissions', 'allSlugs', 'matrix'));
+    }
+
+    public function update(Request $request)
+    {
+        $roles   = ['super_admin', 'admin', 'viewer'];
+        $allSlugs = RolePermission::allSlugs();
+
+        // super_admin always keeps manage-users and manage-permissions
+        $forced = ['manage-users', 'manage-permissions'];
+
+        $now  = now();
+        $rows = [];
+
+        foreach ($roles as $role) {
+            $submitted = $request->input("permissions.{$role}", []);
+
+            foreach ($allSlugs as $slug) {
+                $has = isset($submitted[$slug])
+                    || ($role === 'super_admin' && in_array($slug, $forced));
+
+                if ($has) {
+                    $rows[] = [
+                        'role'       => $role,
+                        'permission' => $slug,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+        }
+
+        // Replace all permissions
+        RolePermission::truncate();
+        if (!empty($rows)) {
+            RolePermission::insert($rows);
+        }
+        RolePermission::clearCache();
+
+        return redirect()->route('admin.permissions.index')
+            ->with('success', 'Role permissions updated successfully.');
+    }
+}

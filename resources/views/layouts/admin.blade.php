@@ -41,46 +41,74 @@
             <div class="collapse navbar-collapse" id="navbarNav">
 
                 <ul class="navbar-nav me-auto">
+                    @can('view-branches')
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/branches*') ? 'active' : '' }}" href="/admin/branches">
                             Branches
                         </a>
                     </li>
+                    @endcan
 
+                    @can('view-contacts')
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/contacts*') ? 'active' : '' }}" href="/admin/contacts">
                             Contacts
                         </a>
                     </li>
+                    @endcan
 
+                    @can('view-activity-logs')
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/activity-logs*') ? 'active' : '' }}" href="/admin/activity-logs">
                             Activity Logs
                         </a>
                     </li>
+                    @endcan
 
+                    @can('view-phone-logs')
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/phone-logs*') ? 'active' : '' }}" href="/admin/phone-logs">
                             Phone XML Logs
                         </a>
                     </li>
+                    @endcan
 
+                    @can('view-extensions')
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/extensions*') ? 'active' : '' }}" href="/admin/extensions">
                             <i class="bi bi-telephone-fill me-1"></i>Extensions
                         </a>
                     </li>
+                    @endcan
 
+                    @can('view-trunks')
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/trunks*') ? 'active' : '' }}" href="/admin/trunks">
                             <i class="bi bi-diagram-3-fill me-1"></i>Trunks
                         </a>
                     </li>
+                    @endcan
 
                     @can('manage-settings')
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}" href="/admin/settings">
-                            Settings
+                            <i class="bi bi-gear me-1"></i>Settings
+                        </a>
+                    </li>
+                    @endcan
+
+                    @can('manage-users')
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->is('admin/users*') ? 'active' : '' }}" href="{{ route('admin.users.index') }}">
+                            <i class="bi bi-people me-1"></i>Users
+                        </a>
+                    </li>
+                    @endcan
+
+                    @can('manage-permissions')
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->is('admin/permissions*') ? 'active' : '' }}" href="{{ route('admin.permissions.index') }}">
+                            <i class="bi bi-shield-lock me-1"></i>Permissions
                         </a>
                     </li>
                     @endcan
@@ -113,14 +141,6 @@
                                     <i class="bi bi-key me-2"></i>Change Password
                                 </a>
                             </li>
-                            @can('manage-users')
-                            <li>
-                                <a class="dropdown-item {{ request()->is('admin/users*') ? 'active' : '' }}"
-                                   href="{{ route('admin.users.index') }}">
-                                    <i class="bi bi-people me-2"></i>Manage Users
-                                </a>
-                            </li>
-                            @endcan
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form method="POST" action="/logout">
