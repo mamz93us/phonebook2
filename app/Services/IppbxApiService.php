@@ -240,7 +240,6 @@ class IppbxApiService
         $resp = $this->post([
             'action'   => 'listVoIPTrunk',
             'cookie'   => $this->cookie,
-            'options'  => 'trunk_index,trunk_name,host,trunk_type,username,trunks.out_of_service',
             'page'     => (string) $page,
             'item_num' => (string) $itemNum,
             'sidx'     => 'trunk_index',

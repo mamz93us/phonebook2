@@ -96,6 +96,7 @@
                         <th>Type</th>
                         <th>Username</th>
                         <th>Status</th>
+                        <th>Reachable</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -107,6 +108,12 @@
                             default    => 'secondary',
                         };
                         $outOfService = ($trunk['out_of_service'] ?? 'no') === 'yes';
+
+                        // 'reachable' field — UCM may return 'yes'/'no' or '0'/'1'
+                        $reachRaw  = $trunk['reachable'] ?? null;
+                        $reachable = in_array($reachRaw, ['yes', '1', 1, true], true)
+                                        ? 'yes'
+                                        : ($reachRaw === null ? null : 'no');
                     @endphp
                     <tr>
                         <td class="text-muted">{{ $trunk['trunk_index'] ?? '-' }}</td>
@@ -139,6 +146,19 @@
                                 <span class="badge bg-success">
                                     <i class="bi bi-check-circle me-1"></i>Active
                                 </span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($reachable === 'yes')
+                                <span class="badge bg-success">
+                                    <i class="bi bi-wifi me-1"></i>Reachable
+                                </span>
+                            @elseif($reachable === 'no')
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-wifi-off me-1"></i>Unreachable
+                                </span>
+                            @else
+                                <span class="text-muted small">—</span>
                             @endif
                         </td>
                     </tr>
