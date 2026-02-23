@@ -95,7 +95,7 @@
                         <th>Host</th>
                         <th>Type</th>
                         <th>Username</th>
-                        <th>Status</th>
+                        <th>Admin Status</th>
                         <th>Reachable</th>
                     </tr>
                 </thead>
@@ -109,11 +109,24 @@
                         };
                         $outOfService = ($trunk['out_of_service'] ?? 'no') === 'yes';
 
-                        // 'reachable' field — UCM may return 'yes'/'no' or '0'/'1'
-                        $reachRaw  = $trunk['reachable'] ?? null;
-                        $reachable = in_array($reachRaw, ['yes', '1', 1, true], true)
-                                        ? 'yes'
-                                        : ($reachRaw === null ? null : 'no');
+                        // status field from UCM
+                        $trunkStatus = $trunk['status'] ?? null;
+                        $statusColor = match($trunkStatus) {
+                            'Reachable', 'Registered'               => 'success',
+                            'Unreachable', 'Unregistered', 'Failed',
+                            'Rejected', 'Timeout'                   => 'danger',
+                            'Lagged'                                => 'warning',
+                            'Request Sent'                          => 'info',
+                            default                                 => 'secondary',
+                        };
+                        $statusIcon = match($trunkStatus) {
+                            'Reachable', 'Registered'               => 'bi-wifi',
+                            'Unreachable', 'Unregistered', 'Failed',
+                            'Rejected', 'Timeout'                   => 'bi-wifi-off',
+                            'Lagged'                                => 'bi-exclamation-triangle',
+                            'Request Sent'                          => 'bi-arrow-clockwise',
+                            default                                 => 'bi-question-circle',
+                        };
                     @endphp
                     <tr>
                         <td class="text-muted">{{ $trunk['trunk_index'] ?? '-' }}</td>
@@ -149,13 +162,9 @@
                             @endif
                         </td>
                         <td>
-                            @if($reachable === 'yes')
-                                <span class="badge bg-success">
-                                    <i class="bi bi-wifi me-1"></i>Reachable
-                                </span>
-                            @elseif($reachable === 'no')
-                                <span class="badge bg-danger">
-                                    <i class="bi bi-wifi-off me-1"></i>Unreachable
+                            @if($trunkStatus)
+                                <span class="badge bg-{{ $statusColor }}">
+                                    <i class="bi {{ $statusIcon }} me-1"></i>{{ $trunkStatus }}
                                 </span>
                             @else
                                 <span class="text-muted small">—</span>

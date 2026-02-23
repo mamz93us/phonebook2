@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\UcmServer;
 use App\Services\IppbxApiService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class TrunkController extends Controller
 {
@@ -29,9 +28,6 @@ class TrunkController extends Controller
                 try {
                     $api    = new IppbxApiService($selectedUcm);
                     $trunks = $api->listVoIPTrunks();
-                    if (!empty($trunks)) {
-                        Log::info('TrunkController: first trunk fields', ['keys' => array_keys($trunks[0]), 'data' => $trunks[0]]);
-                    }
                 } catch (\Exception $e) {
                     $error = 'Could not connect to UCM: ' . $e->getMessage();
                 }
@@ -42,9 +38,6 @@ class TrunkController extends Controller
             try {
                 $api    = new IppbxApiService($selectedUcm);
                 $trunks = $api->listVoIPTrunks();
-                if (!empty($trunks)) {
-                    Log::info('TrunkController: first trunk fields', ['keys' => array_keys($trunks[0]), 'data' => $trunks[0]]);
-                }
             } catch (\Exception $e) {
                 $error = 'Could not connect to UCM: ' . $e->getMessage();
             }
