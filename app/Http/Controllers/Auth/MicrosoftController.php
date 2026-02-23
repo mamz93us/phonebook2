@@ -57,11 +57,28 @@ class MicrosoftController extends Controller
     {
         $settings = Setting::get();
 
+        // Guard: if any required field is missing, fail early with a clear message
+        // instead of letting Azure return a cryptic 401.
+        $clientId     = $settings->sso_client_id;
+        $clientSecret = $settings->sso_client_secret;  // decrypted by accessor
+        $tenantId     = $settings->sso_tenant_id;
+
+        if (!$clientId || !$clientSecret || !$tenantId) {
+            abort(redirect()->route('login')->with(
+                'error',
+                'SSO is not fully configured. ' .
+                'Please check Settings → SSO (Tenant ID, Client ID, and Client Secret must all be set). ' .
+                ($clientSecret === null && $settings->getRawOriginal('sso_client_secret')
+                    ? 'The stored client secret could not be decrypted — please re-enter it.'
+                    : '')
+            ));
+        }
+
         Config::set('services.microsoft', [
-            'client_id'     => $settings->sso_client_id,
-            'client_secret' => $settings->sso_client_secret,
+            'client_id'     => $clientId,
+            'client_secret' => $clientSecret,
             'redirect'      => url('/auth/microsoft/callback'),
-            'tenant'        => $settings->sso_tenant_id ?? 'common',
+            'tenant'        => $tenantId,
         ]);
     }
 }
