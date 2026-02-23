@@ -48,7 +48,9 @@ class MicrosoftController extends Controller
 
         Auth::login($user, true);
 
-        return redirect()->intended(route('admin.dashboard'));
+        // Use route() directly — intended() can point back to /login if user
+        // navigated there manually, causing an infinite redirect loop.
+        return redirect()->route('admin.dashboard');
     }
 
     private function configureSocialite(): void
