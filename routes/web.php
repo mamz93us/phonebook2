@@ -9,6 +9,8 @@ use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\ExtensionController;
 use App\Http\Controllers\Admin\TrunkController;
 use App\Http\Controllers\Admin\UcmServerController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
 use App\Http\Controllers\PhoneRequestLogController;
@@ -19,23 +21,29 @@ use App\Http\Controllers\PhoneRequestLogController;
 |--------------------------------------------------------------------------
 */
 
-// Welcome page
 Route::get('/', function () {
     return view('welcome');
 });
 
-// XML for Phones
 Route::get('/phonebook.xml', [PhonebookController::class, 'generate'])
     ->withoutMiddleware(['web'])
     ->name('phonebook.xml');
 
-// Public Contact Directory
 Route::get('/contacts', [PublicContactController::class, 'index'])
     ->name('public.contacts');
 
-// Public Contact Print
 Route::get('/contacts/print', [PublicContactController::class, 'print'])
     ->name('public.contacts.print');
+
+/*
+|--------------------------------------------------------------------------
+| Microsoft SSO
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/auth/microsoft', [MicrosoftController::class, 'redirect'])
+    ->name('auth.microsoft');
+Route::get('/auth/microsoft/callback', [MicrosoftController::class, 'callback']);
 
 /*
 |--------------------------------------------------------------------------
@@ -43,16 +51,17 @@ Route::get('/contacts/print', [PublicContactController::class, 'print'])
 |--------------------------------------------------------------------------
 */
 
-// Dashboard redirect
 Route::get('/dashboard', function () {
     return redirect()->route('admin.dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-// Profile routes
+// Profile (change password modal)
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::put('/admin/profile/password', [ProfileController::class, 'updatePassword'])
+        ->name('admin.profile.password');
 });
 
 /*
@@ -69,28 +78,29 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     })->name('dashboard');
 
     // Branches
-    Route::resource('branches', BranchController::class)
-        ->except(['show']);
+    Route::resource('branches', BranchController::class)->except(['show']);
 
     // Contacts
-    Route::resource('contacts', ContactController::class)
-        ->except(['show']);
+    Route::resource('contacts', ContactController::class)->except(['show']);
 
-    // Contact Export
     Route::get('contacts-export', [ContactController::class, 'export'])
         ->name('contacts.export');
-
-    // Check Duplicate Email (AJAX)
     Route::post('contacts/check-duplicate', [ContactController::class, 'checkDuplicate'])
         ->name('contacts.check-duplicate');
 
-    // Settings
-    Route::get('settings', [SettingsController::class, 'index'])
-        ->name('settings.index');
-    Route::post('settings', [SettingsController::class, 'update'])
-        ->name('settings.update');
-    Route::delete('settings/logo', [SettingsController::class, 'deleteLogo'])
-        ->name('settings.delete-logo');
+    // Settings (admin + super_admin only)
+    Route::middleware('role:super_admin,admin')->group(function () {
+        Route::get('settings', [SettingsController::class, 'index'])
+            ->name('settings.index');
+        Route::post('settings', [SettingsController::class, 'update'])
+            ->name('settings.update');
+        Route::delete('settings/logo', [SettingsController::class, 'deleteLogo'])
+            ->name('settings.delete-logo');
+        Route::post('settings/sso', [SettingsController::class, 'updateSso'])
+            ->name('settings.sso');
+    });
+
+    // Phone Logs
     Route::get('phone-logs', [PhoneRequestLogController::class, 'index'])
         ->name('phone-logs.index');
     Route::post('phone-logs/sync', [PhoneRequestLogController::class, 'sync'])
@@ -109,30 +119,46 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // ─── Extensions (IPPBX) ───────────────────────────────────
     Route::get('extensions', [ExtensionController::class, 'index'])
         ->name('extensions.index');
-    Route::post('extensions', [ExtensionController::class, 'store'])
-        ->name('extensions.store');
-    Route::put('extensions/{extension}', [ExtensionController::class, 'update'])
-        ->name('extensions.update');
-    Route::delete('extensions/{extension}', [ExtensionController::class, 'destroy'])
-        ->name('extensions.destroy');
     Route::get('extensions/{extension}/details', [ExtensionController::class, 'details'])
         ->name('extensions.details');
     Route::get('extensions/{extension}/wave', [ExtensionController::class, 'wave'])
         ->name('extensions.wave');
+    Route::middleware('role:super_admin,admin')->group(function () {
+        Route::post('extensions', [ExtensionController::class, 'store'])
+            ->name('extensions.store');
+        Route::put('extensions/{extension}', [ExtensionController::class, 'update'])
+            ->name('extensions.update');
+        Route::delete('extensions/{extension}', [ExtensionController::class, 'destroy'])
+            ->name('extensions.destroy');
+    });
 
     // ─── VoIP Trunks ──────────────────────────────────────────
     Route::get('trunks', [TrunkController::class, 'index'])
         ->name('trunks.index');
 
     // ─── UCM Servers (managed from Settings page) ─────────────
-    Route::post('ucm-servers', [UcmServerController::class, 'store'])
-        ->name('ucm-servers.store');
-    Route::put('ucm-servers/{ucmServer}', [UcmServerController::class, 'update'])
-        ->name('ucm-servers.update');
-    Route::delete('ucm-servers/{ucmServer}', [UcmServerController::class, 'destroy'])
-        ->name('ucm-servers.destroy');
-    Route::patch('ucm-servers/{ucmServer}/toggle', [UcmServerController::class, 'toggleActive'])
-        ->name('ucm-servers.toggle');
+    Route::middleware('role:super_admin,admin')->group(function () {
+        Route::post('ucm-servers', [UcmServerController::class, 'store'])
+            ->name('ucm-servers.store');
+        Route::put('ucm-servers/{ucmServer}', [UcmServerController::class, 'update'])
+            ->name('ucm-servers.update');
+        Route::delete('ucm-servers/{ucmServer}', [UcmServerController::class, 'destroy'])
+            ->name('ucm-servers.destroy');
+        Route::patch('ucm-servers/{ucmServer}/toggle', [UcmServerController::class, 'toggleActive'])
+            ->name('ucm-servers.toggle');
+    });
+
+    // ─── User Management (super_admin only) ───────────────────
+    Route::middleware('role:super_admin')->group(function () {
+        Route::get('users', [UserController::class, 'index'])
+            ->name('users.index');
+        Route::post('users', [UserController::class, 'store'])
+            ->name('users.store');
+        Route::put('users/{user}', [UserController::class, 'update'])
+            ->name('users.update');
+        Route::delete('users/{user}', [UserController::class, 'destroy'])
+            ->name('users.destroy');
+    });
 });
 
 /*

@@ -70,4 +70,34 @@ class SettingsController extends Controller
             ->route('admin.settings.index')
             ->with('success', 'Logo deleted successfully.');
     }
+
+    /**
+     * Update Microsoft SSO settings
+     */
+    public function updateSso(Request $request)
+    {
+        $request->validate([
+            'sso_tenant_id'     => 'nullable|string|max:100',
+            'sso_client_id'     => 'nullable|string|max:100',
+            'sso_client_secret' => 'nullable|string|max:500',
+            'sso_default_role'  => 'required|in:super_admin,admin,viewer',
+        ]);
+
+        $settings = Setting::get();
+        $settings->sso_enabled      = $request->boolean('sso_enabled');
+        $settings->sso_tenant_id    = $request->sso_tenant_id;
+        $settings->sso_client_id    = $request->sso_client_id;
+        $settings->sso_default_role = $request->sso_default_role;
+
+        // Only overwrite the secret if a new one was supplied
+        if ($request->filled('sso_client_secret')) {
+            $settings->sso_client_secret = $request->sso_client_secret;
+        }
+
+        $settings->save();
+
+        return redirect()
+            ->route('admin.settings.index')
+            ->with('success', 'SSO settings updated.');
+    }
 }

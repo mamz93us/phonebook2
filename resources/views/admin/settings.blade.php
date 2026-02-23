@@ -84,6 +84,87 @@
 </div>
 
 {{-- ─────────────────────────────────────────────────────── --}}
+{{-- Microsoft SSO Section                                  --}}
+{{-- ─────────────────────────────────────────────────────── --}}
+<div class="card mt-4">
+    <div class="card-header d-flex align-items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
+            <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+            <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+            <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+            <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+        </svg>
+        <h5 class="mb-0">Microsoft SSO (Azure AD / Entra ID)</h5>
+        @if($settings->sso_enabled)
+            <span class="badge bg-success ms-auto">Enabled</span>
+        @else
+            <span class="badge bg-secondary ms-auto">Disabled</span>
+        @endif
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ route('admin.settings.sso') }}">
+            @csrf
+            <div class="row g-3 mb-3">
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="sso_enabled"
+                            id="sso_enabled" value="1" {{ $settings->sso_enabled ? 'checked' : '' }}>
+                        <label class="form-check-label fw-semibold" for="sso_enabled">
+                            Enable Microsoft SSO Login
+                        </label>
+                    </div>
+                    <div class="form-text">Users will see a "Sign in with Microsoft" button on the login page.</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Tenant ID</label>
+                    <input type="text" name="sso_tenant_id" class="form-control font-monospace"
+                        value="{{ old('sso_tenant_id', $settings->sso_tenant_id) }}"
+                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                    <div class="form-text">Azure Portal → App registrations → Directory (tenant) ID</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Client ID (Application ID)</label>
+                    <input type="text" name="sso_client_id" class="form-control font-monospace"
+                        value="{{ old('sso_client_id', $settings->sso_client_id) }}"
+                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                    <div class="form-text">Azure Portal → App registrations → Application (client) ID</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Client Secret</label>
+                    <input type="password" name="sso_client_secret" class="form-control"
+                        placeholder="{{ $settings->sso_client_secret ? '••••••••  (leave blank to keep current)' : 'Paste secret value here' }}">
+                    <div class="form-text">Azure Portal → App registrations → Certificates &amp; secrets</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Default Role for New SSO Users</label>
+                    <select name="sso_default_role" class="form-select">
+                        <option value="viewer"      {{ ($settings->sso_default_role ?? 'viewer') === 'viewer'      ? 'selected' : '' }}>Viewer (read-only)</option>
+                        <option value="admin"       {{ ($settings->sso_default_role ?? '') === 'admin'       ? 'selected' : '' }}>Admin</option>
+                        <option value="super_admin" {{ ($settings->sso_default_role ?? '') === 'super_admin' ? 'selected' : '' }}>Super Admin</option>
+                    </select>
+                    <div class="form-text">Role assigned when a new Microsoft user logs in for the first time.</div>
+                </div>
+            </div>
+
+            <div class="alert alert-info py-2 small mb-3">
+                <strong>Azure Redirect URI to register:</strong>
+                <code class="ms-1">{{ url('/auth/microsoft/callback') }}</code>
+            </div>
+
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i>Save SSO Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- ─────────────────────────────────────────────────────── --}}
 {{-- UCM Servers Section                                    --}}
 {{-- ─────────────────────────────────────────────────────── --}}
 <div class="card mt-4">
