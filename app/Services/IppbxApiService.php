@@ -231,6 +231,48 @@ class IppbxApiService
     }
 
     // ─────────────────────────────────────────────
+    // System Status
+    // ─────────────────────────────────────────────
+
+    /**
+     * Get system status (uptime, system time, serial number, part number)
+     */
+    public function getSystemStatus(): array
+    {
+        $this->ensureCookie();
+
+        $resp = $this->post([
+            'action' => 'getSystemStatus',
+            'cookie' => $this->cookie,
+        ]);
+
+        if (($resp['status'] ?? -1) !== 0) {
+            throw new \RuntimeException('getSystemStatus failed: ' . json_encode($resp));
+        }
+
+        return $resp['response'] ?? [];
+    }
+
+    /**
+     * Get system general status (firmware versions, product model)
+     */
+    public function getSystemGeneralStatus(): array
+    {
+        $this->ensureCookie();
+
+        $resp = $this->post([
+            'action' => 'getSystemGeneralStatus',
+            'cookie' => $this->cookie,
+        ]);
+
+        if (($resp['status'] ?? -1) !== 0) {
+            throw new \RuntimeException('getSystemGeneralStatus failed: ' . json_encode($resp));
+        }
+
+        return $resp['response'] ?? [];
+    }
+
+    // ─────────────────────────────────────────────
     // VoIP Trunks
     // ─────────────────────────────────────────────
 
