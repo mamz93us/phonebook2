@@ -119,23 +119,93 @@ class GdmsService
     }
 
     /**
-     * List all devices in GDMS, optionally filtering by productName prefix.
-     * e.g. listDevices(productName: 'UCM') returns only UCM devices.
-     * Each item includes: mac, deviceName, productName, firmwareVersion, deviceIp, online (1/0)
+     * List all devices in GDMS (/v1.0.0/device/list) — phones & endpoints.
+     * Optionally filter by a string that appears anywhere in productName.
+     * Returns the raw list; data path tried in order: dataList → list → direct array.
      */
     public function listDevices(int $pageNum = 1, int $pageSize = 1000, ?string $productName = null): array
+    {
+        $raw  = $this->postSigned('/v1.0.0/device/list', $pageNum, $pageSize);
+        $list = $this->extractList($raw);
+
+        if ($productName) {
+            $needle = strtoupper($productName);
+            $list   = array_values(array_filter($list, fn($d) =>
+                str_contains(strtoupper($d['productName'] ?? ''), $needle)
+            ));
+        }
+
+        return $list;
+    }
+
+    /**
+     * List On-Premise PBX / UCM devices from GDMS.
+     * Tries /v1.0.0/ucm/list first (UCM-specific endpoint).
+     * Falls back to filtering /v1.0.0/device/list if that endpoint fails.
+     *
+     * Returns array of devices. Each item typically includes:
+     *   mac, deviceName, model/productName, firmwareVersion, deviceIp/ip,
+     *   online/isOnline (1/0 or true/false)
+     */
+    public function listOnPremisePbx(int $pageNum = 1, int $pageSize = 1000): array
+    {
+        // Attempt 1: UCM-specific endpoint
+        try {
+            $raw  = $this->postSigned('/v1.0.0/ucm/list', $pageNum, $pageSize);
+            $list = $this->extractList($raw);
+
+            // Normalise field names so the view always gets the same structure
+            return array_map([$this, 'normaliseUcmDevice'], $list);
+        } catch (\RuntimeException) {
+            // endpoint doesn't exist or returned an API error — fall through
+        }
+
+        // Attempt 2: generic device list, keep only UCM/PBX devices
+        $raw  = $this->postSigned('/v1.0.0/device/list', $pageNum, $pageSize);
+        $list = $this->extractList($raw);
+
+        $ucm = array_values(array_filter($list, fn($d) =>
+            str_contains(strtoupper($d['productName'] ?? $d['model'] ?? ''), 'UCM') ||
+            str_contains(strtoupper($d['deviceType'] ?? ''), 'PBX') ||
+            str_contains(strtoupper($d['deviceType'] ?? ''), 'UCM')
+        ));
+
+        return array_map([$this, 'normaliseUcmDevice'], $ucm);
+    }
+
+    /**
+     * Normalise UCM device fields so the view always sees consistent keys:
+     *   online, deviceName, productName, mac, deviceIp, firmwareVersion
+     */
+    private function normaliseUcmDevice(array $d): array
+    {
+        // online: try online → isOnline → status === 'online'
+        $online = $d['online'] ?? ($d['isOnline'] ?? (
+            strtolower($d['status'] ?? '') === 'online' ? 1 : 0
+        ));
+
+        return [
+            'online'          => (int) $online,
+            'deviceName'      => $d['deviceName'] ?? $d['name'] ?? $d['ucmName'] ?? '—',
+            'productName'     => $d['productName'] ?? $d['model'] ?? $d['deviceModel'] ?? '—',
+            'mac'             => $d['mac'] ?? $d['macAddr'] ?? '—',
+            'deviceIp'        => $d['deviceIp'] ?? $d['ip'] ?? $d['localIp'] ?? '—',
+            'firmwareVersion' => $d['firmwareVersion'] ?? $d['firmware'] ?? $d['version'] ?? '—',
+            '_raw'            => $d,   // keep original for debug
+        ];
+    }
+
+    /**
+     * POST a signed request to a GDMS API path and return the raw JSON response.
+     */
+    private function postSigned(string $path, int $pageNum, int $pageSize): array
     {
         $token     = $this->getToken();
         $timestamp = (string) round(microtime(true) * 1000);
         $orgId     = $this->orgId;
 
-        $bodyArray = [
-            'pageNum'  => $pageNum,
-            'pageSize' => $pageSize,
-            'orgId'    => $orgId,
-        ];
-
-        $bodyJson = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $bodyArray = ['pageNum' => $pageNum, 'pageSize' => $pageSize, 'orgId' => $orgId];
+        $bodyJson  = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         $sigParams = [
             'access_token'  => $token,
@@ -146,46 +216,44 @@ class GdmsService
             'pageSize'      => $pageSize,
             'timestamp'     => $timestamp,
         ];
-
         ksort($sigParams, SORT_STRING);
 
-        $pairs = [];
-        foreach ($sigParams as $key => $value) {
-            $pairs[] = $key . '=' . $value;
-        }
-
-        $toSign    = '&' . implode('&', $pairs) . '&' . hash('sha256', $bodyJson) . '&';
+        $toSign    = '&' . implode('&', array_map(fn($k,$v) => "$k=$v", array_keys($sigParams), $sigParams))
+                   . '&' . hash('sha256', $bodyJson) . '&';
         $signature = hash('sha256', $toSign);
 
-        $url = "{$this->baseUrl}/v1.0.0/device/list"
-             . "?access_token={$token}"
-             . "&timestamp={$timestamp}"
-             . "&signature={$signature}"
-             . "&pageSize={$pageSize}"
-             . "&pageNum={$pageNum}"
-             . "&orgId={$orgId}";
+        $url = "{$this->baseUrl}{$path}"
+             . "?access_token={$token}&timestamp={$timestamp}&signature={$signature}"
+             . "&pageSize={$pageSize}&pageNum={$pageNum}&orgId={$orgId}";
 
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
-        ])->post($url, $bodyArray);
+        $response = Http::withHeaders(['Content-Type' => 'application/json'])
+            ->post($url, $bodyArray);
 
         $data = $response->json();
 
         if (($data['retCode'] ?? -1) !== 0) {
-            throw new \RuntimeException('GDMS listDevices error: ' . ($data['msg'] ?? 'unknown'));
+            throw new \RuntimeException("GDMS {$path} error: " . ($data['msg'] ?? json_encode($data)));
         }
 
-        $list = $data['data']['dataList'] ?? [];
+        return $data;
+    }
 
-        // Optional client-side filter by productName prefix
-        if ($productName) {
-            $prefix = strtoupper($productName);
-            $list   = array_values(array_filter($list, function ($device) use ($prefix) {
-                return str_starts_with(strtoupper($device['productName'] ?? ''), $prefix);
-            }));
-        }
+    /**
+     * Extract the list array from a GDMS response.
+     * Handles multiple possible response shapes:
+     *   data.dataList, data.list, data.ucmList, data (direct array)
+     */
+    private function extractList(array $data): array
+    {
+        $d = $data['data'] ?? [];
 
-        return $list;
+        if (isset($d['dataList'])  && is_array($d['dataList']))  return $d['dataList'];
+        if (isset($d['list'])      && is_array($d['list']))      return $d['list'];
+        if (isset($d['ucmList'])   && is_array($d['ucmList']))   return $d['ucmList'];
+        if (isset($d['deviceList'])&& is_array($d['deviceList'])) return $d['deviceList'];
+        if (is_array($d) && array_is_list($d))                   return $d;
+
+        return [];
     }
 
     /**
