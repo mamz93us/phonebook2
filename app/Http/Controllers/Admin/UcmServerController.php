@@ -14,6 +14,7 @@ class UcmServerController extends Controller
     protected array $urlRules = [
         'name'         => 'required|string|max:100',
         'url'          => ['required', 'string', 'max:255', 'regex:/^https?:\/\/.+/'],
+        'cloud_domain' => 'nullable|string|max:255',
         'api_username' => 'required|string|max:100',
         'api_password' => 'required|string|max:255',
     ];
@@ -41,6 +42,7 @@ class UcmServerController extends Controller
         $data = $request->validate([
             'name'         => 'required|string|max:100',
             'url'          => ['required', 'string', 'max:255', 'regex:/^https?:\/\/.+/'],
+            'cloud_domain' => 'nullable|string|max:255',
             'api_username' => 'required|string|max:100',
             'api_password' => 'nullable|string|max:255',
         ]);

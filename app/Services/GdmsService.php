@@ -119,6 +119,76 @@ class GdmsService
     }
 
     /**
+     * List all devices in GDMS, optionally filtering by productName prefix.
+     * e.g. listDevices(productName: 'UCM') returns only UCM devices.
+     * Each item includes: mac, deviceName, productName, firmwareVersion, deviceIp, online (1/0)
+     */
+    public function listDevices(int $pageNum = 1, int $pageSize = 1000, ?string $productName = null): array
+    {
+        $token     = $this->getToken();
+        $timestamp = (string) round(microtime(true) * 1000);
+        $orgId     = $this->orgId;
+
+        $bodyArray = [
+            'pageNum'  => $pageNum,
+            'pageSize' => $pageSize,
+            'orgId'    => $orgId,
+        ];
+
+        $bodyJson = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $sigParams = [
+            'access_token'  => $token,
+            'client_id'     => $this->clientId,
+            'client_secret' => $this->clientSecret,
+            'orgId'         => $orgId,
+            'pageNum'       => $pageNum,
+            'pageSize'      => $pageSize,
+            'timestamp'     => $timestamp,
+        ];
+
+        ksort($sigParams, SORT_STRING);
+
+        $pairs = [];
+        foreach ($sigParams as $key => $value) {
+            $pairs[] = $key . '=' . $value;
+        }
+
+        $toSign    = '&' . implode('&', $pairs) . '&' . hash('sha256', $bodyJson) . '&';
+        $signature = hash('sha256', $toSign);
+
+        $url = "{$this->baseUrl}/v1.0.0/device/list"
+             . "?access_token={$token}"
+             . "&timestamp={$timestamp}"
+             . "&signature={$signature}"
+             . "&pageSize={$pageSize}"
+             . "&pageNum={$pageNum}"
+             . "&orgId={$orgId}";
+
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+        ])->post($url, $bodyArray);
+
+        $data = $response->json();
+
+        if (($data['retCode'] ?? -1) !== 0) {
+            throw new \RuntimeException('GDMS listDevices error: ' . ($data['msg'] ?? 'unknown'));
+        }
+
+        $list = $data['data']['dataList'] ?? [];
+
+        // Optional client-side filter by productName prefix
+        if ($productName) {
+            $prefix = strtoupper($productName);
+            $list   = array_values(array_filter($list, function ($device) use ($prefix) {
+                return str_starts_with(strtoupper($device['productName'] ?? ''), $prefix);
+            }));
+        }
+
+        return $list;
+    }
+
+    /**
      * Fetch SIP accounts for a device via the device/detail polling API.
      *
      * Mirrors the PHP script pattern: trigger with isFirst=1, then poll

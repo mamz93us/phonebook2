@@ -245,6 +245,19 @@
                                             </div>
                                         </div>
                                         <div class="mb-3">
+                                            <label class="form-label">
+                                                Wave / SIP Cloud Domain
+                                                <span class="badge bg-info text-dark ms-1" style="font-size:10px">For QR Code</span>
+                                            </label>
+                                            <input type="text" name="cloud_domain" class="form-control font-monospace"
+                                                value="{{ $ucm->cloud_domain }}"
+                                                placeholder="e.g. msc1abc.gdms.cloud">
+                                            <div class="form-text">
+                                                GDMS cloud relay hostname used in Wave QR codes.
+                                                Leave blank to use the hostname from the URL above.
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
                                             <label class="form-label">API Username <span class="text-danger">*</span></label>
                                             <input type="text" name="api_username" class="form-control" value="{{ $ucm->api_username }}" required>
                                         </div>
@@ -292,6 +305,18 @@
                             placeholder="https://msc1abc.gdms.cloud  or  https://192.168.1.100:8089">
                         <div class="form-text">
                             Cloud (GDMS): no port needed &nbsp;|&nbsp; Local UCM: add <code>:8089</code>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Wave / SIP Cloud Domain
+                            <span class="badge bg-info text-dark ms-1" style="font-size:10px">For QR Code</span>
+                        </label>
+                        <input type="text" name="cloud_domain" class="form-control font-monospace"
+                            placeholder="e.g. msc1abc.gdms.cloud">
+                        <div class="form-text">
+                            GDMS cloud relay hostname used in Wave QR codes.
+                            Leave blank to use the hostname from the URL above.
                         </div>
                     </div>
                     <div class="mb-3">

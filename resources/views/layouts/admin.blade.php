@@ -89,6 +89,14 @@
                     </li>
                     @endcan
 
+                    @can('view-extensions')
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->is('admin/gdms*') ? 'active' : '' }}" href="{{ route('admin.gdms.ucm') }}">
+                            <i class="bi bi-cloud-check me-1"></i>UCM Status
+                        </a>
+                    </li>
+                    @endcan
+
                     @can('manage-settings')
                     <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}" href="/admin/settings">

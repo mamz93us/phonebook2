@@ -12,14 +12,16 @@ class IppbxApiService
     protected string $originUrl;   // base URL without /api — used for headers
     protected string $username;
     protected string $password;
-    protected ?string $cookie = null;
+    protected ?string $cookie      = null;
+    protected ?string $cloudDomain = null;  // GDMS cloud relay override for Wave QR
 
     public function __construct(UcmServer $server)
     {
-        $this->originUrl = rtrim($server->url, '/');
-        $this->baseUrl   = $this->originUrl . '/api';
-        $this->username  = $server->api_username;
-        $this->password  = $server->api_password;
+        $this->originUrl   = rtrim($server->url, '/');
+        $this->baseUrl     = $this->originUrl . '/api';
+        $this->username    = $server->api_username;
+        $this->password    = $server->api_password;
+        $this->cloudDomain = $server->cloud_domain ?: null;
     }
 
     // ─────────────────────────────────────────────
@@ -151,16 +153,18 @@ class IppbxApiService
     {
         $details = $this->getExtension($extension);
 
-        // Parse domain from originUrl (strip scheme + any port)
-        $host = parse_url($this->originUrl, PHP_URL_HOST) ?? $this->originUrl;
+        // Use the GDMS cloud domain if configured, otherwise fall back to UCM URL host
+        $host = $this->cloudDomain
+            ?? (parse_url($this->originUrl, PHP_URL_HOST) ?? $this->originUrl);
 
         return [
-            'extension' => $details['extension'] ?? $extension,
-            'fullname'  => $details['fullname']  ?? '',
-            'secret'    => $details['secret']    ?? '',
-            'email'     => $details['email']     ?? '',
-            'server'    => $host,
-            'sip_uri'   => 'sip:' . ($details['extension'] ?? $extension) . '@' . $host,
+            'extension'    => $details['extension'] ?? $extension,
+            'fullname'     => $details['fullname']  ?? '',
+            'secret'       => $details['secret']    ?? '',
+            'email'        => $details['email']     ?? '',
+            'server'       => $host,
+            'sip_uri'      => 'sip:' . ($details['extension'] ?? $extension) . '@' . $host,
+            'cloud_domain' => $this->cloudDomain !== null,
         ];
     }
 

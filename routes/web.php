@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\TrunkController;
 use App\Http\Controllers\Admin\UcmServerController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\PermissionsController;
+use App\Http\Controllers\Admin\GdmsController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
@@ -189,6 +190,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('users.update');
         Route::delete('users/{user}', [UserController::class, 'destroy'])
             ->name('users.destroy');
+    });
+
+    // ─── GDMS UCM Status ──────────────────────────────────────
+    Route::middleware('permission:view-extensions')->group(function () {
+        Route::get('gdms/ucm', [GdmsController::class, 'ucmIndex'])
+            ->name('gdms.ucm');
     });
 
     // ─── Role Permissions ─────────────────────────────────────

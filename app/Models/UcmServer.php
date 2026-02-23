@@ -9,6 +9,7 @@ class UcmServer extends Model
     protected $fillable = [
         'name',
         'url',
+        'cloud_domain',
         'api_username',
         'api_password',
         'is_active',
