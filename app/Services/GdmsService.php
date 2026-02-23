@@ -140,74 +140,71 @@ class GdmsService
 
     /**
      * List On-Premise PBX / UCM devices from GDMS.
-     * Tries /v1.0.0/ucm/list first (UCM-specific endpoint).
-     * Falls back to filtering /v1.0.0/device/list if that endpoint fails.
      *
-     * Returns array of devices. Each item typically includes:
-     *   mac, deviceName, model/productName, firmwareVersion, deviceIp/ip,
-     *   online/isOnline (1/0 or true/false)
+     * Per GDMS docs: projectId=3 selects the UCM project.
+     * deviceStatus: 1=Online, 0=Offline, -1=Abnormal
+     *
+     * Returns normalised array; each item includes:
+     *   online, deviceStatus, deviceName, productName, mac,
+     *   deviceIp, firmwareVersion, _raw (full original response)
      */
     public function listOnPremisePbx(int $pageNum = 1, int $pageSize = 1000): array
     {
-        // Attempt 1: UCM-specific endpoint
-        try {
-            $raw  = $this->postSigned('/v1.0.0/ucm/list', $pageNum, $pageSize);
-            $list = $this->extractList($raw);
-
-            // Normalise field names so the view always gets the same structure
-            return array_map([$this, 'normaliseUcmDevice'], $list);
-        } catch (\RuntimeException) {
-            // endpoint doesn't exist or returned an API error — fall through
-        }
-
-        // Attempt 2: generic device list, keep only UCM/PBX devices
-        $raw  = $this->postSigned('/v1.0.0/device/list', $pageNum, $pageSize);
+        // projectId=3 → UCM project (per GDMS API docs)
+        // projectId=1 → VoIP phones/endpoints
+        $raw  = $this->postSigned('/v1.0.0/device/list', $pageNum, $pageSize, ['projectId' => 3]);
         $list = $this->extractList($raw);
 
-        $ucm = array_values(array_filter($list, fn($d) =>
-            str_contains(strtoupper($d['productName'] ?? $d['model'] ?? ''), 'UCM') ||
-            str_contains(strtoupper($d['deviceType'] ?? ''), 'PBX') ||
-            str_contains(strtoupper($d['deviceType'] ?? ''), 'UCM')
-        ));
-
-        return array_map([$this, 'normaliseUcmDevice'], $ucm);
+        return array_map([$this, 'normaliseUcmDevice'], $list);
     }
 
     /**
-     * Normalise UCM device fields so the view always sees consistent keys:
-     *   online, deviceName, productName, mac, deviceIp, firmwareVersion
+     * Normalise UCM device fields so the view always sees consistent keys.
+     * deviceStatus: 1=Online, 0=Offline, -1=Abnormal  (GDMS docs)
      */
     private function normaliseUcmDevice(array $d): array
     {
-        // online: try online → isOnline → status === 'online'
-        $online = $d['online'] ?? ($d['isOnline'] ?? (
-            strtolower($d['status'] ?? '') === 'online' ? 1 : 0
-        ));
+        // Resolve online status — accept multiple possible field names/values
+        $status = $d['deviceStatus']
+            ?? $d['online']
+            ?? $d['isOnline']
+            ?? (strtolower($d['status'] ?? '') === 'online' ? 1 : null)
+            ?? 0;
+
+        $statusInt = (int) $status;   // 1=Online, 0=Offline, -1=Abnormal
 
         return [
-            'online'          => (int) $online,
-            'deviceName'      => $d['deviceName'] ?? $d['name'] ?? $d['ucmName'] ?? '—',
-            'productName'     => $d['productName'] ?? $d['model'] ?? $d['deviceModel'] ?? '—',
-            'mac'             => $d['mac'] ?? $d['macAddr'] ?? '—',
-            'deviceIp'        => $d['deviceIp'] ?? $d['ip'] ?? $d['localIp'] ?? '—',
-            'firmwareVersion' => $d['firmwareVersion'] ?? $d['firmware'] ?? $d['version'] ?? '—',
-            '_raw'            => $d,   // keep original for debug
+            'online'          => $statusInt === 1,
+            'deviceStatus'    => $statusInt,
+            'deviceName'      => $d['deviceName']      ?? $d['name']         ?? $d['ucmName']     ?? '—',
+            'productName'     => $d['productName']     ?? $d['model']        ?? $d['deviceModel'] ?? '—',
+            'mac'             => $d['mac']             ?? $d['macAddr']      ?? '—',
+            'deviceIp'        => $d['deviceIp']        ?? $d['ip']           ?? $d['localIp']     ?? '—',
+            'firmwareVersion' => $d['firmwareVersion'] ?? $d['firmware']     ?? $d['version']     ?? '—',
+            'lastOnlineTime'  => $d['lastOnlineTime']  ?? $d['lastOnlineAt'] ?? $d['updateTime']  ?? null,
+            '_raw'            => $d,
         ];
     }
 
     /**
-     * POST a signed request to a GDMS API path and return the raw JSON response.
+     * POST a signed GDMS request with optional extra body parameters.
+     * Extra params are merged into both the body AND the signature string.
      */
-    private function postSigned(string $path, int $pageNum, int $pageSize): array
+    private function postSigned(string $path, int $pageNum, int $pageSize, array $extra = []): array
     {
         $token     = $this->getToken();
         $timestamp = (string) round(microtime(true) * 1000);
         $orgId     = $this->orgId;
 
-        $bodyArray = ['pageNum' => $pageNum, 'pageSize' => $pageSize, 'orgId' => $orgId];
-        $bodyJson  = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        // Build body: base params + any extras (e.g. projectId)
+        $bodyArray = array_merge(
+            ['pageNum' => $pageNum, 'pageSize' => $pageSize, 'orgId' => $orgId],
+            $extra
+        );
+        $bodyJson = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-        $sigParams = [
+        // Signature params include all body fields + auth fields
+        $sigParams = array_merge($extra, [
             'access_token'  => $token,
             'client_id'     => $this->clientId,
             'client_secret' => $this->clientSecret,
@@ -215,16 +212,20 @@ class GdmsService
             'pageNum'       => $pageNum,
             'pageSize'      => $pageSize,
             'timestamp'     => $timestamp,
-        ];
+        ]);
         ksort($sigParams, SORT_STRING);
 
-        $toSign    = '&' . implode('&', array_map(fn($k,$v) => "$k=$v", array_keys($sigParams), $sigParams))
+        $toSign    = '&'
+                   . implode('&', array_map(fn($k, $v) => "$k=$v", array_keys($sigParams), $sigParams))
                    . '&' . hash('sha256', $bodyJson) . '&';
         $signature = hash('sha256', $toSign);
 
+        // Build query string — include extra params so they're part of the URL too
+        $queryExtra = implode('&', array_map(fn($k, $v) => "$k=$v", array_keys($extra), $extra));
         $url = "{$this->baseUrl}{$path}"
              . "?access_token={$token}&timestamp={$timestamp}&signature={$signature}"
-             . "&pageSize={$pageSize}&pageNum={$pageNum}&orgId={$orgId}";
+             . "&pageSize={$pageSize}&pageNum={$pageNum}&orgId={$orgId}"
+             . ($queryExtra ? "&$queryExtra" : '');
 
         $response = Http::withHeaders(['Content-Type' => 'application/json'])
             ->post($url, $bodyArray);
