@@ -66,6 +66,12 @@
                     </li>
 
                     <li class="nav-item">
+                        <a class="nav-link {{ request()->is('admin/trunks*') ? 'active' : '' }}" href="/admin/trunks">
+                            <i class="bi bi-diagram-3-fill me-1"></i>Trunks
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
                         <a class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}" href="/admin/settings">
                             Settings
                         </a>

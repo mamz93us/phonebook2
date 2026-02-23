@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\ExtensionController;
+use App\Http\Controllers\Admin\TrunkController;
 use App\Http\Controllers\Admin\UcmServerController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
@@ -118,6 +119,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('extensions.details');
     Route::get('extensions/{extension}/wave', [ExtensionController::class, 'wave'])
         ->name('extensions.wave');
+
+    // ─── VoIP Trunks ──────────────────────────────────────────
+    Route::get('trunks', [TrunkController::class, 'index'])
+        ->name('trunks.index');
 
     // ─── UCM Servers (managed from Settings page) ─────────────
     Route::post('ucm-servers', [UcmServerController::class, 'store'])

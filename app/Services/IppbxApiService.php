@@ -227,6 +227,34 @@ class IppbxApiService
     }
 
     // ─────────────────────────────────────────────
+    // VoIP Trunks
+    // ─────────────────────────────────────────────
+
+    /**
+     * List all VoIP trunks
+     */
+    public function listVoIPTrunks(int $page = 1, int $itemNum = 500): array
+    {
+        $this->ensureCookie();
+
+        $resp = $this->post([
+            'action'   => 'listVoIPTrunk',
+            'cookie'   => $this->cookie,
+            'options'  => 'trunk_index,trunk_name,host,trunk_type,username,trunks.out_of_service',
+            'page'     => (string) $page,
+            'item_num' => (string) $itemNum,
+            'sidx'     => 'trunk_index',
+            'sord'     => 'asc',
+        ]);
+
+        if (($resp['status'] ?? -1) !== 0) {
+            throw new \RuntimeException('listVoIPTrunk failed: ' . json_encode($resp));
+        }
+
+        return $resp['response']['voip_trunk'] ?? [];
+    }
+
+    // ─────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────
 
