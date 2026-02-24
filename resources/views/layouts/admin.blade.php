@@ -41,85 +41,127 @@
             <div class="collapse navbar-collapse" id="navbarNav">
 
                 <ul class="navbar-nav me-auto">
-                    @can('view-branches')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/branches*') ? 'active' : '' }}" href="/admin/branches">
-                            Branches
-                        </a>
-                    </li>
-                    @endcan
 
-                    @can('view-contacts')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/contacts*') ? 'active' : '' }}" href="/admin/contacts">
-                            Contacts
+                    {{-- ── Contacts dropdown ── --}}
+                    @canany(['view-contacts','view-branches'])
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/contacts*','admin/branches*') ? 'active' : '' }}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-people-fill me-1"></i>Contacts
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-dark shadow">
+                            @can('view-contacts')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/contacts*') ? 'active' : '' }}"
+                                   href="{{ route('admin.contacts.index') }}">
+                                    <i class="bi bi-person-lines-fill me-2"></i>Contacts
+                                </a>
+                            </li>
+                            @endcan
+                            @can('view-branches')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/branches*') ? 'active' : '' }}"
+                                   href="{{ route('admin.branches.index') }}">
+                                    <i class="bi bi-diagram-3-fill me-2"></i>Branches
+                                </a>
+                            </li>
+                            @endcan
+                        </ul>
                     </li>
-                    @endcan
+                    @endcanany
 
-                    @can('view-activity-logs')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/activity-logs*') ? 'active' : '' }}" href="/admin/activity-logs">
-                            Activity Logs
+                    {{-- ── UCM dropdown ── --}}
+                    @canany(['view-extensions','view-trunks'])
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/extensions*','admin/trunks*','admin/gdms*') ? 'active' : '' }}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-router-fill me-1"></i>UCM
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-dark shadow">
+                            @can('view-extensions')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/extensions*') ? 'active' : '' }}"
+                                   href="{{ route('admin.extensions.index') }}">
+                                    <i class="bi bi-telephone-fill me-2"></i>Extensions
+                                </a>
+                            </li>
+                            @endcan
+                            @can('view-trunks')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/trunks*') ? 'active' : '' }}"
+                                   href="{{ route('admin.trunks.index') }}">
+                                    <i class="bi bi-hdd-network-fill me-2"></i>Trunks
+                                </a>
+                            </li>
+                            @endcan
+                            @can('view-extensions')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/gdms*') ? 'active' : '' }}"
+                                   href="{{ route('admin.gdms.ucm') }}">
+                                    <i class="bi bi-cloud-check-fill me-2"></i>UCM Status
+                                </a>
+                            </li>
+                            @endcan
+                        </ul>
                     </li>
-                    @endcan
+                    @endcanany
 
-                    @can('view-phone-logs')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/phone-logs*') ? 'active' : '' }}" href="/admin/phone-logs">
-                            Phone XML Logs
+                    {{-- ── Settings dropdown ── --}}
+                    @canany(['manage-settings','manage-users','manage-permissions','view-phone-logs','view-activity-logs'])
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/settings*','admin/users*','admin/permissions*','admin/phone-logs*','admin/activity-logs*') ? 'active' : '' }}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-gear-fill me-1"></i>Settings
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-dark shadow">
+                            @can('manage-settings')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/settings*') ? 'active' : '' }}"
+                                   href="{{ route('admin.settings.index') }}">
+                                    <i class="bi bi-sliders me-2"></i>Settings
+                                </a>
+                            </li>
+                            @endcan
+                            @can('manage-users')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/users*') ? 'active' : '' }}"
+                                   href="{{ route('admin.users.index') }}">
+                                    <i class="bi bi-person-badge-fill me-2"></i>Users
+                                </a>
+                            </li>
+                            @endcan
+                            @can('manage-permissions')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/permissions*') ? 'active' : '' }}"
+                                   href="{{ route('admin.permissions.index') }}">
+                                    <i class="bi bi-shield-lock-fill me-2"></i>Permissions
+                                </a>
+                            </li>
+                            @endcan
+                            @canany(['view-phone-logs','view-activity-logs'])
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header text-secondary"><i class="bi bi-journal-text me-1"></i>Logs</h6></li>
+                            @can('view-phone-logs')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/phone-logs*') ? 'active' : '' }}"
+                                   href="{{ route('admin.phone-logs.index') }}">
+                                    <i class="bi bi-telephone-inbound-fill me-2"></i>Phone Logs
+                                </a>
+                            </li>
+                            @endcan
+                            @can('view-activity-logs')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/activity-logs*') ? 'active' : '' }}"
+                                   href="{{ route('admin.activity-logs') }}">
+                                    <i class="bi bi-shield-check me-2"></i>Audit Log
+                                </a>
+                            </li>
+                            @endcan
+                            @endcanany
+                        </ul>
                     </li>
-                    @endcan
+                    @endcanany
 
-                    @can('view-extensions')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/extensions*') ? 'active' : '' }}" href="/admin/extensions">
-                            <i class="bi bi-telephone-fill me-1"></i>Extensions
-                        </a>
-                    </li>
-                    @endcan
-
-                    @can('view-trunks')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/trunks*') ? 'active' : '' }}" href="/admin/trunks">
-                            <i class="bi bi-diagram-3-fill me-1"></i>Trunks
-                        </a>
-                    </li>
-                    @endcan
-
-                    @can('view-extensions')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/gdms*') ? 'active' : '' }}" href="{{ route('admin.gdms.ucm') }}">
-                            <i class="bi bi-cloud-check me-1"></i>UCM Status
-                        </a>
-                    </li>
-                    @endcan
-
-                    @can('manage-settings')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}" href="/admin/settings">
-                            <i class="bi bi-gear me-1"></i>Settings
-                        </a>
-                    </li>
-                    @endcan
-
-                    @can('manage-users')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/users*') ? 'active' : '' }}" href="{{ route('admin.users.index') }}">
-                            <i class="bi bi-people me-1"></i>Users
-                        </a>
-                    </li>
-                    @endcan
-
-                    @can('manage-permissions')
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->is('admin/permissions*') ? 'active' : '' }}" href="{{ route('admin.permissions.index') }}">
-                            <i class="bi bi-shield-lock me-1"></i>Permissions
-                        </a>
-                    </li>
-                    @endcan
                 </ul>
 
                 {{-- ── Profile dropdown ── --}}

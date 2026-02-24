@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Models\ActivityLog;
 use App\Models\Setting;
 use App\Models\UcmServer;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class SettingsController extends Controller
@@ -21,7 +23,7 @@ class SettingsController extends Controller
     }
 
     /**
-     * Update settings
+     * Update general settings
      */
     public function update(Request $request)
     {
@@ -31,21 +33,31 @@ class SettingsController extends Controller
         ]);
 
         $settings = Setting::get();
+        $old = ['company_name' => $settings->company_name];
+
         $settings->company_name = $request->company_name;
 
         // Handle logo upload
         if ($request->hasFile('company_logo')) {
-            // Delete old logo
             if ($settings->company_logo && Storage::disk('public')->exists($settings->company_logo)) {
                 Storage::disk('public')->delete($settings->company_logo);
             }
-
-            // Store new logo
             $path = $request->file('company_logo')->store('logos', 'public');
             $settings->company_logo = $path;
         }
 
         $settings->save();
+
+        ActivityLog::create([
+            'model_type' => 'Setting',
+            'model_id'   => 1,
+            'action'     => 'updated',
+            'changes'    => [
+                'old' => $old,
+                'new' => ['company_name' => $settings->company_name, 'logo_changed' => $request->hasFile('company_logo')],
+            ],
+            'user_id' => Auth::id(),
+        ]);
 
         return redirect()
             ->route('admin.settings.index')
@@ -65,6 +77,14 @@ class SettingsController extends Controller
 
         $settings->company_logo = null;
         $settings->save();
+
+        ActivityLog::create([
+            'model_type' => 'Setting',
+            'model_id'   => 1,
+            'action'     => 'deleted',
+            'changes'    => ['company_logo' => 'removed'],
+            'user_id'    => Auth::id(),
+        ]);
 
         return redirect()
             ->route('admin.settings.index')
@@ -89,12 +109,25 @@ class SettingsController extends Controller
         $settings->sso_client_id    = $request->sso_client_id;
         $settings->sso_default_role = $request->sso_default_role;
 
-        // Only overwrite the secret if a new one was supplied
         if ($request->filled('sso_client_secret')) {
             $settings->sso_client_secret = $request->sso_client_secret;
         }
 
         $settings->save();
+
+        ActivityLog::create([
+            'model_type' => 'Setting',
+            'model_id'   => 1,
+            'action'     => 'updated',
+            'changes'    => [
+                'sso_enabled'      => $settings->sso_enabled,
+                'sso_tenant_id'    => $request->sso_tenant_id,
+                'sso_client_id'    => $request->sso_client_id,
+                'sso_default_role' => $request->sso_default_role,
+                'secret_changed'   => $request->filled('sso_client_secret'),
+            ],
+            'user_id' => Auth::id(),
+        ]);
 
         return redirect()
             ->route('admin.settings.index')

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\RolePermission;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class PermissionsController extends Controller
 {
@@ -28,7 +30,7 @@ class PermissionsController extends Controller
 
     public function update(Request $request)
     {
-        $roles   = ['super_admin', 'admin', 'viewer'];
+        $roles    = ['super_admin', 'admin', 'viewer'];
         $allSlugs = RolePermission::allSlugs();
 
         // super_admin always keeps manage-users and manage-permissions
@@ -55,12 +57,28 @@ class PermissionsController extends Controller
             }
         }
 
+        // Snapshot before replacing
+        $summary = [];
+        foreach ($roles as $role) {
+            $summary[$role] = array_values(array_filter(
+                array_map(fn($r) => $r['role'] === $role ? $r['permission'] : null, $rows)
+            ));
+        }
+
         // Replace all permissions
         RolePermission::truncate();
         if (!empty($rows)) {
             RolePermission::insert($rows);
         }
         RolePermission::clearCache();
+
+        ActivityLog::create([
+            'model_type' => 'RolePermission',
+            'model_id'   => 0,
+            'action'     => 'updated',
+            'changes'    => $summary,
+            'user_id'    => Auth::id(),
+        ]);
 
         return redirect()->route('admin.permissions.index')
             ->with('success', 'Role permissions updated successfully.');

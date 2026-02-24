@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Contact;
 use App\Models\PhoneAccount;
 use App\Models\PhoneRequestLog;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class PhoneRequestLogController extends Controller
@@ -45,14 +47,21 @@ class PhoneRequestLogController extends Controller
     }
 
     /**
-     * Trigger a full GDMS device-account sync (called from the admin "Sync" button).
-     * Runs synchronously — allow enough PHP execution time for all devices.
+     * Trigger a full GDMS device-account sync.
      */
     public function sync()
     {
-        set_time_limit(0); // Each device can take up to 60 s; no hard cap
+        set_time_limit(0);
 
         Artisan::call('gdms:sync-device-accounts');
+
+        ActivityLog::create([
+            'model_type' => 'PhoneRequestLog',
+            'model_id'   => 0,
+            'action'     => 'synced',
+            'changes'    => ['type' => 'full_sync'],
+            'user_id'    => Auth::id(),
+        ]);
 
         return redirect()->route('admin.phone-logs.index')
             ->with('success', 'SIP accounts synced successfully from GDMS.');
@@ -67,11 +76,18 @@ class PhoneRequestLogController extends Controller
 
         Artisan::call('gdms:sync-device-accounts', ['--unsynced' => true]);
 
-        $output = Artisan::output();
-
+        $output  = Artisan::output();
         $message = str_contains($output, 'Nothing to do')
             ? 'All devices were already synced — nothing to do.'
             : 'Unsynced devices fetched from GDMS successfully.';
+
+        ActivityLog::create([
+            'model_type' => 'PhoneRequestLog',
+            'model_id'   => 0,
+            'action'     => 'synced',
+            'changes'    => ['type' => 'unsynced_only', 'result' => $message],
+            'user_id'    => Auth::id(),
+        ]);
 
         return redirect()->route('admin.phone-logs.index')
             ->with('success', $message);
