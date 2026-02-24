@@ -43,9 +43,11 @@ class DashboardController extends Controller
 
                     $system     = $api->getSystemStatus();
                     $general    = $api->getSystemGeneralStatus();
+                    $network    = $api->getNetworkStatus();
                     $extensions = $api->listExtensions(1, 2000);
                     $trunks     = $api->listVoIPTrunks();
 
+                    // ── Extension counts ──────────────────────────────────
                     $extCounts = [
                         'total'       => count($extensions),
                         'idle'        => 0,
@@ -54,19 +56,37 @@ class DashboardController extends Controller
                     ];
                     foreach ($extensions as $ext) {
                         $s = strtolower($ext['status'] ?? '');
-                        if ($s === 'idle')                                     $extCounts['idle']++;
-                        elseif (in_array($s, ['inuse', 'busy', 'ringing']))    $extCounts['inuse']++;
-                        elseif ($s === 'unavailable')                          $extCounts['unavailable']++;
+                        if ($s === 'idle')                                  $extCounts['idle']++;
+                        elseif (in_array($s, ['inuse', 'busy', 'ringing'])) $extCounts['inuse']++;
+                        elseif ($s === 'unavailable')                       $extCounts['unavailable']++;
+                    }
+
+                    // ── Trunk counts (reachable vs unreachable) ───────────
+                    $trunkCounts = [
+                        'total'       => count($trunks),
+                        'reachable'   => 0,
+                        'unreachable' => 0,
+                    ];
+                    foreach ($trunks as $trunk) {
+                        $ts = strtolower($trunk['status'] ?? '');
+                        if (str_contains($ts, 'unreachable')) {
+                            $trunkCounts['unreachable']++;
+                        } else {
+                            $trunkCounts['reachable']++;
+                        }
                     }
 
                     return [
-                        'online'    => true,
-                        'model'     => $general['product-model'] ?? 'UCM',
-                        'firmware'  => $general['prog-version']  ?? '-',
-                        'serial'    => $system['serial-number']  ?? '-',
-                        'uptime'    => $system['up-time']        ?? '-',
-                        'extensions'=> $extCounts,
-                        'trunks'    => count($trunks),
+                        'online'      => true,
+                        'model'       => $general['product-model'] ?? 'UCM',
+                        'firmware'    => $general['prog-version']  ?? '-',
+                        'serial'      => $system['serial-number']  ?? '-',
+                        'uptime_raw'  => $system['up-time']        ?? '',
+                        'uptime'      => IppbxApiService::formatUptime($system['up-time'] ?? ''),
+                        'mac'         => IppbxApiService::extractMac($network),
+                        'extensions'  => $extCounts,
+                        'trunk_counts'=> $trunkCounts,
+                        'trunks'      => count($trunks),
                     ];
                 } catch (\Exception $e) {
                     return ['online' => false, 'error' => $e->getMessage()];
@@ -77,12 +97,14 @@ class DashboardController extends Controller
         }
 
         // ── Aggregate UCM totals ───────────────────────────────────────────
-        $ucmOnline     = collect($ucmStats)->where('stats.online', true)->count();
-        $totalExt      = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['total'] ?? 0);
-        $totalTrunks   = collect($ucmStats)->sum(fn ($u) => $u['stats']['trunks'] ?? 0);
-        $totalIdle     = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['idle']        ?? 0);
-        $totalInUse    = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['inuse']       ?? 0);
-        $totalUnavail  = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['unavailable'] ?? 0);
+        $ucmOnline         = collect($ucmStats)->where('stats.online', true)->count();
+        $totalExt          = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['total']        ?? 0);
+        $totalIdle         = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['idle']         ?? 0);
+        $totalInUse        = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['inuse']        ?? 0);
+        $totalUnavail      = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['unavailable']  ?? 0);
+        $totalTrunks       = collect($ucmStats)->sum(fn ($u) => $u['stats']['trunk_counts']['total']      ?? 0);
+        $totalReachable    = collect($ucmStats)->sum(fn ($u) => $u['stats']['trunk_counts']['reachable']  ?? 0);
+        $totalUnreachable  = collect($ucmStats)->sum(fn ($u) => $u['stats']['trunk_counts']['unreachable']?? 0);
 
         $settings = Setting::get();
 
@@ -94,10 +116,12 @@ class DashboardController extends Controller
             'ucmStats',
             'ucmOnline',
             'totalExt',
-            'totalTrunks',
             'totalIdle',
             'totalInUse',
             'totalUnavail',
+            'totalTrunks',
+            'totalReachable',
+            'totalUnreachable',
             'settings'
         ));
     }

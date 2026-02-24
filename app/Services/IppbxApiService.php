@@ -273,6 +273,58 @@ class IppbxApiService
     }
 
     // ─────────────────────────────────────────────
+    // Network Status
+    // ─────────────────────────────────────────────
+
+    /**
+     * Get network interface status — returns MAC address, IP, etc.
+     * UCM returns an object keyed by interface name (eth0, eth1 …).
+     */
+    public function getNetworkStatus(): array
+    {
+        $this->ensureCookie();
+
+        $resp = $this->post([
+            'action' => 'getNetworkStatus',
+            'cookie' => $this->cookie,
+        ]);
+
+        if (($resp['status'] ?? -1) !== 0) {
+            // Non-fatal — some UCM firmware versions don't expose this action
+            return [];
+        }
+
+        return $resp['response'] ?? [];
+    }
+
+    /**
+     * Extract the primary MAC address from a getNetworkStatus() response.
+     * Checks eth0 first, then any other interface.
+     */
+    public static function extractMac(array $networkStatus): ?string
+    {
+        if (empty($networkStatus)) {
+            return null;
+        }
+
+        // Try common interface names in priority order
+        foreach (['eth0', 'eth1', 'br0', 'lan'] as $iface) {
+            if (!empty($networkStatus[$iface]['mac'])) {
+                return strtoupper($networkStatus[$iface]['mac']);
+            }
+        }
+
+        // Fall back: first key that has a 'mac' field
+        foreach ($networkStatus as $iface => $data) {
+            if (!empty($data['mac'])) {
+                return strtoupper($data['mac']);
+            }
+        }
+
+        return null;
+    }
+
+    // ─────────────────────────────────────────────
     // VoIP Trunks
     // ─────────────────────────────────────────────
 
@@ -303,6 +355,44 @@ class IppbxApiService
     // ─────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────
+
+    /**
+     * Format a UCM uptime string into a human-readable form with "d" for days.
+     * Handles formats: "HH:MM:SS" (HH may exceed 24), "X days HH:MM:SS".
+     * Returns e.g. "3d 5h 22m" or "5h 22m" or "22m".
+     */
+    public static function formatUptime(string $uptime): string
+    {
+        $uptime = trim($uptime);
+
+        // Format: "X day(s) HH:MM:SS"  or  "X days, HH:MM:SS"
+        if (preg_match('/(\d+)\s*days?\s*,?\s*(\d+):(\d+):(\d+)/i', $uptime, $m)) {
+            $days  = (int)$m[1];
+            $hours = (int)$m[2];
+            $mins  = (int)$m[3];
+            $parts = [];
+            if ($days  > 0) $parts[] = "{$days}d";
+            if ($hours > 0) $parts[] = "{$hours}h";
+            $parts[] = "{$mins}m";
+            return implode(' ', $parts) ?: '0m';
+        }
+
+        // Format: "HH:MM:SS" where HH can be > 24
+        if (preg_match('/^(\d+):(\d{2}):(\d{2})$/', $uptime, $m)) {
+            $totalHours = (int)$m[1];
+            $days  = intdiv($totalHours, 24);
+            $hours = $totalHours % 24;
+            $mins  = (int)$m[2];
+            $parts = [];
+            if ($days  > 0) $parts[] = "{$days}d";
+            if ($hours > 0) $parts[] = "{$hours}h";
+            $parts[] = "{$mins}m";
+            return implode(' ', $parts) ?: '0m';
+        }
+
+        // Return as-is if unparseable
+        return $uptime;
+    }
 
     protected function ensureCookie(): void
     {

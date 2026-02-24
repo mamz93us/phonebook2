@@ -117,14 +117,21 @@
         </a>
     </div>
 
-    {{-- Total Trunks --}}
+    {{-- Trunks (reachable / total) --}}
     <div class="col-6 col-md-3">
         <a href="{{ route('admin.trunks.index') }}" class="text-decoration-none">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body text-center py-3">
                     <i class="bi bi-hdd-network-fill text-secondary fs-3 mb-2 d-block"></i>
-                    <div class="fs-2 fw-bold text-dark">{{ number_format($totalTrunks) }}</div>
-                    <div class="small text-muted">Total VoIP Trunks</div>
+                    <div class="fs-2 fw-bold text-dark">
+                        {{ number_format($totalReachable) }}<span class="fs-5 text-muted">/{{ number_format($totalTrunks) }}</span>
+                    </div>
+                    <div class="small text-muted">Trunks Reachable</div>
+                    @if($totalUnreachable > 0)
+                        <div class="mt-1">
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">{{ $totalUnreachable }} Unreachable</span>
+                        </div>
+                    @endif
                 </div>
             </div>
         </a>
@@ -176,6 +183,8 @@
         $s      = $ucm['stats'];
         $server = $ucm['server'];
         $online = $s['online'] ?? false;
+        $mac    = $s['mac'] ?? null;
+        $uptime = $s['uptime'] ?? null;
     @endphp
     <div class="col-md-6 col-xl-4">
         <div class="card border-0 shadow-sm h-100" style="border-left:4px solid {{ $online ? '#198754' : '#dc3545' }} !important;">
@@ -236,14 +245,22 @@
                             <td class="text-muted ps-0" style="width:38%;">Serial No.</td>
                             <td class="fw-semibold font-monospace">{{ $s['serial'] ?? '-' }}</td>
                         </tr>
+                        @if($mac)
+                        <tr>
+                            <td class="text-muted ps-0">MAC</td>
+                            <td class="fw-semibold font-monospace">{{ $mac }}</td>
+                        </tr>
+                        @endif
                         <tr>
                             <td class="text-muted ps-0">Firmware</td>
                             <td class="fw-semibold">{{ $s['firmware'] ?? '-' }}</td>
                         </tr>
+                        @if($uptime)
                         <tr>
                             <td class="text-muted ps-0">Uptime</td>
-                            <td class="fw-semibold">{{ $s['uptime'] ?? '-' }}</td>
+                            <td class="fw-semibold font-monospace">{{ $uptime }}</td>
                         </tr>
+                        @endif
                         @if($server->cloud_domain)
                         <tr>
                             <td class="text-muted ps-0">Wave Domain</td>
