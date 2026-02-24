@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - {{ config('app.name', 'Phonebook') }}</title>
+    <title>SG Unified System</title>
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -32,7 +32,16 @@
     <!-- NAVBAR -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="/admin">📱 Admin Panel</a>
+            @php $__settings = \App\Models\Setting::get(); @endphp
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold py-1" href="/admin">
+                @if($__settings->company_logo)
+                    <img src="{{ \Illuminate\Support\Facades\Storage::url($__settings->company_logo) }}"
+                         alt="Logo" style="height:34px;width:auto;object-fit:contain;">
+                @else
+                    <span class="avatar-circle" style="background:linear-gradient(135deg,#1a56db,#6c47ff);font-size:15px;">SG</span>
+                @endif
+                <span class="d-none d-sm-inline">SG Unified System</span>
+            </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>

@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\TrunkController;
 use App\Http\Controllers\Admin\UcmServerController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\PermissionsController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GdmsController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
@@ -75,9 +76,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
 
     // Dashboard (all authenticated users)
-    Route::get('/', function () {
-        return view('admin.dashboard');
-    })->name('dashboard');
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
     // XML preview (all authenticated)
     Route::get('xml-preview', [PhonebookController::class, 'preview'])
