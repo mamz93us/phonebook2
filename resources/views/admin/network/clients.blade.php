@@ -52,14 +52,14 @@
                 <thead class="table-light">
                     <tr>
                         <th>Status</th>
-                        <th>Hostname</th>
+                        <th>Hostname / Description</th>
                         <th>IP</th>
                         <th>MAC</th>
                         <th>Manufacturer</th>
                         <th>OS</th>
                         <th class="text-center">VLAN</th>
                         <th>Port</th>
-                        <th>Switch</th>
+                        <th>Connected Switch</th>
                         <th>Usage (24h)</th>
                         <th>Last Seen</th>
                     </tr>
@@ -67,16 +67,26 @@
                 <tbody>
                     @foreach($clients as $client)
                     <tr>
+                        {{-- Status: uses statusLabel() so null shows "Unknown" not "-" --}}
                         <td>
                             <span class="badge {{ $client->statusBadgeClass() }} small">
-                                {{ $client->status ?: '-' }}
+                                {{ $client->statusLabel() }}
                             </span>
                         </td>
-                        <td class="fw-semibold">{{ $client->hostname ?: '-' }}</td>
+
+                        {{-- Hostname — show description as fallback --}}
+                        <td>
+                            <span class="fw-semibold">{{ $client->hostname ?: '-' }}</span>
+                            @if($client->description && $client->description !== $client->hostname)
+                                <br><span class="text-muted small">{{ $client->description }}</span>
+                            @endif
+                        </td>
+
                         <td class="font-monospace">{{ $client->ip ?: '-' }}</td>
-                        <td class="font-monospace text-muted">{{ $client->mac }}</td>
+                        <td class="font-monospace text-muted small">{{ $client->mac }}</td>
                         <td class="text-muted">{{ $client->manufacturer ?: '-' }}</td>
                         <td class="text-muted">{{ $client->os ?: '-' }}</td>
+
                         <td class="text-center">
                             @if($client->vlan)
                             <span class="badge bg-info text-dark">{{ $client->vlan }}</span>
@@ -84,15 +94,22 @@
                             <span class="text-muted">-</span>
                             @endif
                         </td>
+
                         <td class="font-monospace small">{{ $client->port_id ?: '-' }}</td>
+
+                        {{-- Connected switch — link using switch_serial directly;
+                             show relationship name when loaded, serial as fallback --}}
                         <td>
-                            @if($client->networkSwitch)
-                            <a href="{{ route('admin.network.switch-detail', $client->switch_serial) }}"
-                               class="text-decoration-none small">{{ $client->networkSwitch->name }}</a>
+                            @if($client->switch_serial)
+                                <a href="{{ route('admin.network.switch-detail', $client->switch_serial) }}"
+                                   class="text-decoration-none small">
+                                    <i class="bi bi-hdd-network me-1 text-primary"></i>{{ $client->networkSwitch?->name ?? $client->switch_serial }}
+                                </a>
                             @else
-                            <span class="text-muted small">{{ $client->switch_serial ?: '-' }}</span>
+                                <span class="text-muted small">-</span>
                             @endif
                         </td>
+
                         <td class="text-end font-monospace small">{{ $client->usageLabel() }}</td>
                         <td class="text-muted small">{{ $client->last_seen ? $client->last_seen->diffForHumans() : '-' }}</td>
                     </tr>

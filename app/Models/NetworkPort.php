@@ -80,15 +80,25 @@ class NetworkPort extends Model
     }
 
     /**
-     * Speed display (e.g., "1 Gbps").
+     * Speed display.
+     * Meraki port-status API returns a pre-formatted string: "1 Gbps", "100 Mbps", "10 Gbps", etc.
+     * Just return it as-is; fall back to numeric conversion only if it looks like a bare number.
      */
     public function speedLabel(): string
     {
-        if (!$this->speed) {
+        $speed = $this->speed;
+
+        if (!$speed) {
             return '-';
         }
-        // Meraki returns "1000" (Mbps) or "10000" or "100"
-        $mbps = (int) $this->speed;
+
+        // Already has a unit label (e.g. "1 Gbps", "100 Mbps") — return as-is
+        if (preg_match('/[a-zA-Z]/', $speed)) {
+            return $speed;
+        }
+
+        // Bare numeric Mbps (fallback for non-standard responses)
+        $mbps = (int) $speed;
         if ($mbps >= 1000) {
             return round($mbps / 1000, 1) . ' Gbps';
         }

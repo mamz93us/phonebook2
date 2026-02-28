@@ -49,6 +49,17 @@ class NetworkClient extends Model
     }
 
     /**
+     * Human-readable status label — never shows raw null.
+     */
+    public function statusLabel(): string
+    {
+        if (!$this->status) {
+            return 'Unknown';
+        }
+        return ucfirst(strtolower($this->status));
+    }
+
+    /**
      * Human-readable usage (KB → MB → GB).
      */
     public function usageLabel(): string
@@ -66,10 +77,17 @@ class NetworkClient extends Model
     }
 
     /**
-     * Status badge class.
+     * Status badge Bootstrap class.
+     * Online  → green
+     * Offline → grey
+     * null    → muted (translucent) to clearly distinguish from "known offline"
      */
     public function statusBadgeClass(): string
     {
-        return strtolower($this->status ?? '') === 'online' ? 'bg-success' : 'bg-secondary';
+        return match (strtolower($this->status ?? '')) {
+            'online'  => 'bg-success',
+            'offline' => 'bg-secondary',
+            default   => 'bg-light text-secondary border',   // null / unknown
+        };
     }
 }

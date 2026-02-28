@@ -223,37 +223,71 @@
 @if($clients->isNotEmpty())
 <div class="card shadow-sm">
     <div class="card-header py-2 d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-semibold"><i class="bi bi-laptop me-2"></i>Connected Clients</h6>
-        <span class="badge bg-secondary">{{ $clients->count() }}</span>
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-laptop me-2"></i>Connected Clients (last 24 h)</h6>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="badge bg-success small">{{ $clients->where('status', 'Online')->count() }} online</span>
+            <span class="badge bg-secondary">{{ $clients->count() }} total</span>
+        </div>
     </div>
     <div class="card-body p-0">
-        <div class="table-responsive" style="max-height:300px;overflow-y:auto">
+        <div class="table-responsive" style="max-height:350px;overflow-y:auto">
             <table class="table table-sm table-hover align-middle mb-0 small">
                 <thead class="table-light sticky-top">
                     <tr>
                         <th>Status</th>
-                        <th>Hostname</th>
+                        <th>Hostname / Description</th>
                         <th>IP</th>
                         <th>MAC</th>
                         <th>Manufacturer</th>
                         <th>VLAN</th>
                         <th>Port</th>
-                        <th>Usage</th>
+                        <th class="text-end">Usage</th>
                         <th>Last Seen</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($clients as $client)
                     <tr>
-                        <td><span class="badge {{ $client->statusBadgeClass() }} small">{{ $client->status ?: '-' }}</span></td>
-                        <td class="fw-semibold">{{ $client->hostname ?: '-' }}</td>
-                        <td class="font-monospace small">{{ $client->ip ?: '-' }}</td>
+                        {{-- Status: statusLabel() returns "Online"/"Offline"/"Unknown" --}}
+                        <td>
+                            <span class="badge {{ $client->statusBadgeClass() }} small">
+                                {{ $client->statusLabel() }}
+                            </span>
+                        </td>
+
+                        {{-- Hostname + description --}}
+                        <td>
+                            <span class="fw-semibold">{{ $client->hostname ?: '-' }}</span>
+                            @if($client->description && $client->description !== $client->hostname)
+                                <br><span class="text-muted" style="font-size:10px">{{ $client->description }}</span>
+                            @endif
+                        </td>
+
+                        <td class="font-monospace">{{ $client->ip ?: '-' }}</td>
                         <td class="font-monospace text-muted small">{{ $client->mac }}</td>
                         <td class="text-muted">{{ $client->manufacturer ?: '-' }}</td>
+
                         <td>
-                            @if($client->vlan)<span class="badge bg-info text-dark small">{{ $client->vlan }}</span>@else<span class="text-muted">-</span>@endif
+                            @if($client->vlan)
+                                <span class="badge bg-info text-dark small">{{ $client->vlan }}</span>
+                            @else
+                                <span class="text-muted">-</span>
+                            @endif
                         </td>
-                        <td class="font-monospace small">{{ $client->port_id ?: '-' }}</td>
+
+                        {{-- Port — clickable if we have a port_id --}}
+                        <td class="font-monospace small">
+                            @if($client->port_id)
+                                <button class="btn btn-link btn-sm p-0 font-monospace small text-decoration-none"
+                                        onclick="showPortDetail({{ $ports->firstWhere('port_id', $client->port_id)?->id ?? 'null' }})"
+                                        title="Show port {{ $client->port_id }} details">
+                                    <i class="bi bi-ethernet me-1 text-primary"></i>{{ $client->port_id }}
+                                </button>
+                            @else
+                                <span class="text-muted">-</span>
+                            @endif
+                        </td>
+
                         <td class="font-monospace small text-end">{{ $client->usageLabel() }}</td>
                         <td class="text-muted small">{{ $client->last_seen ? $client->last_seen->diffForHumans() : '-' }}</td>
                     </tr>

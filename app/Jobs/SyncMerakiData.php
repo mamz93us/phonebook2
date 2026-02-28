@@ -120,7 +120,8 @@ class SyncMerakiData implements ShouldQueue
             }
 
             $ps        = $portStatuses->get($portId, []);
-            $isUplink  = ($ps['isUplink'] ?? false) === true || ($port['type'] ?? '') === 'trunk';
+            // Only use Meraki's explicit isUplink flag — trunk type is a VLAN config, NOT an uplink indicator
+            $isUplink  = ($ps['isUplink'] ?? false) === true;
             $portCount++;
 
             NetworkPort::updateOrCreate(
