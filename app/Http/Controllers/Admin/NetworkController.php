@@ -326,7 +326,8 @@ class NetworkController extends Controller
             'rack_id'   => $request->rack_id   ?: null,
         ]);
 
-        return back()->with('success', "Location updated for switch {$switch->name ?? $serial}.");
+        $switchName = $switch->name ?: $serial;
+        return back()->with('success', "Location updated for switch {$switchName}.");
     }
 
     // ─────────────────────────────────────────────────────────────

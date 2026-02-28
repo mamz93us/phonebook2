@@ -54,10 +54,10 @@
         <span style="width:18px;height:18px;border-radius:3px;background:#6c757d;opacity:.5;display:inline-block;"></span> Disconnected
     </span>
     <span class="d-inline-flex align-items-center gap-1">
-        <span style="width:18px;height:18px;border-radius:3px;background:#0d6efd;opacity:.75;display:inline-block;"></span> Uplink
-    </span>
-    <span class="d-inline-flex align-items-center gap-1">
         <span style="width:18px;height:18px;border-radius:3px;background:#dee2e6;display:inline-block;border:1px solid #adb5bd"></span> Disabled
+    </span>
+    <span class="d-inline-flex align-items-center gap-1 ms-2 text-muted">
+        <i class="bi bi-arrow-up-circle text-primary"></i> = Infrastructure link (uplink flag)
     </span>
 </div>
 
@@ -81,9 +81,7 @@
             @foreach($ports as $port)
             @php
                 $tileBg    = $port->tileBgClass();
-                $textColor = str_contains($tileBg, 'bg-success') || str_contains($tileBg, 'bg-primary')
-                    ? 'text-white'
-                    : 'text-dark';
+                $textColor = str_contains($tileBg, 'bg-success') ? 'text-white' : 'text-dark';
                 $tooltip   = $port->label();
                 if ($port->client_mac) $tooltip .= ' | ' . $port->client_mac;
                 if ($port->speed) $tooltip .= ' | ' . $port->speedLabel();

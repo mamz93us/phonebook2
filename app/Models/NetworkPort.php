@@ -52,15 +52,17 @@ class NetworkPort extends Model
 
     /**
      * Bootstrap colour class for the port tile.
+     *
+     * Colour is driven by connection STATUS only — not by isUplink.
+     * Meraki marks ANY port connected to network infrastructure (phones,
+     * downstream switches, APs) as isUplink=true, so using it for colour
+     * would paint most ports blue on aggregation switches. The uplink arrow
+     * icon in the tile is sufficient to communicate the uplink flag.
      */
     public function tileBgClass(): string
     {
         if (!$this->enabled) {
             return 'bg-secondary bg-opacity-25';
-        }
-
-        if ($this->is_uplink) {
-            return 'bg-primary bg-opacity-75';
         }
 
         return match (strtolower($this->status ?? '')) {
