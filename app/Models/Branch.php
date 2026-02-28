@@ -22,4 +22,14 @@ class Branch extends Model
     {
         return $this->hasMany(Contact::class);
     }
+
+    public function networkFloors()
+    {
+        return $this->hasMany(NetworkFloor::class)->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function networkSwitches()
+    {
+        return $this->hasMany(NetworkSwitch::class);
+    }
 }

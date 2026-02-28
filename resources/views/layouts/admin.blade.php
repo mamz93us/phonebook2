@@ -149,6 +149,15 @@
                                 </a>
                             </li>
                             @endcan
+                            @can('manage-network-settings')
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.locations') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.locations') }}">
+                                    <i class="bi bi-building me-2"></i>Locations
+                                </a>
+                            </li>
+                            @endcan
                         </ul>
                     </li>
                     @endcan

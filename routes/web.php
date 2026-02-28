@@ -223,6 +223,19 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::middleware('permission:manage-network-settings')->prefix('network')->name('network.')->group(function () {
         Route::post('/sync',         [NetworkController::class, 'sync'])        ->name('sync');
         Route::post('/test-connection', [NetworkController::class, 'testConnection'])->name('test-connection');
+
+        // ── Location management ─────────────────────────────────
+        Route::get('/locations',                          [NetworkController::class, 'locations'])    ->name('locations');
+
+        Route::post('/floors',                            [NetworkController::class, 'storeFloor'])   ->name('floors.store');
+        Route::put('/floors/{floor}',                     [NetworkController::class, 'updateFloor'])  ->name('floors.update');
+        Route::delete('/floors/{floor}',                  [NetworkController::class, 'destroyFloor']) ->name('floors.destroy');
+
+        Route::post('/racks',                             [NetworkController::class, 'storeRack'])    ->name('racks.store');
+        Route::put('/racks/{rack}',                       [NetworkController::class, 'updateRack'])   ->name('racks.update');
+        Route::delete('/racks/{rack}',                    [NetworkController::class, 'destroyRack'])  ->name('racks.destroy');
+
+        Route::post('/switches/{serial}/assign-location', [NetworkController::class, 'assignLocation'])->name('switches.assign-location');
     });
 });
 

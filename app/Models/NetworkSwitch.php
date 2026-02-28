@@ -22,6 +22,8 @@ class NetworkSwitch extends Model
         'clients_count',
         'last_reported_at',
         'branch_id',
+        'floor_id',
+        'rack_id',
         'raw_data',
     ];
 
@@ -54,7 +56,38 @@ class NetworkSwitch extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    public function floor(): BelongsTo
+    {
+        return $this->belongsTo(NetworkFloor::class, 'floor_id');
+    }
+
+    public function rack(): BelongsTo
+    {
+        return $this->belongsTo(NetworkRack::class, 'rack_id');
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────
+
+    /**
+     * Returns a human-readable "Branch › Floor › Rack" string.
+     * Only includes levels that are actually set.
+     */
+    public function locationBreadcrumb(): string
+    {
+        $parts = [];
+
+        if ($this->branch) {
+            $parts[] = $this->branch->name;
+        }
+        if ($this->floor) {
+            $parts[] = $this->floor->name;
+        }
+        if ($this->rack) {
+            $parts[] = $this->rack->name;
+        }
+
+        return implode(' › ', $parts) ?: '—';
+    }
 
     public function isOnline(): bool
     {

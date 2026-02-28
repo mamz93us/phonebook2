@@ -3,7 +3,7 @@
 @section('content')
 
 {{-- ── Header ── --}}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-start mb-3">
     <div>
         <div class="d-flex align-items-center gap-2 mb-1">
             <a href="{{ route('admin.network.switches') }}" class="btn btn-sm btn-outline-secondary">
@@ -22,7 +22,26 @@
             @if($switch->firmware) &bull; Firmware: <code>{{ $switch->firmware }}</code>@endif
             @if($switch->last_reported_at) &bull; Last seen: {{ $switch->last_reported_at->diffForHumans() }}@endif
         </small>
+        {{-- Location breadcrumb --}}
+        <div class="mt-1 small">
+            <i class="bi bi-geo-alt text-secondary me-1"></i>
+            <span class="text-muted">{{ $switch->locationBreadcrumb() }}</span>
+            @can('manage-network-settings')
+            <button class="btn btn-link btn-sm p-0 ms-1 text-secondary"
+                    data-bs-toggle="modal" data-bs-target="#assignLocationModal"
+                    title="Assign / change location">
+                <i class="bi bi-pencil" style="font-size:11px"></i>
+            </button>
+            @endcan
+        </div>
     </div>
+    {{-- Session flash --}}
+    @if(session('success'))
+    <div class="alert alert-success alert-dismissible fade show py-1 px-3 small mb-0" role="alert">
+        {{ session('success') }}
+        <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+    </div>
+    @endif
 </div>
 
 {{-- ── Port Legend ── --}}
@@ -299,6 +318,77 @@
 </div>
 @endif
 
+{{-- ══════════════════════════════════════════════════════════════ --}}
+{{-- ASSIGN LOCATION MODAL                                           --}}
+{{-- ══════════════════════════════════════════════════════════════ --}}
+@can('manage-network-settings')
+<div class="modal fade" id="assignLocationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST"
+              action="{{ route('admin.network.switches.assign-location', $switch->serial) }}"
+              class="modal-content">
+            @csrf
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-geo-alt me-2"></i>Assign Location</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    Switch: <strong>{{ $switch->name ?: $switch->serial }}</strong>
+                </p>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Branch</label>
+                    <select name="branch_id" id="detailAssignBranch" class="form-select"
+                            onchange="detailUpdateFloors()">
+                        <option value="">— None —</option>
+                        @foreach($branches as $b)
+                        <option value="{{ $b->id }}" {{ $switch->branch_id == $b->id ? 'selected' : '' }}>
+                            {{ $b->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Floor</label>
+                    <select name="floor_id" id="detailAssignFloor" class="form-select"
+                            onchange="detailUpdateRacks()">
+                        <option value="">— None —</option>
+                        @foreach($floors as $f)
+                        <option value="{{ $f->id }}"
+                                data-branch="{{ $f->branch_id }}"
+                                {{ $switch->floor_id == $f->id ? 'selected' : '' }}>
+                            {{ $f->branch?->name }} › {{ $f->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="mb-1">
+                    <label class="form-label fw-semibold">Rack</label>
+                    <select name="rack_id" id="detailAssignRack" class="form-select">
+                        <option value="">— None —</option>
+                        @foreach($racks as $r)
+                        <option value="{{ $r->id }}"
+                                data-floor="{{ $r->floor_id }}"
+                                {{ $switch->rack_id == $r->id ? 'selected' : '' }}>
+                            {{ $r->floor?->branch?->name }} › {{ $r->floor?->name }} › {{ $r->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-text">Select as many or as few levels as you need.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Location</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endcan
+
 @endsection
 
 @push('scripts')
@@ -361,5 +451,38 @@ function showPortDetail(portId) {
     const tile = document.querySelector(`.port-tile[data-port-id="${port.port_id}"]`);
     if (tile) tile.style.outline = '3px solid #0d6efd';
 }
+
+// ── Location modal cascading dropdowns ──────────────────────────
+@can('manage-network-settings')
+const detailAllFloors = @json($floors->map(fn($f) => ['id' => $f->id, 'branch_id' => $f->branch_id]));
+const detailAllRacks  = @json($racks->map(fn($r)  => ['id' => $r->id, 'floor_id'  => $r->floor_id]));
+
+function detailUpdateFloors() {
+    const branchId = parseInt(document.getElementById('detailAssignBranch').value) || null;
+    const floorSel = document.getElementById('detailAssignFloor');
+    // Show only floors for selected branch (or all if none selected)
+    Array.from(floorSel.options).forEach(opt => {
+        if (!opt.value) return; // keep "None"
+        const floorBranch = parseInt(opt.getAttribute('data-branch')) || null;
+        opt.hidden = branchId ? (floorBranch !== branchId) : false;
+        if (opt.hidden && opt.selected) { opt.selected = false; floorSel.value = ''; }
+    });
+    detailUpdateRacks();
+}
+
+function detailUpdateRacks() {
+    const floorId = parseInt(document.getElementById('detailAssignFloor').value) || null;
+    const rackSel = document.getElementById('detailAssignRack');
+    Array.from(rackSel.options).forEach(opt => {
+        if (!opt.value) return;
+        const rackFloor = parseInt(opt.getAttribute('data-floor')) || null;
+        opt.hidden = floorId ? (rackFloor !== floorId) : false;
+        if (opt.hidden && opt.selected) { opt.selected = false; rackSel.value = ''; }
+    });
+}
+
+// Run on load to filter dropdowns to current switch location
+detailUpdateFloors();
+@endcan
 </script>
 @endpush

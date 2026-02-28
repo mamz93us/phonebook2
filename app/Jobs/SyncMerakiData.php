@@ -44,11 +44,15 @@ class SyncMerakiData implements ShouldQueue
 
         $meraki = new MerakiService();
 
-        // ── 1. Fetch all devices and their statuses ────────────────
+        // ── 1. Fetch networks so we can resolve ID → name ──────────
+        $networkNames = collect($meraki->getNetworks())->keyBy('id')
+                            ->map(fn ($n) => $n['name'] ?? null);
+
+        // ── 2. Fetch all devices and their statuses ────────────────
         $devices  = $meraki->getDevices();
         $statuses = collect($meraki->getDeviceStatuses())->keyBy('serial');
 
-        // ── 2. Gather unique networks (for event sync) ─────────────
+        // ── 3. Gather unique networks (for event sync) ─────────────
         $networkIds = [];
 
         // ── 3. Filter to MS* (Meraki Switches) ────────────────────
@@ -73,7 +77,7 @@ class SyncMerakiData implements ShouldQueue
                 ['serial' => $serial],
                 [
                     'network_id'        => $networkId,
-                    'network_name'      => $device['networkId'] ?? null, // replaced below if we have networks
+                    'network_name'      => $networkNames->get($networkId) ?? $networkId,
                     'name'              => $device['name'] ?? $serial,
                     'model'             => $device['model'] ?? null,
                     'mac'               => $device['mac'] ?? null,

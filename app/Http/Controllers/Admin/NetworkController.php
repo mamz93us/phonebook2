@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Jobs\SyncMerakiData;
 use App\Models\ActivityLog;
+use App\Models\Branch;
 use App\Models\NetworkClient;
 use App\Models\NetworkEvent;
+use App\Models\NetworkFloor;
+use App\Models\NetworkRack;
 use App\Models\NetworkSwitch;
 use App\Models\Setting;
 use App\Services\Network\MerakiService;
@@ -72,12 +75,15 @@ class NetworkController extends Controller
             $query->where('status', $request->status);
         }
 
-        $switches  = $query->get();
+        $switches  = $query->with(['branch', 'floor', 'rack'])->get();
         $networks  = NetworkSwitch::select('network_id', 'network_name')
                         ->distinct()->orderBy('network_name')->get();
         $lastSync  = NetworkSwitch::max('updated_at');
+        $branches  = Branch::orderBy('name')->get(['id', 'name']);
+        $floors    = NetworkFloor::with('branch')->orderBy('sort_order')->orderBy('name')->get();
+        $racks     = NetworkRack::with('floor.branch')->orderBy('sort_order')->orderBy('name')->get();
 
-        return view('admin.network.switches', compact('switches', 'networks', 'lastSync'));
+        return view('admin.network.switches', compact('switches', 'networks', 'lastSync', 'branches', 'floors', 'racks'));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -86,15 +92,19 @@ class NetworkController extends Controller
 
     public function switchDetail(string $serial)
     {
-        $switch  = NetworkSwitch::where('serial', $serial)->firstOrFail();
+        $switch  = NetworkSwitch::with(['branch', 'floor', 'rack'])
+                        ->where('serial', $serial)->firstOrFail();
         $ports   = $switch->ports()
                         ->orderByRaw("CAST(port_id AS UNSIGNED) ASC, port_id ASC")
                         ->get();
         $clients = $switch->clients()
                         ->orderBy('status')->orderBy('hostname')
                         ->get();
+        $branches = Branch::orderBy('name')->get(['id', 'name']);
+        $floors   = NetworkFloor::with('branch')->orderBy('sort_order')->orderBy('name')->get();
+        $racks    = NetworkRack::with('floor.branch')->orderBy('sort_order')->orderBy('name')->get();
 
-        return view('admin.network.switch-detail', compact('switch', 'ports', 'clients'));
+        return view('admin.network.switch-detail', compact('switch', 'ports', 'clients', 'branches', 'floors', 'racks'));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -182,6 +192,141 @@ class NetworkController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Sync failed: ' . $e->getMessage());
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Location Management (Floors + Racks)
+    // ─────────────────────────────────────────────────────────────
+
+    public function locations()
+    {
+        $branches = Branch::orderBy('name')
+                        ->with(['networkFloors' => function ($q) {
+                            $q->orderBy('sort_order')->orderBy('name')
+                              ->withCount('switches')
+                              ->with(['racks' => function ($q2) {
+                                  $q2->withCount('switches');
+                              }]);
+                        }])
+                        ->get();
+
+        return view('admin.network.locations', compact('branches'));
+    }
+
+    // ── Floor CRUD ──────────────────────────────────────────────
+
+    public function storeFloor(Request $request)
+    {
+        $request->validate([
+            'branch_id'   => 'required|exists:branches,id',
+            'name'        => 'required|string|max:100',
+            'description' => 'nullable|string|max:255',
+            'sort_order'  => 'nullable|integer|min:0',
+        ]);
+
+        NetworkFloor::create([
+            'branch_id'   => $request->branch_id,
+            'name'        => $request->name,
+            'description' => $request->description,
+            'sort_order'  => $request->sort_order ?? 0,
+        ]);
+
+        return back()->with('success', "Floor \"{$request->name}\" created.");
+    }
+
+    public function updateFloor(Request $request, NetworkFloor $floor)
+    {
+        $request->validate([
+            'name'        => 'required|string|max:100',
+            'description' => 'nullable|string|max:255',
+            'sort_order'  => 'nullable|integer|min:0',
+        ]);
+
+        $floor->update([
+            'name'        => $request->name,
+            'description' => $request->description,
+            'sort_order'  => $request->sort_order ?? $floor->sort_order,
+        ]);
+
+        return back()->with('success', "Floor \"{$floor->name}\" updated.");
+    }
+
+    public function destroyFloor(NetworkFloor $floor)
+    {
+        $name = $floor->name;
+        $floor->delete();
+
+        return back()->with('success', "Floor \"{$name}\" deleted.");
+    }
+
+    // ── Rack CRUD ───────────────────────────────────────────────
+
+    public function storeRack(Request $request)
+    {
+        $request->validate([
+            'floor_id'    => 'required|exists:network_floors,id',
+            'name'        => 'required|string|max:100',
+            'description' => 'nullable|string|max:255',
+            'capacity'    => 'nullable|integer|min:1|max:100',
+            'sort_order'  => 'nullable|integer|min:0',
+        ]);
+
+        NetworkRack::create([
+            'floor_id'    => $request->floor_id,
+            'name'        => $request->name,
+            'description' => $request->description,
+            'capacity'    => $request->capacity,
+            'sort_order'  => $request->sort_order ?? 0,
+        ]);
+
+        return back()->with('success', "Rack \"{$request->name}\" created.");
+    }
+
+    public function updateRack(Request $request, NetworkRack $rack)
+    {
+        $request->validate([
+            'name'        => 'required|string|max:100',
+            'description' => 'nullable|string|max:255',
+            'capacity'    => 'nullable|integer|min:1|max:100',
+            'sort_order'  => 'nullable|integer|min:0',
+        ]);
+
+        $rack->update([
+            'name'        => $request->name,
+            'description' => $request->description,
+            'capacity'    => $request->capacity,
+            'sort_order'  => $request->sort_order ?? $rack->sort_order,
+        ]);
+
+        return back()->with('success', "Rack \"{$rack->name}\" updated.");
+    }
+
+    public function destroyRack(NetworkRack $rack)
+    {
+        $name = $rack->name;
+        $rack->delete();
+
+        return back()->with('success', "Rack \"{$name}\" deleted.");
+    }
+
+    // ── Assign location to a switch ─────────────────────────────
+
+    public function assignLocation(Request $request, string $serial)
+    {
+        $request->validate([
+            'branch_id' => 'nullable|exists:branches,id',
+            'floor_id'  => 'nullable|exists:network_floors,id',
+            'rack_id'   => 'nullable|exists:network_racks,id',
+        ]);
+
+        $switch = NetworkSwitch::where('serial', $serial)->firstOrFail();
+        $switch->update([
+            'branch_id' => $request->branch_id ?: null,
+            'floor_id'  => $request->floor_id  ?: null,
+            'rack_id'   => $request->rack_id   ?: null,
+        ]);
+
+        return back()->with('success', "Location updated for switch {$switch->name ?? $serial}.");
     }
 
     // ─────────────────────────────────────────────────────────────
