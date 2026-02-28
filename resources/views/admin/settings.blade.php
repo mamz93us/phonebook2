@@ -283,6 +283,93 @@
     </div>
 </div>
 
+{{-- ─────────────────────────────────────────────────────── --}}
+{{-- Meraki Network Section                                 --}}
+{{-- ─────────────────────────────────────────────────────── --}}
+<div class="card mt-4" id="meraki">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-diagram-3-fill text-primary fs-5"></i>
+        <h5 class="mb-0">Meraki Network Integration</h5>
+        @if($settings->meraki_enabled)
+            <span class="badge bg-success ms-auto">Enabled</span>
+        @else
+            <span class="badge bg-secondary ms-auto">Disabled</span>
+        @endif
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Read-only observability.</strong>
+            This integration fetches switch status, port states, and client data from the Meraki API.
+            No write operations are performed on your network.
+        </div>
+        <form method="POST" action="{{ route('admin.settings.meraki') }}">
+            @csrf
+            <div class="row g-3 mb-3">
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="meraki_enabled"
+                            id="meraki_enabled" value="1" {{ $settings->meraki_enabled ? 'checked' : '' }}>
+                        <label class="form-check-label fw-semibold" for="meraki_enabled">
+                            Enable Meraki Network Monitoring
+                        </label>
+                    </div>
+                    <div class="form-text">Enable to show the Network section in the navigation.</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">API Key <span class="text-danger">*</span></label>
+                    <input type="password" name="meraki_api_key" class="form-control font-monospace"
+                        placeholder="{{ $settings->meraki_api_key ? '••••••••  (leave blank to keep current)' : 'Paste Meraki API key here' }}">
+                    <div class="form-text">
+                        Meraki Dashboard → Account → API access → Generate API key.
+                        Stored encrypted.
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Organisation ID <span class="text-danger">*</span></label>
+                    <input type="text" name="meraki_org_id" class="form-control font-monospace"
+                        value="{{ old('meraki_org_id', $settings->meraki_org_id) }}"
+                        placeholder="e.g. 123456">
+                    <div class="form-text">
+                        Meraki Dashboard → Organisation → Settings → Organisation ID.
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Polling Interval (minutes)</label>
+                    <input type="number" name="meraki_polling_interval" class="form-control"
+                        value="{{ old('meraki_polling_interval', $settings->meraki_polling_interval ?? 15) }}"
+                        min="5" max="1440">
+                    <div class="form-text">How often the background sync job runs (min: 5).</div>
+                </div>
+
+                <div class="col-md-8 d-flex align-items-end">
+                    <div class="w-100">
+                        <label class="form-label fw-semibold">Connection Test</label>
+                        <div class="input-group">
+                            <button type="button" class="btn btn-outline-secondary" id="testMerakiBtn"
+                                onclick="testMerakiConnection()">
+                                <i class="bi bi-plug me-1"></i>Test Connection
+                            </button>
+                            <span class="input-group-text flex-grow-1" id="merakiTestResult" style="min-width:200px">
+                                <span class="text-muted small">Click to test current credentials</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i>Save Meraki Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {{-- Add UCM Modal --}}
 <div class="modal fade" id="addUcmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -339,3 +426,47 @@
 </div>
 
 @endsection
+
+@push('scripts')
+<script>
+function testMerakiConnection() {
+    const btn    = document.getElementById('testMerakiBtn');
+    const result = document.getElementById('merakiTestResult');
+    const apiKey = document.querySelector('[name="meraki_api_key"]').value;
+    const orgId  = document.querySelector('[name="meraki_org_id"]').value;
+
+    if (!orgId) {
+        result.innerHTML = '<span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Please enter an Organisation ID</span>';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing…';
+    result.innerHTML = '<span class="text-muted small">Connecting…</span>';
+
+    fetch('{{ route('admin.network.test-connection') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ api_key: apiKey || '{{-- use saved --}}', org_id: orgId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            result.innerHTML = '<span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
+        } else {
+            result.innerHTML = '<span class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + '</span>';
+        }
+    })
+    .catch(() => {
+        result.innerHTML = '<span class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>Request failed</span>';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plug me-1"></i>Test Connection';
+    });
+}
+</script>
+@endpush

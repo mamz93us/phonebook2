@@ -1,0 +1,225 @@
+<?php
+
+namespace App\Jobs;
+
+use App\Models\NetworkClient;
+use App\Models\NetworkEvent;
+use App\Models\NetworkPort;
+use App\Models\NetworkSwitch;
+use App\Models\Setting;
+use App\Services\Network\MerakiService;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+
+class SyncMerakiData implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $timeout = 180;
+    public int $tries   = 2;
+
+    // ─────────────────────────────────────────────────────────────
+    // Execute
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle(): void
+    {
+        $settings = Setting::get();
+
+        if (!$settings->meraki_enabled) {
+            Log::info('SyncMerakiData: Meraki integration is disabled — skipping.');
+            return;
+        }
+
+        if (empty($settings->meraki_api_key) || empty($settings->meraki_org_id)) {
+            Log::warning('SyncMerakiData: API key or Org ID not configured — skipping.');
+            return;
+        }
+
+        Log::info('SyncMerakiData: Starting sync');
+
+        $meraki = new MerakiService();
+
+        // ── 1. Fetch all devices and their statuses ────────────────
+        $devices  = $meraki->getDevices();
+        $statuses = collect($meraki->getDeviceStatuses())->keyBy('serial');
+
+        // ── 2. Gather unique networks (for event sync) ─────────────
+        $networkIds = [];
+
+        // ── 3. Filter to MS* (Meraki Switches) ────────────────────
+        $switches = array_filter($devices, fn ($d) => str_starts_with($d['model'] ?? '', 'MS'));
+
+        foreach ($switches as $device) {
+            $serial = $device['serial'] ?? null;
+            if (!$serial) {
+                continue;
+            }
+
+            $statusData = $statuses->get($serial, []);
+            $status     = strtolower($statusData['status'] ?? 'unknown');
+            $networkId  = $device['networkId'] ?? null;
+
+            if ($networkId) {
+                $networkIds[$networkId] = $networkId;
+            }
+
+            // ── Upsert switch record ───────────────────────────────
+            $switch = NetworkSwitch::updateOrCreate(
+                ['serial' => $serial],
+                [
+                    'network_id'        => $networkId,
+                    'network_name'      => $device['networkId'] ?? null, // replaced below if we have networks
+                    'name'              => $device['name'] ?? $serial,
+                    'model'             => $device['model'] ?? null,
+                    'mac'               => $device['mac'] ?? null,
+                    'lan_ip'            => $device['lanIp'] ?? null,
+                    'firmware'          => $device['firmware'] ?? null,
+                    'status'            => $status,
+                    'last_reported_at'  => $statusData['lastReportedAt'] ?? null,
+                    'raw_data'          => $device,
+                ]
+            );
+
+            // ── Sync ports ─────────────────────────────────────────
+            $this->syncPorts($meraki, $switch, $serial);
+
+            // ── Sync clients ───────────────────────────────────────
+            $this->syncClients($meraki, $switch, $serial);
+
+            Log::info("SyncMerakiData: switch {$serial} synced ({$switch->port_count} ports, {$switch->clients_count} clients)");
+        }
+
+        // ── 4. Sync events per unique network ─────────────────────
+        foreach ($networkIds as $networkId) {
+            $this->syncEvents($meraki, $networkId);
+        }
+
+        Log::info('SyncMerakiData: Sync complete. Switches: ' . count($switches));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Port sync
+    // ─────────────────────────────────────────────────────────────
+
+    private function syncPorts(MerakiService $meraki, NetworkSwitch $switch, string $serial): void
+    {
+        $portConfigs  = $meraki->getSwitchPorts($serial);
+        $portStatuses = collect($meraki->getSwitchPortStatuses($serial))->keyBy('portId');
+
+        $portCount = 0;
+
+        foreach ($portConfigs as $port) {
+            $portId = (string) ($port['portId'] ?? null);
+            if ($portId === '') {
+                continue;
+            }
+
+            $ps        = $portStatuses->get($portId, []);
+            $isUplink  = ($ps['isUplink'] ?? false) === true || ($port['type'] ?? '') === 'trunk';
+            $portCount++;
+
+            NetworkPort::updateOrCreate(
+                ['switch_serial' => $serial, 'port_id' => $portId],
+                [
+                    'name'            => $port['name'] ?? null,
+                    'enabled'         => $port['enabled'] ?? true,
+                    'type'            => $port['type'] ?? null,
+                    'vlan'            => $port['vlan'] ?? null,
+                    'allowed_vlans'   => is_array($port['allowedVlans'] ?? null)
+                                            ? implode(',', $port['allowedVlans'])
+                                            : ($port['allowedVlans'] ?? null),
+                    'poe_enabled'     => $port['poeEnabled'] ?? false,
+                    'is_uplink'       => $isUplink,
+                    'status'          => $ps['status'] ?? null,
+                    'speed'           => $ps['speed'] ?? null,
+                    'duplex'          => $ps['duplex'] ?? null,
+                    'client_mac'      => $ps['clientMac'] ?? null,
+                    'client_hostname' => null,
+                ]
+            );
+        }
+
+        $switch->update(['port_count' => $portCount]);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Client sync
+    // ─────────────────────────────────────────────────────────────
+
+    private function syncClients(MerakiService $meraki, NetworkSwitch $switch, string $serial): void
+    {
+        $clients     = $meraki->getDeviceClients($serial);
+        $clientCount = count($clients);
+
+        foreach ($clients as $client) {
+            $mac = $client['mac'] ?? null;
+            if (!$mac) {
+                continue;
+            }
+
+            $usageSent = $client['usage']['sent'] ?? 0;
+            $usageRecv = $client['usage']['recv'] ?? 0;
+
+            NetworkClient::updateOrCreate(
+                ['mac' => $mac],
+                [
+                    'client_id'     => $client['id'] ?? null,
+                    'switch_serial' => $serial,
+                    'ip'            => $client['ip'] ?? null,
+                    'hostname'      => $client['dhcpHostname'] ?? $client['hostname'] ?? null,
+                    'description'   => $client['description'] ?? null,
+                    'vlan'          => $client['vlan'] ?? null,
+                    'port_id'       => (string) ($client['switchport'] ?? ''),
+                    'status'        => $client['status'] ?? null,
+                    'usage_kb'      => $usageSent + $usageRecv,
+                    'manufacturer'  => $client['manufacturer'] ?? null,
+                    'os'            => $client['os'] ?? null,
+                    'last_seen'     => isset($client['lastSeen'])
+                                        ? \Carbon\Carbon::parse($client['lastSeen'])
+                                        : null,
+                ]
+            );
+        }
+
+        $switch->update(['clients_count' => $clientCount]);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Event sync
+    // ─────────────────────────────────────────────────────────────
+
+    private function syncEvents(MerakiService $meraki, string $networkId): void
+    {
+        $response = $meraki->getNetworkEvents($networkId, 100);
+        $events   = $response['events'] ?? [];
+
+        foreach ($events as $event) {
+            $occurredAt = isset($event['occurredAt'])
+                ? \Carbon\Carbon::parse($event['occurredAt'])
+                : null;
+
+            // Use deviceSerial to link to a switch if possible
+            $serial = $event['deviceSerial'] ?? null;
+
+            NetworkEvent::updateOrCreate(
+                [
+                    'network_id' => $networkId,
+                    'event_type' => $event['type'] ?? 'unknown',
+                    'occurred_at'=> $occurredAt,
+                    'switch_serial' => $serial,
+                ],
+                [
+                    'description' => $event['description'] ?? null,
+                    'details'     => $event,
+                ]
+            );
+        }
+
+        Log::info("SyncMerakiData: synced " . count($events) . " events for network {$networkId}");
+    }
+}

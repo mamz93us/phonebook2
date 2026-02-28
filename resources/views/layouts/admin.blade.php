@@ -115,6 +115,44 @@
                     </li>
                     @endcanany
 
+                    {{-- ── Network dropdown ── --}}
+                    @can('view-network')
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/network*') ? 'active' : '' }}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-diagram-3-fill me-1"></i>Network
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark shadow">
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.overview') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.overview') }}">
+                                    <i class="bi bi-speedometer2 me-2"></i>Overview
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.switches') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.switches') }}">
+                                    <i class="bi bi-hdd-network me-2"></i>Switches
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.clients') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.clients') }}">
+                                    <i class="bi bi-laptop me-2"></i>Clients
+                                </a>
+                            </li>
+                            @can('view-network-events')
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.events') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.events') }}">
+                                    <i class="bi bi-clock-history me-2"></i>Change Monitor
+                                </a>
+                            </li>
+                            @endcan
+                        </ul>
+                    </li>
+                    @endcan
+
                     {{-- ── Settings dropdown ── --}}
                     @canany(['manage-settings','manage-users','manage-permissions','view-phone-logs','view-activity-logs'])
                     <li class="nav-item dropdown">

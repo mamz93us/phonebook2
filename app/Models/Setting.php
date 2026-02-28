@@ -15,10 +15,17 @@ class Setting extends Model
         'sso_client_id',
         'sso_client_secret',
         'sso_default_role',
+        // Meraki Network
+        'meraki_enabled',
+        'meraki_api_key',
+        'meraki_org_id',
+        'meraki_polling_interval',
     ];
 
     protected $casts = [
-        'sso_enabled' => 'boolean',
+        'sso_enabled'             => 'boolean',
+        'meraki_enabled'          => 'boolean',
+        'meraki_polling_interval' => 'integer',
     ];
 
     /**
@@ -34,13 +41,31 @@ class Setting extends Model
         ]);
     }
 
-    // Encrypt secret on save, decrypt on read
+    // ─── SSO client secret — encrypted at rest ────────────────────
+
     public function setSsoClientSecretAttribute(?string $value): void
     {
         $this->attributes['sso_client_secret'] = $value ? Crypt::encryptString($value) : null;
     }
 
     public function getSsoClientSecretAttribute(?string $value): ?string
+    {
+        if (!$value) return null;
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    // ─── Meraki API key — encrypted at rest ──────────────────────
+
+    public function setMerakiApiKeyAttribute(?string $value): void
+    {
+        $this->attributes['meraki_api_key'] = $value ? Crypt::encryptString($value) : null;
+    }
+
+    public function getMerakiApiKeyAttribute(?string $value): ?string
     {
         if (!$value) return null;
         try {

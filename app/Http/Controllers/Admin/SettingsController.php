@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Setting;
 use App\Models\UcmServer;
+use App\Services\Network\MerakiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -132,5 +133,49 @@ class SettingsController extends Controller
         return redirect()
             ->route('admin.settings.index')
             ->with('success', 'SSO settings updated.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Meraki Network Settings
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Update Meraki API configuration
+     */
+    public function updateMeraki(Request $request)
+    {
+        $request->validate([
+            'meraki_org_id'            => 'nullable|string|max:100',
+            'meraki_api_key'           => 'nullable|string|max:500',
+            'meraki_polling_interval'  => 'required|integer|min:5|max:1440',
+        ]);
+
+        $settings = Setting::get();
+        $settings->meraki_enabled          = $request->boolean('meraki_enabled');
+        $settings->meraki_org_id           = $request->meraki_org_id;
+        $settings->meraki_polling_interval = (int) $request->meraki_polling_interval;
+
+        if ($request->filled('meraki_api_key')) {
+            $settings->meraki_api_key = $request->meraki_api_key;
+        }
+
+        $settings->save();
+
+        ActivityLog::create([
+            'model_type' => 'Setting',
+            'model_id'   => 1,
+            'action'     => 'updated',
+            'changes'    => [
+                'meraki_enabled'          => $settings->meraki_enabled,
+                'meraki_org_id'           => $request->meraki_org_id,
+                'meraki_polling_interval' => $settings->meraki_polling_interval,
+                'api_key_changed'         => $request->filled('meraki_api_key'),
+            ],
+            'user_id' => Auth::id(),
+        ]);
+
+        return redirect()
+            ->route('admin.settings.index')
+            ->with('success', 'Meraki settings updated.');
     }
 }

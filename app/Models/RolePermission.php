@@ -37,6 +37,11 @@ class RolePermission extends Model
                 'manage-extensions' => 'Create / Edit / Delete Extensions',
                 'view-trunks'       => 'View VoIP Trunks',
             ],
+            'Network' => [
+                'view-network'            => 'View Network (Switches, Clients, Events)',
+                'manage-network-settings' => 'Manage Meraki Network Settings',
+                'view-network-events'     => 'View Network Change Events',
+            ],
             'Administration' => [
                 'manage-settings'    => 'Access & Edit Settings',
                 'manage-users'       => 'Manage Users',
@@ -61,11 +66,12 @@ class RolePermission extends Model
     public static function defaultPermissions(): array
     {
         $all         = static::allSlugs();
-        $adminPerms  = array_values(array_diff($all, ['manage-users', 'manage-permissions']));
+        $adminPerms  = array_values(array_diff($all, ['manage-users', 'manage-permissions', 'manage-network-settings']));
         $viewerPerms = [
             'view-branches', 'view-contacts',
             'view-activity-logs', 'view-phone-logs',
             'view-extensions', 'view-trunks',
+            'view-network',
         ];
 
         return [

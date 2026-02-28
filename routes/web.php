@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\PermissionsController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GdmsController;
+use App\Http\Controllers\Admin\NetworkController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
@@ -165,6 +166,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('settings.delete-logo');
         Route::post('settings/sso', [SettingsController::class, 'updateSso'])
             ->name('settings.sso');
+        Route::post('settings/meraki', [SettingsController::class, 'updateMeraki'])
+            ->name('settings.meraki');
     });
 
     // ─── UCM Servers (managed from Settings page) ─────────────
@@ -203,6 +206,23 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('permissions.index');
         Route::put('permissions', [PermissionsController::class, 'update'])
             ->name('permissions.update');
+    });
+
+    // ─── Network (Meraki) ─────────────────────────────────────
+    Route::middleware('permission:view-network')->prefix('network')->name('network.')->group(function () {
+        Route::get('/',              [NetworkController::class, 'overview'])    ->name('overview');
+        Route::get('/switches',      [NetworkController::class, 'switches'])    ->name('switches');
+        Route::get('/switches/{serial}', [NetworkController::class, 'switchDetail'])->name('switch-detail');
+        Route::get('/clients',       [NetworkController::class, 'clients'])     ->name('clients');
+    });
+
+    Route::middleware('permission:view-network-events')->prefix('network')->name('network.')->group(function () {
+        Route::get('/events',        [NetworkController::class, 'events'])      ->name('events');
+    });
+
+    Route::middleware('permission:manage-network-settings')->prefix('network')->name('network.')->group(function () {
+        Route::post('/sync',         [NetworkController::class, 'sync'])        ->name('sync');
+        Route::post('/test-connection', [NetworkController::class, 'testConnection'])->name('test-connection');
     });
 });
 

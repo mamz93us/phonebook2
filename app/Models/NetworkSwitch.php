@@ -1,0 +1,107 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class NetworkSwitch extends Model
+{
+    protected $fillable = [
+        'serial',
+        'network_id',
+        'network_name',
+        'name',
+        'model',
+        'mac',
+        'lan_ip',
+        'firmware',
+        'status',
+        'port_count',
+        'clients_count',
+        'last_reported_at',
+        'branch_id',
+        'raw_data',
+    ];
+
+    protected $casts = [
+        'last_reported_at' => 'datetime',
+        'raw_data'         => 'array',
+        'port_count'       => 'integer',
+        'clients_count'    => 'integer',
+    ];
+
+    // ─── Relationships ────────────────────────────────────────────
+
+    public function ports(): HasMany
+    {
+        return $this->hasMany(NetworkPort::class, 'switch_serial', 'serial');
+    }
+
+    public function clients(): HasMany
+    {
+        return $this->hasMany(NetworkClient::class, 'switch_serial', 'serial');
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(NetworkEvent::class, 'switch_serial', 'serial');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────
+
+    public function isOnline(): bool
+    {
+        return $this->status === 'online';
+    }
+
+    public function statusBadgeClass(): string
+    {
+        return match ($this->status) {
+            'online'   => 'bg-success',
+            'offline'  => 'bg-danger',
+            'alerting' => 'bg-warning text-dark',
+            default    => 'bg-secondary',
+        };
+    }
+
+    public function statusIcon(): string
+    {
+        return match ($this->status) {
+            'online'   => 'bi-circle-fill text-success',
+            'offline'  => 'bi-circle-fill text-danger',
+            'alerting' => 'bi-exclamation-circle-fill text-warning',
+            default    => 'bi-circle text-secondary',
+        };
+    }
+
+    /**
+     * Percentage of ports that are connected.
+     */
+    public function connectedPortPercent(): int
+    {
+        if (!$this->port_count) {
+            return 0;
+        }
+        $connected = $this->ports()->where('status', 'Connected')->count();
+        return (int) round(($connected / $this->port_count) * 100);
+    }
+
+    // ─── Scopes ───────────────────────────────────────────────────
+
+    public function scopeOnline($query)
+    {
+        return $query->where('status', 'online');
+    }
+
+    public function scopeOffline($query)
+    {
+        return $query->where('status', 'offline');
+    }
+}
