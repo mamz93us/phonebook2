@@ -143,7 +143,7 @@ class IdentityController extends Controller
         // with set_time_limit(0) and updates the sync-log entry on its own.
         $php     = PHP_BINARY;
         $artisan = base_path('artisan');
-        exec(escapeshellcmd($php) . ' ' . escapeshellarg($artisan) . ' identity:sync > /dev/null 2>&1 &');
+        \exec(escapeshellcmd($php) . ' ' . escapeshellarg($artisan) . ' identity:sync > /dev/null 2>&1 &');
 
         ActivityLog::create([
             'model_type' => 'Identity',
