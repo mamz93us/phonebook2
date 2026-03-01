@@ -180,8 +180,27 @@ class GraphService
                 'businessPhones', 'mobilePhone',
                 'officeLocation', 'streetAddress', 'city', 'postalCode', 'country',
             ]),
+        ]);
+    }
+
+    /**
+     * Return a compact map of [azureUserId => [groupId, ...]] for ALL users.
+     * Fetches only "id" + "memberOf" so the paginated payload stays small
+     * and does not interfere with the (larger) profile-field user sync.
+     */
+    public function listUserMemberships(): array
+    {
+        $rows = $this->paginate('/users', [
+            '$select' => 'id',
             '$expand' => 'memberOf($select=id)',
         ]);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $groupIds   = collect($row['memberOf'] ?? [])->pluck('id')->filter()->values()->all();
+            $map[$row['id']] = $groupIds;
+        }
+        return $map; // ['azureUserId' => ['groupId1', 'groupId2', ...], ...]
     }
 
     public function getUser(string $id): array

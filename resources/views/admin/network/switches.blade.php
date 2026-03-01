@@ -16,7 +16,7 @@
     </div>
     <div class="d-flex gap-2">
         @can('manage-network-settings')
-        <a href="{{ route('admin.network.locations') }}" class="btn btn-outline-secondary btn-sm">
+        <a href="{{ route('admin.settings.locations') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-building me-1"></i>Manage Locations
         </a>
         <form method="POST" action="{{ route('admin.network.sync') }}">

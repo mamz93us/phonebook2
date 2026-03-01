@@ -77,22 +77,11 @@ class SyncIdentityData implements ShouldQueue
                 );
             }
 
-            // ── 3. Sync users ──────────────────────────────────────────
+            // ── 3. Sync users (profile data — no expand, stays fast) ──
             $users = $graph->listUsers();
-            $groupMemberCounts = []; // tally how many users belong to each group
             foreach ($users as $user) {
                 $licensesCount = count($user['assignedLicenses'] ?? []);
                 $licenseSkus   = collect($user['assignedLicenses'] ?? [])->pluck('skuId')->all();
-
-                // Extract group IDs from the expanded memberOf relationship
-                $memberOf      = $user['memberOf'] ?? [];
-                $groupIds      = collect($memberOf)->pluck('id')->filter()->values()->all();
-                $groupsCount   = count($groupIds);
-
-                // Accumulate per-group member tallies
-                foreach ($groupIds as $gid) {
-                    $groupMemberCounts[$gid] = ($groupMemberCounts[$gid] ?? 0) + 1;
-                }
 
                 IdentityUser::updateOrCreate(
                     ['azure_id' => $user['id']],
@@ -114,21 +103,34 @@ class SyncIdentityData implements ShouldQueue
                         'postal_code'         => $user['postalCode'] ?? null,
                         'country'             => $user['country'] ?? null,
                         'licenses_count'      => $licensesCount,
-                        'groups_count'        => $groupsCount,
                         'assigned_licenses'   => $licenseSkus,
-                        'member_of'           => $groupIds,
                         'raw_data'            => $user,
                     ]
                 );
             }
 
-            // ── 4. Back-fill members_count on groups ───────────────────
-            // Use the tally built above — no extra Graph API calls needed
-            foreach ($groupMemberCounts as $azureId => $count) {
-                IdentityGroup::where('azure_id', $azureId)
-                    ->update(['members_count' => $count]);
+            // ── 4. Sync group memberships (compact call: id + memberOf only) ──
+            // Separated from the profile sync to keep both calls lightweight.
+            $membershipMap     = $graph->listUserMemberships(); // [azureUserId => [groupId, ...]]
+            $groupMemberCounts = [];
+
+            foreach ($membershipMap as $azureUserId => $groupIds) {
+                $groupsCount = count($groupIds);
+
+                IdentityUser::where('azure_id', $azureUserId)->update([
+                    'member_of'    => $groupIds,
+                    'groups_count' => $groupsCount,
+                ]);
+
+                foreach ($groupIds as $gid) {
+                    $groupMemberCounts[$gid] = ($groupMemberCounts[$gid] ?? 0) + 1;
+                }
             }
-            // Zero out any groups that had no users during this sync
+
+            // ── 5. Back-fill members_count on groups ───────────────────
+            foreach ($groupMemberCounts as $gid => $count) {
+                IdentityGroup::where('azure_id', $gid)->update(['members_count' => $count]);
+            }
             if (!empty($groupMemberCounts)) {
                 IdentityGroup::whereNotIn('azure_id', array_keys($groupMemberCounts))
                     ->update(['members_count' => 0]);
