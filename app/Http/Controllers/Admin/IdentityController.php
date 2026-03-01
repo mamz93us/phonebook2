@@ -103,17 +103,48 @@ class IdentityController extends Controller
 
     public function sync()
     {
-        SyncIdentityData::dispatch();
+        // Run synchronously so results appear immediately (no queue worker required)
+        set_time_limit(300);
 
-        ActivityLog::create([
-            'model_type' => 'Identity',
-            'model_id'   => 0,
-            'action'     => 'synced',
-            'changes'    => ['type' => 'identity_sync_dispatched'],
-            'user_id'    => Auth::id(),
-        ]);
+        $settings = Setting::get();
 
-        return back()->with('success', 'Identity sync job dispatched. Data will update shortly.');
+        if (!$settings->identity_sync_enabled) {
+            return back()->with('error', 'Identity sync is disabled. Enable it under Settings → Identity (Graph).');
+        }
+
+        if (empty($settings->graph_tenant_id) || empty($settings->graph_client_id) || empty($settings->graph_client_secret)) {
+            return back()->with('error', 'Microsoft Graph credentials are not configured. Go to Settings → Identity (Graph) to set them up.');
+        }
+
+        try {
+            (new SyncIdentityData())->handle();
+
+            $lastLog = IdentitySyncLog::where('status', 'completed')->latest()->first();
+            $msg = 'Identity sync completed successfully.';
+            if ($lastLog) {
+                $msg .= " Imported: {$lastLog->users_synced} users, {$lastLog->licenses_synced} licenses, {$lastLog->groups_synced} groups.";
+            }
+
+            ActivityLog::create([
+                'model_type' => 'Identity',
+                'model_id'   => 0,
+                'action'     => 'synced',
+                'changes'    => ['type' => 'identity_sync_completed'],
+                'user_id'    => Auth::id(),
+            ]);
+
+            return redirect()->route('admin.identity.users')->with('success', $msg);
+        } catch (\Exception $e) {
+            ActivityLog::create([
+                'model_type' => 'Identity',
+                'model_id'   => 0,
+                'action'     => 'sync_failed',
+                'changes'    => ['error' => $e->getMessage()],
+                'user_id'    => Auth::id(),
+            ]);
+
+            return back()->with('error', 'Sync failed: ' . $e->getMessage());
+        }
     }
 
     // ─────────────────────────────────────────────────────────────
