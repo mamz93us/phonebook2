@@ -162,6 +162,79 @@
                     </li>
                     @endcan
 
+                    {{-- ── Assets dropdown ── --}}
+                    @canany(['view-assets','view-printers','view-credentials'])
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/devices*','admin/printers*','admin/credentials*') ? 'active' : '' }}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-cpu me-1"></i>Assets
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark shadow">
+                            @can('view-assets')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/devices*') ? 'active' : '' }}"
+                                   href="{{ route('admin.devices.index') }}">
+                                    <i class="bi bi-cpu me-2"></i>Devices
+                                </a>
+                            </li>
+                            @endcan
+                            @can('view-printers')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/printers*') ? 'active' : '' }}"
+                                   href="{{ route('admin.printers.index') }}">
+                                    <i class="bi bi-printer-fill me-2"></i>Printers
+                                </a>
+                            </li>
+                            @endcan
+                            @can('view-credentials')
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/credentials*') ? 'active' : '' }}"
+                                   href="{{ route('admin.credentials.index') }}">
+                                    <i class="bi bi-key-fill me-2"></i>Credentials
+                                </a>
+                            </li>
+                            @endcan
+                        </ul>
+                    </li>
+                    @endcanany
+
+                    {{-- ── Identity dropdown ── --}}
+                    @can('view-identity')
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/identity*') ? 'active' : '' }}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-people-fill me-1"></i>Identity
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark shadow">
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.identity.users') ? 'active' : '' }}"
+                                   href="{{ route('admin.identity.users') }}">
+                                    <i class="bi bi-people me-2"></i>Users
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.identity.licenses') ? 'active' : '' }}"
+                                   href="{{ route('admin.identity.licenses') }}">
+                                    <i class="bi bi-patch-check me-2"></i>Licenses
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.identity.groups') ? 'active' : '' }}"
+                                   href="{{ route('admin.identity.groups') }}">
+                                    <i class="bi bi-collection me-2"></i>Groups
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.identity.sync-logs') ? 'active' : '' }}"
+                                   href="{{ route('admin.identity.sync-logs') }}">
+                                    <i class="bi bi-clock-history me-2"></i>Sync Logs
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    @endcan
+
                     {{-- ── Settings dropdown ── --}}
                     @canany(['manage-settings','manage-users','manage-permissions','view-phone-logs','view-activity-logs'])
                     <li class="nav-item dropdown">

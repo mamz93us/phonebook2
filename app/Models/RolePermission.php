@@ -42,6 +42,23 @@ class RolePermission extends Model
                 'manage-network-settings' => 'Manage Meraki Network Settings',
                 'view-network-events'     => 'View Network Change Events',
             ],
+            'Assets' => [
+                'view-assets'   => 'View Device Inventory',
+                'manage-assets' => 'Create / Edit / Delete Devices',
+            ],
+            'Credentials' => [
+                'view-credentials'   => 'View Credentials (masked)',
+                'manage-credentials' => 'Create / Edit / Delete / Reveal Credentials',
+            ],
+            'Printers' => [
+                'view-printers'   => 'View Printer Inventory',
+                'manage-printers' => 'Create / Edit / Delete Printers',
+            ],
+            'Identity' => [
+                'view-identity'            => 'View Identity (Users, Licenses, Groups)',
+                'manage-identity'          => 'Manage Identity (Reset PW, Toggle, Assign)',
+                'manage-identity-settings' => 'Manage Microsoft Graph API Settings',
+            ],
             'Administration' => [
                 'manage-settings'    => 'Access & Edit Settings',
                 'manage-users'       => 'Manage Users',
@@ -66,12 +83,16 @@ class RolePermission extends Model
     public static function defaultPermissions(): array
     {
         $all         = static::allSlugs();
-        $adminPerms  = array_values(array_diff($all, ['manage-users', 'manage-permissions', 'manage-network-settings']));
+        $adminPerms  = array_values(array_diff($all, [
+            'manage-users', 'manage-permissions',
+            'manage-network-settings', 'manage-credentials',
+            'manage-identity-settings',
+        ]));
         $viewerPerms = [
             'view-branches', 'view-contacts',
             'view-activity-logs', 'view-phone-logs',
             'view-extensions', 'view-trunks',
-            'view-network',
+            'view-network', 'view-assets', 'view-printers',
         ];
 
         return [

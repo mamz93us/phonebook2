@@ -370,6 +370,110 @@
     </div>
 </div>
 
+{{-- ─────────────────────────────────────────────────────── --}}
+{{-- Microsoft Graph / Identity Section                     --}}
+{{-- ─────────────────────────────────────────────────────── --}}
+@can('manage-identity-settings')
+<div class="card mt-4" id="graph">
+    <div class="card-header d-flex align-items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
+            <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+            <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+            <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+            <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+        </svg>
+        <h5 class="mb-0">Microsoft Graph API (Identity Sync)</h5>
+        @if($settings->identity_sync_enabled)
+            <span class="badge bg-success ms-auto">Enabled</span>
+        @else
+            <span class="badge bg-secondary ms-auto">Disabled</span>
+        @endif
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            Connects to Microsoft Graph API to sync Entra ID users, licenses, and groups into the Identity module.
+            Requires an App Registration with <code>User.Read.All</code>, <code>Group.Read.All</code>,
+            and <code>Directory.Read.All</code> application permissions.
+        </div>
+        <form method="POST" action="{{ route('admin.settings.graph') }}">
+            @csrf
+            <div class="row g-3 mb-3">
+                <div class="col-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="identity_sync_enabled"
+                            id="identity_sync_enabled" value="1" {{ $settings->identity_sync_enabled ? 'checked' : '' }}>
+                        <label class="form-check-label fw-semibold" for="identity_sync_enabled">
+                            Enable Automatic Identity Sync
+                        </label>
+                    </div>
+                    <div class="form-text">Runs a background sync job on the configured interval.</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Tenant ID <span class="text-danger">*</span></label>
+                    <input type="text" name="graph_tenant_id" class="form-control font-monospace"
+                        value="{{ old('graph_tenant_id', $settings->graph_tenant_id) }}"
+                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                    <div class="form-text">Azure Portal → App registrations → Directory (tenant) ID</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Client ID (Application ID) <span class="text-danger">*</span></label>
+                    <input type="text" name="graph_client_id" class="form-control font-monospace"
+                        value="{{ old('graph_client_id', $settings->graph_client_id) }}"
+                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                    <div class="form-text">Azure Portal → App registrations → Application (client) ID</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Client Secret <span class="text-danger">*</span></label>
+                    <input type="password" name="graph_client_secret" class="form-control"
+                        placeholder="{{ $settings->graph_client_secret ? '••••••••  (leave blank to keep current)' : 'Paste secret value here' }}">
+                    <div class="form-text">Azure Portal → App registrations → Certificates &amp; secrets</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Sync Interval (minutes)</label>
+                    <input type="number" name="identity_sync_interval" class="form-control"
+                        value="{{ old('identity_sync_interval', $settings->identity_sync_interval ?? 60) }}"
+                        min="15" max="1440">
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Default Password</label>
+                    <input type="text" name="graph_default_password" class="form-control"
+                        value="{{ old('graph_default_password', $settings->graph_default_password) }}"
+                        placeholder="TempPass@123">
+                    <div class="form-text">Used when resetting passwords.</div>
+                </div>
+
+                <div class="col-12 d-flex align-items-end">
+                    <div>
+                        <label class="form-label fw-semibold">Connection Test</label>
+                        <div class="input-group">
+                            <button type="button" class="btn btn-outline-secondary" id="testGraphBtn"
+                                onclick="testGraphConnection()">
+                                <i class="bi bi-plug me-1"></i>Test Connection
+                            </button>
+                            <span class="input-group-text flex-grow-1" id="graphTestResult" style="min-width:220px">
+                                <span class="text-muted small">Click to test credentials</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i>Save Graph Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endcan
+
 {{-- Add UCM Modal --}}
 <div class="modal fade" id="addUcmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -429,6 +533,44 @@
 
 @push('scripts')
 <script>
+function testGraphConnection() {
+    const btn       = document.getElementById('testGraphBtn');
+    const result    = document.getElementById('graphTestResult');
+    const tenantId  = document.querySelector('[name="graph_tenant_id"]').value;
+    const clientId  = document.querySelector('[name="graph_client_id"]').value;
+    const secret    = document.querySelector('[name="graph_client_secret"]').value;
+
+    if (!tenantId || !clientId) {
+        result.innerHTML = '<span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Enter Tenant ID and Client ID</span>';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing…';
+    result.innerHTML = '<span class="text-muted small">Connecting…</span>';
+
+    fetch('{{ route('admin.identity.test-connection') }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+        body: JSON.stringify({ tenant_id: tenantId, client_id: clientId, client_secret: secret })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            result.innerHTML = '<span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
+        } else {
+            result.innerHTML = '<span class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + '</span>';
+        }
+    })
+    .catch(() => {
+        result.innerHTML = '<span class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>Request failed</span>';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plug me-1"></i>Test Connection';
+    });
+}
+
 function testMerakiConnection() {
     const btn    = document.getElementById('testMerakiBtn');
     const result = document.getElementById('merakiTestResult');

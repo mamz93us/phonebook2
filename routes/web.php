@@ -14,6 +14,10 @@ use App\Http\Controllers\Admin\PermissionsController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GdmsController;
 use App\Http\Controllers\Admin\NetworkController;
+use App\Http\Controllers\Admin\DeviceController;
+use App\Http\Controllers\Admin\CredentialController;
+use App\Http\Controllers\Admin\PrinterController;
+use App\Http\Controllers\Admin\IdentityController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
@@ -168,6 +172,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('settings.sso');
         Route::post('settings/meraki', [SettingsController::class, 'updateMeraki'])
             ->name('settings.meraki');
+        Route::post('settings/graph', [SettingsController::class, 'updateGraph'])
+            ->name('settings.graph');
     });
 
     // ─── UCM Servers (managed from Settings page) ─────────────
@@ -206,6 +212,68 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('permissions.index');
         Route::put('permissions', [PermissionsController::class, 'update'])
             ->name('permissions.update');
+    });
+
+    // ─── Devices (Assets) ─────────────────────────────────────
+    Route::middleware('permission:view-assets')->group(function () {
+        Route::get('devices',                  [DeviceController::class, 'index'])  ->name('devices.index');
+        Route::get('devices/create',           [DeviceController::class, 'create'])  ->name('devices.create');
+        Route::get('devices/{device}/edit',    [DeviceController::class, 'edit'])    ->name('devices.edit');
+        Route::get('devices/{device}',         [DeviceController::class, 'show'])   ->name('devices.show');
+    });
+    Route::middleware('permission:manage-assets')->group(function () {
+        Route::post('devices',                 [DeviceController::class, 'store'])   ->name('devices.store');
+        Route::put('devices/{device}',         [DeviceController::class, 'update'])  ->name('devices.update');
+        Route::delete('devices/{device}',      [DeviceController::class, 'destroy']) ->name('devices.destroy');
+    });
+
+    // ─── Credentials (Password Vault) ─────────────────────────
+    Route::middleware('permission:view-credentials')->group(function () {
+        Route::get('credentials',                     [CredentialController::class, 'index'])   ->name('credentials.index');
+        Route::get('credentials/generate',            [CredentialController::class, 'generate']) ->name('credentials.generate');
+        Route::get('credentials/create',              [CredentialController::class, 'create'])   ->name('credentials.create');
+        Route::get('credentials/{credential}/edit',   [CredentialController::class, 'edit'])     ->name('credentials.edit');
+    });
+    Route::middleware('permission:manage-credentials')->group(function () {
+        Route::post('credentials',                            [CredentialController::class, 'store'])    ->name('credentials.store');
+        Route::put('credentials/{credential}',                [CredentialController::class, 'update'])   ->name('credentials.update');
+        Route::delete('credentials/{credential}',             [CredentialController::class, 'destroy'])  ->name('credentials.destroy');
+        Route::post('credentials/{credential}/reveal',        [CredentialController::class, 'reveal'])   ->name('credentials.reveal');
+        Route::post('credentials/{credential}/log-copy',      [CredentialController::class, 'logCopy'])  ->name('credentials.log-copy');
+    });
+
+    // ─── Printers ─────────────────────────────────────────────
+    Route::middleware('permission:view-printers')->group(function () {
+        Route::get('printers',                 [PrinterController::class, 'index'])  ->name('printers.index');
+        Route::get('printers/create',          [PrinterController::class, 'create'])  ->name('printers.create');
+        Route::get('printers/{printer}/edit',  [PrinterController::class, 'edit'])    ->name('printers.edit');
+        Route::get('printers/{printer}',       [PrinterController::class, 'show'])   ->name('printers.show');
+    });
+    Route::middleware('permission:manage-printers')->group(function () {
+        Route::post('printers',                [PrinterController::class, 'store'])   ->name('printers.store');
+        Route::put('printers/{printer}',       [PrinterController::class, 'update'])  ->name('printers.update');
+        Route::delete('printers/{printer}',    [PrinterController::class, 'destroy']) ->name('printers.destroy');
+    });
+
+    // ─── Identity (Entra ID / Graph API) ──────────────────────
+    Route::middleware('permission:view-identity')->prefix('identity')->name('identity.')->group(function () {
+        Route::get('/users',              [IdentityController::class, 'users'])     ->name('users');
+        Route::get('/users/{azureId}',    [IdentityController::class, 'userDetail'])->name('user');
+        Route::get('/licenses',           [IdentityController::class, 'licenses'])  ->name('licenses');
+        Route::get('/groups',             [IdentityController::class, 'groups'])    ->name('groups');
+        Route::get('/sync-logs',          [IdentityController::class, 'syncLogs'])  ->name('sync-logs');
+    });
+    Route::middleware('permission:manage-identity')->prefix('identity')->name('identity.')->group(function () {
+        Route::post('/sync',                                     [IdentityController::class, 'sync'])           ->name('sync');
+        Route::patch('/users/{azureId}/toggle',                  [IdentityController::class, 'toggleUser'])     ->name('user.toggle');
+        Route::patch('/users/{azureId}/reset-password',          [IdentityController::class, 'resetPassword'])  ->name('user.reset-password');
+        Route::post('/users/{azureId}/assign-license',           [IdentityController::class, 'assignLicense'])  ->name('user.assign-license');
+        Route::delete('/users/{azureId}/remove-license',         [IdentityController::class, 'removeLicense'])  ->name('user.remove-license');
+        Route::post('/users/{azureId}/add-group',                [IdentityController::class, 'addGroup'])       ->name('user.add-group');
+        Route::delete('/users/{azureId}/remove-group',           [IdentityController::class, 'removeGroup'])    ->name('user.remove-group');
+    });
+    Route::middleware('permission:manage-identity-settings')->prefix('identity')->name('identity.')->group(function () {
+        Route::post('/test-connection',  [IdentityController::class, 'testConnection']) ->name('test-connection');
     });
 
     // ─── Network (Meraki) ─────────────────────────────────────

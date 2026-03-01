@@ -20,12 +20,22 @@ class Setting extends Model
         'meraki_api_key',
         'meraki_org_id',
         'meraki_polling_interval',
+        // Microsoft Graph / Identity
+        'graph_tenant_id',
+        'graph_client_id',
+        'graph_client_secret',
+        'graph_default_password',
+        'graph_default_license_sku',
+        'identity_sync_enabled',
+        'identity_sync_interval',
     ];
 
     protected $casts = [
         'sso_enabled'             => 'boolean',
         'meraki_enabled'          => 'boolean',
         'meraki_polling_interval' => 'integer',
+        'identity_sync_enabled'   => 'boolean',
+        'identity_sync_interval'  => 'integer',
     ];
 
     /**
@@ -66,6 +76,23 @@ class Setting extends Model
     }
 
     public function getMerakiApiKeyAttribute(?string $value): ?string
+    {
+        if (!$value) return null;
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    // ─── Graph client secret — encrypted at rest ─────────────────
+
+    public function setGraphClientSecretAttribute(?string $value): void
+    {
+        $this->attributes['graph_client_secret'] = $value ? Crypt::encryptString($value) : null;
+    }
+
+    public function getGraphClientSecretAttribute(?string $value): ?string
     {
         if (!$value) return null;
         try {

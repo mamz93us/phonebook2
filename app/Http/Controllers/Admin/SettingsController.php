@@ -178,4 +178,49 @@ class SettingsController extends Controller
             ->route('admin.settings.index')
             ->with('success', 'Meraki settings updated.');
     }
+
+    /**
+     * Update Microsoft Graph / Identity settings
+     */
+    public function updateGraph(Request $request)
+    {
+        $request->validate([
+            'graph_tenant_id'          => 'nullable|string|max:100',
+            'graph_client_id'          => 'nullable|string|max:100',
+            'graph_client_secret'      => 'nullable|string|max:500',
+            'graph_default_password'   => 'nullable|string|max:255',
+            'graph_default_license_sku'=> 'nullable|string|max:100',
+            'identity_sync_interval'   => 'required|integer|min:5|max:1440',
+        ]);
+
+        $settings = Setting::get();
+        $settings->identity_sync_enabled    = $request->boolean('identity_sync_enabled');
+        $settings->graph_tenant_id          = $request->graph_tenant_id;
+        $settings->graph_client_id          = $request->graph_client_id;
+        $settings->graph_default_password   = $request->graph_default_password;
+        $settings->graph_default_license_sku= $request->graph_default_license_sku;
+        $settings->identity_sync_interval   = (int) $request->identity_sync_interval;
+
+        if ($request->filled('graph_client_secret')) {
+            $settings->graph_client_secret = $request->graph_client_secret;
+        }
+
+        $settings->save();
+
+        ActivityLog::create([
+            'model_type' => 'Setting',
+            'model_id'   => 1,
+            'action'     => 'updated',
+            'changes'    => [
+                'identity_sync_enabled' => $settings->identity_sync_enabled,
+                'graph_tenant_id'       => $request->graph_tenant_id,
+                'secret_changed'        => $request->filled('graph_client_secret'),
+            ],
+            'user_id' => Auth::id(),
+        ]);
+
+        return redirect()
+            ->route('admin.settings.index')
+            ->with('success', 'Identity (Graph) settings updated.');
+    }
 }
