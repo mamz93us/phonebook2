@@ -30,55 +30,27 @@
 
 {{-- ── Search + Filters ───────────────────────────────────────────────────── --}}
 <form method="GET" id="userFilterForm" class="mb-3">
-    <div class="row g-2 align-items-center">
-
-        {{-- Large search box (server-side, all pages) --}}
-        <div class="col-md-5">
-            <div class="input-group">
-                <span class="input-group-text bg-white border-end-0">
-                    <i class="bi bi-search text-muted"></i>
-                </span>
-                <input type="text" name="search" id="userSearch"
-                       class="form-control form-control-lg border-start-0 ps-0"
-                       placeholder="Search by name, email, or department…"
-                       value="{{ request('search') }}"
-                       autocomplete="off">
-                @if(request('search'))
-                <a href="{{ route('admin.identity.users', array_merge(request()->except('search','page'), [])) }}"
-                   class="btn btn-outline-secondary">
-                    <i class="bi bi-x-lg"></i>
-                </a>
-                @endif
-            </div>
-            <div class="form-text ps-1">Searching across all {{ $users->total() }} users</div>
-        </div>
-
-        {{-- Department dropdown --}}
-        <div class="col-auto">
-            <select name="department" class="form-select" onchange="this.form.submit()">
-                <option value="">All Departments</option>
-                @foreach($departments as $dep)
-                <option value="{{ $dep }}" {{ request('department') == $dep ? 'selected' : '' }}>{{ $dep }}</option>
-                @endforeach
-            </select>
-        </div>
-
-        {{-- Status dropdown --}}
-        <div class="col-auto">
-            <select name="status" class="form-select" onchange="this.form.submit()">
-                <option value="">All Status</option>
-                <option value="enabled"  {{ request('status') == 'enabled'  ? 'selected' : '' }}>Enabled</option>
-                <option value="disabled" {{ request('status') == 'disabled' ? 'selected' : '' }}>Disabled</option>
-            </select>
-        </div>
-
-        {{-- Clear --}}
-        <div class="col-auto">
-            <a href="{{ route('admin.identity.users') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-x-circle me-1"></i>Clear
-            </a>
-        </div>
+    <div class="input-group input-group-lg shadow-sm">
+        <span class="input-group-text bg-white border-end-0 text-muted">
+            <i class="bi bi-search"></i>
+        </span>
+        <input type="text" name="search" id="userSearch"
+               class="form-control border-start-0 border-end-0 ps-0"
+               placeholder="Search by name, email, or department…"
+               value="{{ request('search') }}"
+               autocomplete="off">
+        <select name="status" class="form-select flex-grow-0" style="max-width:160px" onchange="this.form.submit()">
+            <option value="">All Status</option>
+            <option value="enabled"  {{ request('status') === 'enabled'  ? 'selected' : '' }}>Enabled</option>
+            <option value="disabled" {{ request('status') === 'disabled' ? 'selected' : '' }}>Disabled</option>
+        </select>
+        @if(request('search') || request('status'))
+        <a href="{{ route('admin.identity.users') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-x-lg"></i>
+        </a>
+        @endif
     </div>
+    <div class="form-text ps-1 mt-1">Searching across all {{ number_format($users->total()) }} users</div>
 </form>
 
 <div class="card shadow-sm">
@@ -86,7 +58,7 @@
         @if($users->isEmpty())
         <div class="text-center py-5 text-muted">
             <i class="bi bi-people display-4 d-block mb-2"></i>
-            @if(request('search') || request('department') || request('status'))
+            @if(request('search') || request('status'))
                 No users match your filters.
             @else
                 No users found.

@@ -33,19 +33,14 @@ class IdentityController extends Controller
                   ->orWhere('department',        'like', "%{$s}%");
             });
         }
-        if ($request->filled('department')) {
-            $query->where('department', $request->department);
-        }
         if ($request->filled('status')) {
             $query->where('account_enabled', $request->status === 'enabled');
         }
 
-        $users       = $query->paginate(50)->withQueryString();
-        $departments = IdentityUser::whereNotNull('department')
-                        ->distinct()->orderBy('department')->pluck('department');
-        $lastSync    = IdentitySyncLog::where('status', 'completed')->latest()->first();
+        $users    = $query->paginate(50)->withQueryString();
+        $lastSync = IdentitySyncLog::where('status', 'completed')->latest()->first();
 
-        return view('admin.identity.users', compact('users', 'departments', 'lastSync'));
+        return view('admin.identity.users', compact('users', 'lastSync'));
     }
 
     public function userDetail(string $azureId)
@@ -123,9 +118,6 @@ class IdentityController extends Controller
 
     public function sync()
     {
-        // Run synchronously so results appear immediately (no queue worker required)
-        set_time_limit(300);
-
         $settings = Setting::get();
 
         if (!$settings->identity_sync_enabled) {
@@ -136,35 +128,33 @@ class IdentityController extends Controller
             return back()->with('error', 'Microsoft Graph credentials are not configured. Go to Settings → Identity (Graph) to set them up.');
         }
 
-        try {
-            (new SyncIdentityData())->handle();
+        // Prevent duplicate concurrent syncs
+        $alreadyRunning = IdentitySyncLog::where('status', 'started')
+            ->where('created_at', '>=', now()->subMinutes(20))
+            ->exists();
 
-            $lastLog = IdentitySyncLog::where('status', 'completed')->latest()->first();
-            $msg = 'Identity sync completed successfully.';
-            if ($lastLog) {
-                $msg .= " Imported: {$lastLog->users_synced} users, {$lastLog->licenses_synced} licenses, {$lastLog->groups_synced} groups.";
-            }
-
-            ActivityLog::create([
-                'model_type' => 'Identity',
-                'model_id'   => 0,
-                'action'     => 'synced',
-                'changes'    => ['type' => 'identity_sync_completed'],
-                'user_id'    => Auth::id(),
-            ]);
-
-            return redirect()->route('admin.identity.users')->with('success', $msg);
-        } catch (\Exception $e) {
-            ActivityLog::create([
-                'model_type' => 'Identity',
-                'model_id'   => 0,
-                'action'     => 'sync_failed',
-                'changes'    => ['error' => $e->getMessage()],
-                'user_id'    => Auth::id(),
-            ]);
-
-            return back()->with('error', 'Sync failed: ' . $e->getMessage());
+        if ($alreadyRunning) {
+            return redirect()->route('admin.identity.sync-logs')
+                ->with('error', 'A sync is already in progress. Please wait for it to complete.');
         }
+
+        // Run as a detached background process so it is not bound by the
+        // web-server HTTP timeout.  The artisan command calls SyncIdentityData
+        // with set_time_limit(0) and updates the sync-log entry on its own.
+        $php     = PHP_BINARY;
+        $artisan = base_path('artisan');
+        exec(escapeshellcmd($php) . ' ' . escapeshellarg($artisan) . ' identity:sync > /dev/null 2>&1 &');
+
+        ActivityLog::create([
+            'model_type' => 'Identity',
+            'model_id'   => 0,
+            'action'     => 'sync_started',
+            'changes'    => ['type' => 'background_sync'],
+            'user_id'    => Auth::id(),
+        ]);
+
+        return redirect()->route('admin.identity.sync-logs')
+            ->with('success', 'Sync started in the background — this page refreshes automatically until it completes.');
     }
 
     // ─────────────────────────────────────────────────────────────
