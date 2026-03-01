@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Models\NetworkClient;
 use App\Models\NetworkEvent;
 use App\Models\NetworkFloor;
+use App\Models\NetworkOffice;
 use App\Models\NetworkRack;
 use App\Models\NetworkSwitch;
 use App\Models\Setting;
@@ -355,5 +356,120 @@ class NetworkController extends Controller
                 'message' => $e->getMessage(),
             ]);
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MAC search (AJAX for asset/printer form autocomplete)
+    // ─────────────────────────────────────────────────────────────
+
+    public function macSearch(Request $request)
+    {
+        $q = trim($request->get('q', ''));
+
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $clients = NetworkClient::where('mac', 'like', "%{$q}%")
+            ->orWhere('ip', 'like', "%{$q}%")
+            ->orWhere('hostname', 'like', "%{$q}%")
+            ->orderBy('mac')
+            ->limit(20)
+            ->get(['mac', 'ip', 'hostname', 'manufacturer', 'switch_serial', 'port_id', 'vlan']);
+
+        return response()->json($clients);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AJAX helpers for cascading dropdowns in asset forms
+    // ─────────────────────────────────────────────────────────────
+
+    public function floorsByBranch(Request $request)
+    {
+        $branchId = $request->get('branch_id');
+        if (!$branchId) {
+            return response()->json([]);
+        }
+        $floors = NetworkFloor::where('branch_id', $branchId)
+            ->orderBy('sort_order')->orderBy('name')
+            ->get(['id', 'name']);
+        return response()->json($floors);
+    }
+
+    public function officesByFloor(Request $request)
+    {
+        $floorId = $request->get('floor_id');
+        if (!$floorId) {
+            return response()->json([]);
+        }
+        $offices = NetworkOffice::where('floor_id', $floorId)
+            ->orderBy('sort_order')->orderBy('name')
+            ->get(['id', 'name']);
+        return response()->json($offices);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Uplink port toggle (AJAX PATCH)
+    // ─────────────────────────────────────────────────────────────
+
+    public function setUplinkPorts(Request $request, string $serial)
+    {
+        $switch = NetworkSwitch::where('serial', $serial)->firstOrFail();
+
+        $request->validate([
+            'port_id' => 'required|string',
+            'checked' => 'required|boolean',
+        ]);
+
+        $portId   = (string) $request->port_id;
+        $existing = array_map('strval', $switch->uplink_port_ids ?? []);
+
+        if ($request->boolean('checked')) {
+            if (!in_array($portId, $existing, true)) {
+                $existing[] = $portId;
+            }
+        } else {
+            $existing = array_values(array_filter($existing, fn($p) => $p !== $portId));
+        }
+
+        $switch->update(['uplink_port_ids' => $existing]);
+
+        return response()->json(['success' => true, 'uplink_port_ids' => $existing]);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Office CRUD (Settings › Locations)
+    // ─────────────────────────────────────────────────────────────
+
+    public function storeOffice(Request $request)
+    {
+        $data = $request->validate([
+            'floor_id'    => 'required|exists:network_floors,id',
+            'name'        => 'required|string|max:100',
+            'description' => 'nullable|string|max:255',
+            'sort_order'  => 'nullable|integer|min:0',
+        ]);
+
+        NetworkOffice::create($data);
+        return back()->with('success', "Office \"{$data['name']}\" added.");
+    }
+
+    public function updateOffice(Request $request, NetworkOffice $office)
+    {
+        $data = $request->validate([
+            'name'        => 'required|string|max:100',
+            'description' => 'nullable|string|max:255',
+            'sort_order'  => 'nullable|integer|min:0',
+        ]);
+
+        $office->update($data);
+        return back()->with('success', "Office \"{$office->name}\" updated.");
+    }
+
+    public function destroyOffice(NetworkOffice $office)
+    {
+        $name = $office->name;
+        $office->delete();
+        return back()->with('success', "Office \"{$name}\" deleted.");
     }
 }

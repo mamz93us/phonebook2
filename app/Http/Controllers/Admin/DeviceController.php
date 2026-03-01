@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\Credential;
+use App\Models\Department;
 use App\Models\Device;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -52,8 +53,9 @@ class DeviceController extends Controller
 
     public function create()
     {
-        $branches = Branch::orderBy('name')->get(['id', 'name']);
-        return view('admin.devices.form', compact('branches'));
+        $branches    = Branch::orderBy('name')->get(['id', 'name']);
+        $departments = Department::orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
+        return view('admin.devices.form', compact('branches', 'departments'));
     }
 
     public function store(Request $request)
@@ -66,6 +68,9 @@ class DeviceController extends Controller
             'mac_address'          => 'nullable|string|max:20',
             'ip_address'           => 'nullable|ip',
             'branch_id'            => 'nullable|exists:branches,id',
+            'floor_id'             => 'nullable|exists:network_floors,id',
+            'office_id'            => 'nullable|exists:network_offices,id',
+            'department_id'        => 'nullable|exists:departments,id',
             'location_description' => 'nullable|string|max:255',
             'notes'                => 'nullable|string',
             'status'               => 'required|in:active,retired,maintenance',
@@ -87,8 +92,10 @@ class DeviceController extends Controller
 
     public function edit(Device $device)
     {
-        $branches = Branch::orderBy('name')->get(['id', 'name']);
-        return view('admin.devices.form', compact('device', 'branches'));
+        $branches    = Branch::orderBy('name')->get(['id', 'name']);
+        $departments = Department::orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
+        $device->load(['floor', 'office']);
+        return view('admin.devices.form', compact('device', 'branches', 'departments'));
     }
 
     public function update(Request $request, Device $device)
@@ -101,6 +108,9 @@ class DeviceController extends Controller
             'mac_address'          => 'nullable|string|max:20',
             'ip_address'           => 'nullable|ip',
             'branch_id'            => 'nullable|exists:branches,id',
+            'floor_id'             => 'nullable|exists:network_floors,id',
+            'office_id'            => 'nullable|exists:network_offices,id',
+            'department_id'        => 'nullable|exists:departments,id',
             'location_description' => 'nullable|string|max:255',
             'notes'                => 'nullable|string',
             'status'               => 'required|in:active,retired,maintenance',

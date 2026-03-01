@@ -17,6 +17,9 @@ class Device extends Model
         'mac_address',
         'ip_address',
         'branch_id',
+        'floor_id',
+        'office_id',
+        'department_id',
         'location_description',
         'notes',
         'source',
@@ -33,6 +36,21 @@ class Device extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function floor(): BelongsTo
+    {
+        return $this->belongsTo(NetworkFloor::class, 'floor_id');
+    }
+
+    public function office(): BelongsTo
+    {
+        return $this->belongsTo(NetworkOffice::class, 'office_id');
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'department_id');
     }
 
     public function credentials(): HasMany

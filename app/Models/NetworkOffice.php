@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class NetworkFloor extends Model
+class NetworkOffice extends Model
 {
     protected $fillable = [
-        'branch_id',
+        'floor_id',
         'name',
         'description',
         'sort_order',
@@ -21,30 +21,30 @@ class NetworkFloor extends Model
 
     // ─── Relationships ────────────────────────────────────────────
 
-    public function branch(): BelongsTo
+    public function floor(): BelongsTo
     {
-        return $this->belongsTo(Branch::class);
+        return $this->belongsTo(NetworkFloor::class, 'floor_id');
     }
 
-    public function racks(): HasMany
+    public function printers(): HasMany
     {
-        return $this->hasMany(NetworkRack::class, 'floor_id')->orderBy('sort_order')->orderBy('name');
+        return $this->hasMany(Printer::class, 'office_id');
     }
 
-    public function switches(): HasMany
+    public function devices(): HasMany
     {
-        return $this->hasMany(NetworkSwitch::class, 'floor_id');
-    }
-
-    public function offices(): HasMany
-    {
-        return $this->hasMany(NetworkOffice::class, 'floor_id')->orderBy('sort_order')->orderBy('name');
+        return $this->hasMany(Device::class, 'office_id');
     }
 
     // ─── Helpers ──────────────────────────────────────────────────
 
-    public function switchCount(): int
+    /**
+     * Full label: "Branch › Floor › Office"
+     */
+    public function fullLabel(): string
     {
-        return $this->switches()->count();
+        $branch = $this->floor?->branch?->name ?? '?';
+        $floor  = $this->floor?->name           ?? '?';
+        return "{$branch} › {$floor} › {$this->name}";
     }
 }

@@ -4,6 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\Branch;
+use App\Models\Department;
+use App\Models\NetworkFloor;
+use App\Models\NetworkOffice;
+use App\Models\NetworkRack;
 use App\Models\Setting;
 use App\Models\UcmServer;
 use App\Services\Network\MerakiService;
@@ -222,5 +227,65 @@ class SettingsController extends Controller
         return redirect()
             ->route('admin.settings.index')
             ->with('success', 'Identity (Graph) settings updated.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Locations (Settings → Locations)
+    // ─────────────────────────────────────────────────────────────
+
+    public function locations()
+    {
+        $branches = Branch::with([
+            'networkFloors.racks',
+            'networkFloors.offices',
+        ])->orderBy('name')->get();
+
+        return view('admin.settings.locations', compact('branches'));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Departments (Settings → Departments)
+    // ─────────────────────────────────────────────────────────────
+
+    public function departments()
+    {
+        $departments = Department::orderBy('sort_order')->orderBy('name')->get();
+        return view('admin.settings.departments', compact('departments'));
+    }
+
+    public function storeDepartment(Request $request)
+    {
+        $data = $request->validate([
+            'name'        => 'required|string|max:100|unique:departments,name',
+            'description' => 'nullable|string|max:255',
+            'sort_order'  => 'nullable|integer|min:0',
+        ]);
+
+        $dept = Department::create($data);
+
+        if ($request->expectsJson()) {
+            return response()->json(['id' => $dept->id, 'name' => $dept->name], 201);
+        }
+
+        return back()->with('success', "Department \"{$data['name']}\" created.");
+    }
+
+    public function updateDepartment(Request $request, Department $department)
+    {
+        $data = $request->validate([
+            'name'        => 'required|string|max:100|unique:departments,name,' . $department->id,
+            'description' => 'nullable|string|max:255',
+            'sort_order'  => 'nullable|integer|min:0',
+        ]);
+
+        $department->update($data);
+        return back()->with('success', "Department \"{$department->name}\" updated.");
+    }
+
+    public function destroyDepartment(Department $department)
+    {
+        $name = $department->name;
+        $department->delete();
+        return back()->with('success', "Department \"{$name}\" deleted.");
     }
 }

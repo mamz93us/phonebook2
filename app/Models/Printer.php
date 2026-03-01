@@ -16,6 +16,10 @@ class Printer extends Model
         'mac_address',
         'ip_address',
         'branch_id',
+        'floor_id',
+        'office_id',
+        'department_id',
+        // Legacy free-text fields (kept for migration compatibility)
         'floor',
         'room',
         'department',
@@ -37,15 +41,51 @@ class Printer extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    public function networkFloor(): BelongsTo
+    {
+        return $this->belongsTo(NetworkFloor::class, 'floor_id');
+    }
+
+    public function office(): BelongsTo
+    {
+        return $this->belongsTo(NetworkOffice::class, 'office_id');
+    }
+
+    public function departmentModel(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────
 
     /**
-     * Location string: Floor / Room
+     * Location string using structured FK fields when available, falling back to legacy strings.
      */
     public function locationLabel(): string
     {
-        $parts = array_filter([$this->floor, $this->room]);
+        $parts = [];
+
+        if ($this->office) {
+            $parts[] = $this->office->name;
+        } elseif ($this->room) {
+            $parts[] = $this->room;
+        }
+
+        if ($this->networkFloor) {
+            array_unshift($parts, $this->networkFloor->name);
+        } elseif ($this->floor) {
+            array_unshift($parts, $this->floor);
+        }
+
         return implode(' / ', $parts) ?: '—';
+    }
+
+    /**
+     * Department name, from FK first, then legacy string.
+     */
+    public function departmentLabel(): string
+    {
+        return $this->departmentModel?->name ?? $this->department ?? '—';
     }
 
     /**

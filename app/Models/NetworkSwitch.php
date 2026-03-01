@@ -24,12 +24,14 @@ class NetworkSwitch extends Model
         'branch_id',
         'floor_id',
         'rack_id',
+        'uplink_port_ids',
         'raw_data',
     ];
 
     protected $casts = [
         'last_reported_at' => 'datetime',
         'raw_data'         => 'array',
+        'uplink_port_ids'  => 'array',
         'port_count'       => 'integer',
         'clients_count'    => 'integer',
     ];
@@ -87,6 +89,14 @@ class NetworkSwitch extends Model
         }
 
         return implode(' › ', $parts) ?: '—';
+    }
+
+    /**
+     * Returns true if the given port_id is in the user-assigned uplink list.
+     */
+    public function isManualUplink(string|int $portId): bool
+    {
+        return in_array((string) $portId, array_map('strval', $this->uplink_port_ids ?? []), true);
     }
 
     public function isOnline(): bool

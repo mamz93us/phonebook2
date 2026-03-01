@@ -57,7 +57,8 @@
         <span style="width:18px;height:18px;border-radius:3px;background:#dee2e6;display:inline-block;border:1px solid #adb5bd"></span> Disabled
     </span>
     <span class="d-inline-flex align-items-center gap-1 ms-2 text-muted">
-        <i class="bi bi-arrow-up-circle text-primary"></i> = Infrastructure link (uplink flag)
+        <i class="bi bi-arrow-up-circle-fill text-warning"></i> = Manual uplink port
+        @can('manage-network-settings')<small class="text-muted">(click ↑ on tile to toggle)</small>@endcan
     </span>
 </div>
 
@@ -87,15 +88,25 @@
                 if ($port->speed) $tooltip .= ' | ' . $port->speedLabel();
                 if ($port->vlan) $tooltip .= ' | VLAN ' . $port->vlan;
             @endphp
-            <div class="port-tile {{ $tileBg }} {{ $textColor }} rounded"
+            @php $isManualUplink = $switch->isManualUplink($port->port_id); @endphp
+            <div class="port-tile {{ $tileBg }} {{ $textColor }} rounded position-relative"
                  style="width:42px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;font-weight:600;border:1px solid rgba(0,0,0,.1);"
                  data-bs-toggle="tooltip" data-bs-placement="top" title="{{ $tooltip }}"
                  data-port-id="{{ $port->port_id }}"
+                 data-manual-uplink="{{ $isManualUplink ? '1' : '0' }}"
                  onclick="showPortDetail({{ $port->id }})">
-                @if($port->is_uplink)
-                <i class="bi bi-arrow-up-circle" style="font-size:14px"></i>
+                @can('manage-network-settings')
+                <span class="position-absolute"
+                      style="top:1px;right:2px;line-height:1;cursor:pointer;z-index:5;"
+                      onclick="event.stopPropagation(); toggleUplink('{{ $port->port_id }}', this)"
+                      title="{{ $isManualUplink ? 'Remove uplink' : 'Mark as uplink' }}">
+                    <i class="bi {{ $isManualUplink ? 'bi-arrow-up-circle-fill text-warning' : 'bi-arrow-up-circle opacity-25' }}" style="font-size:9px"></i>
+                </span>
+                @endcan
+                @if($isManualUplink)
+                <i class="bi bi-arrow-up-circle port-main-icon" style="font-size:14px"></i>
                 @else
-                <i class="bi bi-ethernet" style="font-size:14px;opacity:.8"></i>
+                <i class="bi bi-ethernet port-main-icon" style="font-size:14px;opacity:.8"></i>
                 @endif
                 <div style="font-size:9px;line-height:1;margin-top:2px">{{ $port->port_id }}</div>
             </div>
@@ -123,6 +134,7 @@
             'allowed_vlans'   => $p->allowed_vlans,
             'poe_enabled'     => $p->poe_enabled,
             'is_uplink'       => $p->is_uplink,
+            'manual_uplink'   => $switch->isManualUplink($p->port_id),
             'status'          => $p->status,
             'speed'           => $p->speedLabel(),
             'duplex'          => $p->duplex,
@@ -139,7 +151,8 @@
     @php
         $connected    = $ports->where('status', 'Connected')->count();
         $disconnected = $ports->where('status', 'Disconnected')->count();
-        $uplinks      = $ports->where('is_uplink', true)->count();
+        $uplinkIds    = array_map('strval', $switch->uplink_port_ids ?? []);
+        $uplinks      = $ports->filter(fn($p) => in_array((string)$p->port_id, $uplinkIds))->count();
         $poe          = $ports->where('poe_enabled', true)->count();
     @endphp
     <div class="col-6 col-md-3">
@@ -161,8 +174,8 @@
     <div class="col-6 col-md-3">
         <div class="card text-center h-100 border-0 shadow-sm">
             <div class="card-body py-2">
-                <div class="h3 fw-bold text-primary mb-0">{{ $uplinks }}</div>
-                <div class="small text-muted">Uplinks</div>
+                <div class="h3 fw-bold text-primary mb-0 uplink-count">{{ $uplinks }}</div>
+                <div class="small text-muted">Manual Uplinks</div>
             </div>
         </div>
     </div>
@@ -201,7 +214,7 @@
                     @foreach($ports as $port)
                     <tr>
                         <td class="font-monospace fw-semibold">
-                            @if($port->is_uplink)<i class="bi bi-arrow-up-circle text-primary me-1"></i>@endif
+                            @if($switch->isManualUplink($port->port_id))<i class="bi bi-arrow-up-circle-fill text-warning me-1" title="Manual uplink"></i>@endif
                             {{ $port->port_id }}
                         </td>
                         <td>{{ $port->name ?: '-' }}</td>
@@ -426,7 +439,7 @@ function showPortDetail(portId) {
                     <tr><th class="text-muted ps-0">VLAN</th><td class="font-monospace">${port.vlan || '—'}</td></tr>
                     <tr><th class="text-muted ps-0">Allowed VLANs</th><td class="font-monospace small">${vlans}</td></tr>
                     <tr><th class="text-muted ps-0">PoE</th><td>${port.poe_enabled ? '<i class="bi bi-lightning-fill text-warning"></i> Enabled' : '—'}</td></tr>
-                    <tr><th class="text-muted ps-0">Uplink</th><td>${port.is_uplink ? '<i class="bi bi-arrow-up-circle text-primary"></i> Yes' : '—'}</td></tr>
+                    <tr><th class="text-muted ps-0">Uplink</th><td>${port.manual_uplink ? '<i class="bi bi-arrow-up-circle-fill text-warning"></i> Manual uplink' : (port.is_uplink ? '<span class="text-muted small">Meraki flag only</span>' : '—')}</td></tr>
                 </table>
             </div>
             ${port.client_mac ? `
@@ -449,6 +462,61 @@ function showPortDetail(portId) {
     const tile = document.querySelector(`.port-tile[data-port-id="${port.port_id}"]`);
     if (tile) tile.style.outline = '3px solid #0d6efd';
 }
+
+// ── Uplink port toggle (AJAX) ────────────────────────────────────
+@can('manage-network-settings')
+const uplinkPatchUrl = '{{ route("admin.network.switches.uplink-ports", $switch->serial) }}';
+
+function toggleUplink(portId, btn) {
+    const tile     = btn.closest('.port-tile');
+    const isUplink = tile.getAttribute('data-manual-uplink') === '1';
+    const newState = !isUplink;
+
+    fetch(uplinkPatchUrl, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: JSON.stringify({ port_id: portId, checked: newState }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return;
+
+        // Update tile state
+        tile.setAttribute('data-manual-uplink', newState ? '1' : '0');
+
+        // Update toggle icon
+        const icon = btn.querySelector('i');
+        icon.className = newState
+            ? 'bi bi-arrow-up-circle-fill text-warning'
+            : 'bi bi-arrow-up-circle opacity-25';
+        btn.title = newState ? 'Remove uplink' : 'Mark as uplink';
+
+        // Update main port icon inside tile
+        const mainIcon = tile.querySelector('.port-main-icon');
+        if (mainIcon) {
+            mainIcon.className = newState
+                ? 'bi bi-arrow-up-circle port-main-icon'
+                : 'bi bi-ethernet port-main-icon';
+            mainIcon.style.opacity = newState ? '1' : '.8';
+        }
+
+        // Update uplink count stat card
+        const countEl = document.querySelector('.uplink-count');
+        if (countEl) {
+            const count = document.querySelectorAll('.port-tile[data-manual-uplink="1"]').length;
+            countEl.textContent = count;
+        }
+
+        // Also update portData for the detail panel
+        const pd = portData.find(p => p.port_id === portId);
+        if (pd) pd.manual_uplink = newState;
+    })
+    .catch(err => console.error('Uplink toggle failed:', err));
+}
+@endcan
 
 // ── Location modal cascading dropdowns ──────────────────────────
 @can('manage-network-settings')

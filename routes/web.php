@@ -87,7 +87,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('xml-preview', [PhonebookController::class, 'preview'])
         ->name('xml.preview');
 
-    // ─── Branches ─────────────────────────────────────────────
+    // ─── Branches (CRUD — also accessible from Settings › Locations) ──
     Route::middleware('permission:view-branches')->group(function () {
         Route::get('branches', [BranchController::class, 'index'])->name('branches.index');
         Route::get('branches/create', [BranchController::class, 'create'])->name('branches.create');
@@ -100,7 +100,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('branches/{branch}', [BranchController::class, 'destroy'])->name('branches.destroy');
     });
 
-    // ─── Contacts ─────────────────────────────────────────────
+    // ─── Contacts (VoIP menu) ─────────────────────────────────
     Route::middleware('permission:view-contacts')->group(function () {
         Route::get('contacts', [ContactController::class, 'index'])->name('contacts.index');
         Route::get('contacts/create', [ContactController::class, 'create'])->name('contacts.create');
@@ -136,7 +136,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('phone-logs.sync-unsynced');
     });
 
-    // ─── Extensions (IPPBX) ───────────────────────────────────
+    // ─── Extensions (VoIP menu) ───────────────────────────────
     Route::middleware('permission:view-extensions')->group(function () {
         Route::get('extensions', [ExtensionController::class, 'index'])
             ->name('extensions.index');
@@ -174,6 +174,35 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('settings.meraki');
         Route::post('settings/graph', [SettingsController::class, 'updateGraph'])
             ->name('settings.graph');
+
+        // ── Locations (all 4 tiers: branches, floors, racks, offices) ──
+        Route::get('settings/locations',                          [SettingsController::class, 'locations'])       ->name('settings.locations');
+
+        // Branches (modal-based, same page)
+        Route::post('settings/branches',                          [BranchController::class, 'store'])             ->name('settings.branches.store');
+        Route::put('settings/branches/{branch}',                  [BranchController::class, 'update'])            ->name('settings.branches.update');
+        Route::delete('settings/branches/{branch}',               [BranchController::class, 'destroy'])           ->name('settings.branches.destroy');
+
+        // Floors (same CRUD as before, also accessible from settings)
+        Route::post('settings/floors',                            [NetworkController::class, 'storeFloor'])       ->name('settings.floors.store');
+        Route::put('settings/floors/{floor}',                     [NetworkController::class, 'updateFloor'])      ->name('settings.floors.update');
+        Route::delete('settings/floors/{floor}',                  [NetworkController::class, 'destroyFloor'])     ->name('settings.floors.destroy');
+
+        // Racks
+        Route::post('settings/racks',                             [NetworkController::class, 'storeRack'])        ->name('settings.racks.store');
+        Route::put('settings/racks/{rack}',                       [NetworkController::class, 'updateRack'])       ->name('settings.racks.update');
+        Route::delete('settings/racks/{rack}',                    [NetworkController::class, 'destroyRack'])      ->name('settings.racks.destroy');
+
+        // Offices (new tier)
+        Route::post('settings/offices',                           [NetworkController::class, 'storeOffice'])      ->name('settings.offices.store');
+        Route::put('settings/offices/{office}',                   [NetworkController::class, 'updateOffice'])     ->name('settings.offices.update');
+        Route::delete('settings/offices/{office}',                [NetworkController::class, 'destroyOffice'])    ->name('settings.offices.destroy');
+
+        // ── Departments ──────────────────────────────────────────────
+        Route::get('settings/departments',                        [SettingsController::class, 'departments'])     ->name('settings.departments');
+        Route::post('settings/departments',                       [SettingsController::class, 'storeDepartment']) ->name('settings.departments.store');
+        Route::put('settings/departments/{department}',           [SettingsController::class, 'updateDepartment'])->name('settings.departments.update');
+        Route::delete('settings/departments/{department}',        [SettingsController::class, 'destroyDepartment'])->name('settings.departments.destroy');
     });
 
     // ─── UCM Servers (managed from Settings page) ─────────────
@@ -233,12 +262,13 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('credentials/generate',            [CredentialController::class, 'generate']) ->name('credentials.generate');
         Route::get('credentials/create',              [CredentialController::class, 'create'])   ->name('credentials.create');
         Route::get('credentials/{credential}/edit',   [CredentialController::class, 'edit'])     ->name('credentials.edit');
+        // Reveal password: GET (read-only, permission-gated in controller)
+        Route::get('credentials/{credential}/reveal', [CredentialController::class, 'reveal'])   ->name('credentials.reveal');
     });
     Route::middleware('permission:manage-credentials')->group(function () {
         Route::post('credentials',                            [CredentialController::class, 'store'])    ->name('credentials.store');
         Route::put('credentials/{credential}',                [CredentialController::class, 'update'])   ->name('credentials.update');
         Route::delete('credentials/{credential}',             [CredentialController::class, 'destroy'])  ->name('credentials.destroy');
-        Route::post('credentials/{credential}/reveal',        [CredentialController::class, 'reveal'])   ->name('credentials.reveal');
         Route::post('credentials/{credential}/log-copy',      [CredentialController::class, 'logCopy'])  ->name('credentials.log-copy');
     });
 
@@ -282,6 +312,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/switches',      [NetworkController::class, 'switches'])    ->name('switches');
         Route::get('/switches/{serial}', [NetworkController::class, 'switchDetail'])->name('switch-detail');
         Route::get('/clients',       [NetworkController::class, 'clients'])     ->name('clients');
+        // MAC search for autocomplete in asset/printer forms
+        Route::get('/clients/mac-search', [NetworkController::class, 'macSearch'])->name('clients.mac-search');
+        // Offices AJAX (public within view-network so asset forms can populate options)
+        Route::get('/offices',       [NetworkController::class, 'officesByFloor'])->name('offices');
+        Route::get('/floors',        [NetworkController::class, 'floorsByBranch'])->name('floors');
     });
 
     Route::middleware('permission:view-network-events')->prefix('network')->name('network.')->group(function () {
@@ -289,12 +324,15 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     });
 
     Route::middleware('permission:manage-network-settings')->prefix('network')->name('network.')->group(function () {
+        // GET sync redirect (prevents MethodNotAllowed when someone navigates directly via URL)
+        Route::get('/sync',          fn() => redirect()->route('admin.network.overview'))->name('sync.redirect');
         Route::post('/sync',         [NetworkController::class, 'sync'])        ->name('sync');
         Route::post('/test-connection', [NetworkController::class, 'testConnection'])->name('test-connection');
 
-        // ── Location management ─────────────────────────────────
-        Route::get('/locations',                          [NetworkController::class, 'locations'])    ->name('locations');
+        // ── Uplink port management ───────────────────────────────
+        Route::patch('/switches/{serial}/uplink-ports', [NetworkController::class, 'setUplinkPorts'])->name('switches.uplink-ports');
 
+        // ── Legacy location management (kept for backward compat) ──
         Route::post('/floors',                            [NetworkController::class, 'storeFloor'])   ->name('floors.store');
         Route::put('/floors/{floor}',                     [NetworkController::class, 'updateFloor'])  ->name('floors.update');
         Route::delete('/floors/{floor}',                  [NetworkController::class, 'destroyFloor']) ->name('floors.destroy');

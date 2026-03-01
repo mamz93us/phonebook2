@@ -51,12 +51,12 @@
 
                 <ul class="navbar-nav me-auto">
 
-                    {{-- ── Contacts dropdown ── --}}
-                    @canany(['view-contacts','view-branches'])
+                    {{-- ── VoIP dropdown (Contacts + UCM/Extensions) ── --}}
+                    @canany(['view-contacts','view-extensions','view-trunks'])
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ request()->is('admin/contacts*','admin/branches*') ? 'active' : '' }}"
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/contacts*','admin/extensions*','admin/trunks*','admin/gdms*') ? 'active' : '' }}"
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-people-fill me-1"></i>Contacts
+                            <i class="bi bi-telephone-fill me-1"></i>VoIP
                         </a>
                         <ul class="dropdown-menu dropdown-menu-dark shadow">
                             @can('view-contacts')
@@ -67,31 +67,14 @@
                                 </a>
                             </li>
                             @endcan
-                            @can('view-branches')
-                            <li>
-                                <a class="dropdown-item {{ request()->is('admin/branches*') ? 'active' : '' }}"
-                                   href="{{ route('admin.branches.index') }}">
-                                    <i class="bi bi-diagram-3-fill me-2"></i>Branches
-                                </a>
-                            </li>
-                            @endcan
-                        </ul>
-                    </li>
-                    @endcanany
-
-                    {{-- ── UCM dropdown ── --}}
-                    @canany(['view-extensions','view-trunks'])
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ request()->is('admin/extensions*','admin/trunks*','admin/gdms*') ? 'active' : '' }}"
-                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-router-fill me-1"></i>UCM
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-dark shadow">
+                            @canany(['view-extensions','view-trunks'])
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header text-secondary"><i class="bi bi-hdd-stack me-1"></i>UCM / PBX</h6></li>
                             @can('view-extensions')
                             <li>
                                 <a class="dropdown-item {{ request()->is('admin/extensions*') ? 'active' : '' }}"
                                    href="{{ route('admin.extensions.index') }}">
-                                    <i class="bi bi-telephone-fill me-2"></i>Extensions
+                                    <i class="bi bi-telephone me-2"></i>Extensions
                                 </a>
                             </li>
                             @endcan
@@ -111,6 +94,7 @@
                                 </a>
                             </li>
                             @endcan
+                            @endcanany
                         </ul>
                     </li>
                     @endcanany
@@ -146,15 +130,6 @@
                                 <a class="dropdown-item {{ request()->routeIs('admin.network.events') ? 'active' : '' }}"
                                    href="{{ route('admin.network.events') }}">
                                     <i class="bi bi-clock-history me-2"></i>Change Monitor
-                                </a>
-                            </li>
-                            @endcan
-                            @can('manage-network-settings')
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <a class="dropdown-item {{ request()->routeIs('admin.network.locations') ? 'active' : '' }}"
-                                   href="{{ route('admin.network.locations') }}">
-                                    <i class="bi bi-building me-2"></i>Locations
                                 </a>
                             </li>
                             @endcan
@@ -238,18 +213,33 @@
                     {{-- ── Settings dropdown ── --}}
                     @canany(['manage-settings','manage-users','manage-permissions','view-phone-logs','view-activity-logs'])
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ request()->is('admin/settings*','admin/users*','admin/permissions*','admin/phone-logs*','admin/activity-logs*') ? 'active' : '' }}"
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/settings*','admin/users*','admin/permissions*','admin/phone-logs*','admin/activity-logs*','admin/branches*') ? 'active' : '' }}"
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-gear-fill me-1"></i>Settings
                         </a>
                         <ul class="dropdown-menu dropdown-menu-dark shadow">
                             @can('manage-settings')
                             <li>
-                                <a class="dropdown-item {{ request()->is('admin/settings*') ? 'active' : '' }}"
+                                <a class="dropdown-item {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}"
                                    href="{{ route('admin.settings.index') }}">
-                                    <i class="bi bi-sliders me-2"></i>Settings
+                                    <i class="bi bi-sliders me-2"></i>General Settings
                                 </a>
                             </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header text-secondary"><i class="bi bi-building me-1"></i>Organisation</h6></li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.settings.locations') || request()->is('admin/branches*') ? 'active' : '' }}"
+                                   href="{{ route('admin.settings.locations') }}">
+                                    <i class="bi bi-geo-alt-fill me-2"></i>Locations
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.settings.departments') ? 'active' : '' }}"
+                                   href="{{ route('admin.settings.departments') }}">
+                                    <i class="bi bi-grid-1x2-fill me-2"></i>Departments
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
                             @endcan
                             @can('manage-users')
                             <li>
