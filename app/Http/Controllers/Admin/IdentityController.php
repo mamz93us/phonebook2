@@ -118,6 +118,8 @@ class IdentityController extends Controller
 
     public function sync()
     {
+        set_time_limit(300);
+
         $settings = Setting::get();
 
         if (!$settings->identity_sync_enabled) {
@@ -128,51 +130,6 @@ class IdentityController extends Controller
             return back()->with('error', 'Microsoft Graph credentials are not configured. Go to Settings → Identity (Graph) to set them up.');
         }
 
-        // Prevent duplicate concurrent syncs
-        $alreadyRunning = IdentitySyncLog::where('status', 'started')
-            ->where('created_at', '>=', now()->subMinutes(20))
-            ->exists();
-
-        if ($alreadyRunning) {
-            return redirect()->route('admin.identity.sync-logs')
-                ->with('error', 'A sync is already in progress. Please wait for it to complete.');
-        }
-
-        // No PHP time or abort limit — we keep running regardless of what
-        // the HTTP layer does.
-        set_time_limit(0);
-        ignore_user_abort(true);
-
-        ActivityLog::create([
-            'model_type' => 'Identity',
-            'model_id'   => 0,
-            'action'     => 'sync_started',
-            'changes'    => ['type' => 'sync'],
-            'user_id'    => Auth::id(),
-        ]);
-
-        // ── Strategy 1: PHP-FPM fastcgi_finish_request() ──────────────
-        // Flushes & closes the HTTP response so the browser gets its
-        // redirect immediately, while this PHP process keeps running the
-        // sync in the background.  Works on all cPanel / PHP-FPM servers
-        // without needing exec() or a queue worker.
-        if (function_exists('fastcgi_finish_request')) {
-            // Persist the session flash before finishing the request
-            session()->flash('success', 'Sync started — this page refreshes automatically until it completes.');
-            session()->save();
-
-            // Build & send the redirect to the browser NOW
-            redirect()->route('admin.identity.sync-logs')->send();
-
-            fastcgi_finish_request(); // ← browser is done; PHP keeps going
-
-            (new SyncIdentityData())->handle();
-            return; // response already sent
-        }
-
-        // ── Strategy 2: Synchronous fallback ──────────────────────────
-        // exec() is disabled AND fastcgi_finish_request() is unavailable
-        // (e.g. Apache mod_php).  Run inline — user waits for completion.
         try {
             (new SyncIdentityData())->handle();
 
@@ -182,8 +139,24 @@ class IdentityController extends Controller
                 $msg .= " Users: {$lastLog->users_synced}, Licenses: {$lastLog->licenses_synced}, Groups: {$lastLog->groups_synced}.";
             }
 
+            ActivityLog::create([
+                'model_type' => 'Identity',
+                'model_id'   => 0,
+                'action'     => 'synced',
+                'changes'    => ['type' => 'identity_sync_completed'],
+                'user_id'    => Auth::id(),
+            ]);
+
             return redirect()->route('admin.identity.sync-logs')->with('success', $msg);
         } catch (\Exception $e) {
+            ActivityLog::create([
+                'model_type' => 'Identity',
+                'model_id'   => 0,
+                'action'     => 'sync_failed',
+                'changes'    => ['error' => $e->getMessage()],
+                'user_id'    => Auth::id(),
+            ]);
+
             return back()->with('error', 'Sync failed: ' . $e->getMessage());
         }
     }
