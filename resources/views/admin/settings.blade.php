@@ -549,7 +549,7 @@ function testGraphConnection() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing…';
     result.innerHTML = '<span class="text-muted small">Connecting…</span>';
 
-    fetch('{{ route('admin.identity.test-connection') }}', {
+    fetch('{{ route('admin.settings.test-graph') }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
         body: JSON.stringify({ tenant_id: tenantId, client_id: clientId, client_secret: secret })
@@ -586,7 +586,7 @@ function testMerakiConnection() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing…';
     result.innerHTML = '<span class="text-muted small">Connecting…</span>';
 
-    fetch('{{ route('admin.network.test-connection') }}', {
+    fetch('{{ route('admin.settings.test-meraki') }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

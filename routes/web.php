@@ -174,6 +174,9 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('settings.meraki');
         Route::post('settings/graph', [SettingsController::class, 'updateGraph'])
             ->name('settings.graph');
+        // Test-connection buttons live on the Settings page — accessible to any settings manager
+        Route::post('settings/test-meraki',  [NetworkController::class,  'testConnection'])->name('settings.test-meraki');
+        Route::post('settings/test-graph',   [IdentityController::class, 'testConnection'])->name('settings.test-graph');
 
         // ── Locations (all 4 tiers: branches, floors, racks, offices) ──
         Route::get('settings/locations',                          [SettingsController::class, 'locations'])       ->name('settings.locations');

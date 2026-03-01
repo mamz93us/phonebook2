@@ -220,7 +220,7 @@ class GraphService
     public function listGroups(): array
     {
         return $this->paginate('/groups', [
-            '$select' => 'id,displayName,description,groupTypes,mailEnabled,securityEnabled,members@odata.count',
+            '$select' => 'id,displayName,description,groupTypes,mailEnabled,securityEnabled',
         ]);
     }
 
