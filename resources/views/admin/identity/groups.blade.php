@@ -28,26 +28,34 @@
 <div class="alert alert-danger alert-dismissible fade show py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
 @endif
 
-{{-- ── Filter bar ─────────────────────────────────────────────────────── --}}
-<div class="row g-2 mb-3 align-items-center">
-    {{-- Live filter (client-side, no submit) --}}
-    <div class="col-auto">
-        <div class="input-group input-group-sm">
-            <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input type="text" id="grpLiveFilter" class="form-control" placeholder="Filter groups…"
-                   value="{{ request('search') }}" style="min-width:220px">
-            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('grpLiveFilter').value='';filterGroups()">
-                <i class="bi bi-x"></i>
-            </button>
+{{-- ── Search ──────────────────────────────────────────────────────────── --}}
+<form method="GET" id="grpFilterForm" class="mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" name="search" id="grpSearch"
+                       class="form-control form-control-lg border-start-0 ps-0"
+                       placeholder="Search by name or description…"
+                       value="{{ request('search') }}"
+                       autocomplete="off">
+                @if(request('search'))
+                <a href="{{ route('admin.identity.groups') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                @endif
+            </div>
+            <div class="form-text ps-1">Searching across all {{ $groups->total() }} groups</div>
+        </div>
+        <div class="col-auto">
+            <a href="{{ route('admin.identity.groups') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle me-1"></i>Clear
+            </a>
         </div>
     </div>
-    {{-- Server-side search (for pagination across all records) --}}
-    <form method="GET" class="d-flex gap-2 align-items-center col-auto">
-        <button type="submit" class="btn btn-sm btn-secondary">Search All Pages</button>
-        <input type="hidden" name="search" id="grpSearchHidden">
-        <a href="{{ route('admin.identity.groups') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
-    </form>
-</div>
+</form>
 
 <div class="card shadow-sm">
     <div class="card-body p-0">
@@ -136,21 +144,16 @@
 
 @push('scripts')
 <script>
-// ── Live client-side filter ───────────────────────────────────────────────
-const grpLiveInput = document.getElementById('grpLiveFilter');
-
-function filterGroups() {
-    const q = (grpLiveInput.value || '').toLowerCase();
-    document.querySelectorAll('#grpTable tbody tr').forEach(row => {
-        row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+// Auto-submit form after 500 ms pause — searches all pages server-side
+(function () {
+    let timer;
+    const input = document.getElementById('grpSearch');
+    if (!input) return;
+    input.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(() => document.getElementById('grpFilterForm').submit(), 500);
     });
-    // Sync hidden input for server-side search
-    document.getElementById('grpSearchHidden').value = grpLiveInput.value;
-}
-
-grpLiveInput.addEventListener('input', filterGroups);
-// Apply on page load if pre-filled
-filterGroups();
+})();
 
 // ── Group Members AJAX modal ──────────────────────────────────────────────
 const gmModal   = new bootstrap.Modal(document.getElementById('groupMembersModal'));

@@ -28,44 +28,70 @@
 <div class="alert alert-danger alert-dismissible fade show py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
 @endif
 
-{{-- Filters --}}
-<div class="row g-2 mb-3 align-items-center">
-    {{-- Live text filter (client-side) --}}
-    <div class="col-auto">
-        <div class="input-group input-group-sm">
-            <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input type="text" id="userLiveFilter" class="form-control" placeholder="Filter by name / UPN / dept…"
-                   value="{{ request('search') }}" style="min-width:230px">
-            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('userLiveFilter').value='';filterUsers()">
-                <i class="bi bi-x"></i>
-            </button>
+{{-- ── Search + Filters ───────────────────────────────────────────────────── --}}
+<form method="GET" id="userFilterForm" class="mb-3">
+    <div class="row g-2 align-items-center">
+
+        {{-- Large search box (server-side, all pages) --}}
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" name="search" id="userSearch"
+                       class="form-control form-control-lg border-start-0 ps-0"
+                       placeholder="Search by name, email, or department…"
+                       value="{{ request('search') }}"
+                       autocomplete="off">
+                @if(request('search'))
+                <a href="{{ route('admin.identity.users', array_merge(request()->except('search','page'), [])) }}"
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                @endif
+            </div>
+            <div class="form-text ps-1">Searching across all {{ $users->total() }} users</div>
+        </div>
+
+        {{-- Department dropdown --}}
+        <div class="col-auto">
+            <select name="department" class="form-select" onchange="this.form.submit()">
+                <option value="">All Departments</option>
+                @foreach($departments as $dep)
+                <option value="{{ $dep }}" {{ request('department') == $dep ? 'selected' : '' }}>{{ $dep }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        {{-- Status dropdown --}}
+        <div class="col-auto">
+            <select name="status" class="form-select" onchange="this.form.submit()">
+                <option value="">All Status</option>
+                <option value="enabled"  {{ request('status') == 'enabled'  ? 'selected' : '' }}>Enabled</option>
+                <option value="disabled" {{ request('status') == 'disabled' ? 'selected' : '' }}>Disabled</option>
+            </select>
+        </div>
+
+        {{-- Clear --}}
+        <div class="col-auto">
+            <a href="{{ route('admin.identity.users') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle me-1"></i>Clear
+            </a>
         </div>
     </div>
-    {{-- Department & status dropdowns with auto-submit --}}
-    <form method="GET" class="d-flex gap-2 align-items-center flex-wrap col-auto" id="userFilterForm">
-        <input type="hidden" name="search" id="userSearchHidden" value="{{ request('search') }}">
-        <select name="department" class="form-select form-select-sm" onchange="submitUserFilter()">
-            <option value="">All Departments</option>
-            @foreach($departments as $dep)
-            <option value="{{ $dep }}" {{ request('department') == $dep ? 'selected' : '' }}>{{ $dep }}</option>
-            @endforeach
-        </select>
-        <select name="status" class="form-select form-select-sm" onchange="submitUserFilter()">
-            <option value="">All Status</option>
-            <option value="enabled"  {{ request('status') == 'enabled'  ? 'selected' : '' }}>Enabled</option>
-            <option value="disabled" {{ request('status') == 'disabled' ? 'selected' : '' }}>Disabled</option>
-        </select>
-        <a href="{{ route('admin.identity.users') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
-    </form>
-</div>
+</form>
 
 <div class="card shadow-sm">
     <div class="card-body p-0">
         @if($users->isEmpty())
         <div class="text-center py-5 text-muted">
             <i class="bi bi-people display-4 d-block mb-2"></i>
-            No users found.
-            @if(!$lastSync) <div class="small mt-1">Run a sync to import users from Entra ID.</div> @endif
+            @if(request('search') || request('department') || request('status'))
+                No users match your filters.
+            @else
+                No users found.
+                @if(!$lastSync) <div class="small mt-1">Run a sync to import users from Entra ID.</div> @endif
+            @endif
         </div>
         @else
         <div class="table-responsive">
@@ -73,17 +99,19 @@
                 <thead class="table-light">
                     <tr>
                         <th>User</th>
-                        <th>UPN</th>
+                        <th>Email</th>
                         <th>Department</th>
+                        <th>Phone</th>
+                        <th>Location</th>
                         <th class="text-center">Licenses</th>
                         <th class="text-center">Groups</th>
                         <th class="text-center">Status</th>
                         <th></th>
                     </tr>
                 </thead>
-                <tbody id="userTableBody">
+                <tbody>
                     @foreach($users as $u)
-                    <tr data-row="{{ strtolower($u->display_name.' '.$u->user_principal_name.' '.($u->department ?? '').' '.($u->mail ?? '').' '.($u->job_title ?? '')) }}">
+                    <tr>
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
@@ -92,12 +120,24 @@
                                 </div>
                                 <div>
                                     <div class="fw-semibold">{{ $u->display_name }}</div>
-                                    <div class="text-muted">{{ $u->job_title ?: '' }}</div>
+                                    <div class="text-muted" style="font-size:.75rem">{{ $u->job_title ?: '' }}</div>
                                 </div>
                             </div>
                         </td>
-                        <td class="font-monospace text-muted">{{ $u->user_principal_name }}</td>
+                        <td class="text-muted">{{ $u->mail ?: '—' }}</td>
                         <td>{{ $u->department ?: '—' }}</td>
+                        <td class="text-muted">
+                            @if($u->phone_number)
+                                <a href="tel:{{ $u->phone_number }}" class="text-decoration-none">{{ $u->phone_number }}</a>
+                            @elseif($u->mobile_phone)
+                                <a href="tel:{{ $u->mobile_phone }}" class="text-decoration-none text-muted">{{ $u->mobile_phone }}</a>
+                            @else
+                                —
+                            @endif
+                        </td>
+                        <td class="text-muted">
+                            {{ implode(', ', array_filter([$u->office_location, $u->city])) ?: '—' }}
+                        </td>
                         <td class="text-center">
                             <span class="badge bg-{{ $u->licenses_count > 0 ? 'primary' : 'light text-muted border' }}">
                                 {{ $u->licenses_count }}
@@ -121,30 +161,28 @@
                 </tbody>
             </table>
         </div>
-        <div class="p-3">{{ $users->links() }}</div>
+        <div class="p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <small class="text-muted">
+                Showing {{ $users->firstItem() }}–{{ $users->lastItem() }} of {{ number_format($users->total()) }} users
+            </small>
+            {{ $users->links() }}
+        </div>
         @endif
     </div>
 </div>
+
 @push('scripts')
 <script>
-// ── Live client-side filter for current page ──────────────────────────────
-const userLiveInput = document.getElementById('userLiveFilter');
-
-function filterUsers() {
-    const q = (userLiveInput.value || '').toLowerCase();
-    document.querySelectorAll('#userTableBody tr').forEach(row => {
-        row.style.display = (row.dataset.row || '').includes(q) ? '' : 'none';
+// Auto-submit form after 500 ms pause — searches all pages server-side
+(function () {
+    let timer;
+    const input = document.getElementById('userSearch');
+    if (!input) return;
+    input.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(() => document.getElementById('userFilterForm').submit(), 500);
     });
-    document.getElementById('userSearchHidden').value = userLiveInput.value;
-}
-
-function submitUserFilter() {
-    document.getElementById('userSearchHidden').value = userLiveInput.value;
-    document.getElementById('userFilterForm').submit();
-}
-
-userLiveInput.addEventListener('input', filterUsers);
-filterUsers(); // apply on load if pre-filled
+})();
 </script>
 @endpush
 

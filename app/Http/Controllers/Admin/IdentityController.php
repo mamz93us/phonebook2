@@ -79,7 +79,11 @@ class IdentityController extends Controller
         $query = IdentityGroup::orderBy('display_name');
 
         if ($request->filled('search')) {
-            $query->where('display_name', 'like', '%' . $request->search . '%');
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('display_name', 'like', "%{$s}%")
+                  ->orWhere('description', 'like', "%{$s}%");
+            });
         }
 
         $groups   = $query->paginate(50)->withQueryString();
@@ -333,6 +337,84 @@ class IdentityController extends Controller
         $user->update(['member_of' => $groups, 'groups_count' => count($groups)]);
 
         return back()->with('success', 'User removed from group.');
+    }
+
+    /**
+     * Update user profile fields both in Graph and local DB.
+     */
+    public function updateProfile(Request $request, string $azureId)
+    {
+        $validated = $request->validate([
+            'display_name'    => 'required|string|max:255',
+            'job_title'       => 'nullable|string|max:255',
+            'department'      => 'nullable|string|max:255',
+            'company_name'    => 'nullable|string|max:255',
+            'phone_number'    => 'nullable|string|max:50',
+            'mobile_phone'    => 'nullable|string|max:50',
+            'office_location' => 'nullable|string|max:100',
+            'street_address'  => 'nullable|string|max:255',
+            'city'            => 'nullable|string|max:100',
+            'postal_code'     => 'nullable|string|max:20',
+            'country'         => 'nullable|string|max:100',
+        ]);
+
+        $user = IdentityUser::where('azure_id', $azureId)->firstOrFail();
+
+        // Build Graph API payload (only non-null fields, mapped to Graph property names)
+        $graphData = ['displayName' => $validated['display_name']];
+
+        $fieldMap = [
+            'job_title'       => 'jobTitle',
+            'department'      => 'department',
+            'company_name'    => 'companyName',
+            'mobile_phone'    => 'mobilePhone',
+            'office_location' => 'officeLocation',
+            'street_address'  => 'streetAddress',
+            'city'            => 'city',
+            'postal_code'     => 'postalCode',
+            'country'         => 'country',
+        ];
+
+        foreach ($fieldMap as $local => $graph) {
+            $graphData[$graph] = $validated[$local] ?? null;
+        }
+
+        // businessPhones is an array in Graph
+        $graphData['businessPhones'] = $validated['phone_number']
+            ? [$validated['phone_number']]
+            : [];
+
+        try {
+            $graph = new GraphService();
+            $graph->updateUser($azureId, $graphData);
+        } catch (\Exception $e) {
+            return back()->with('error', $this->graphFriendlyError($e));
+        }
+
+        // Mirror changes in local DB
+        $user->update([
+            'display_name'    => $validated['display_name'],
+            'job_title'       => $validated['job_title']       ?? null,
+            'department'      => $validated['department']       ?? null,
+            'company_name'    => $validated['company_name']     ?? null,
+            'phone_number'    => $validated['phone_number']     ?? null,
+            'mobile_phone'    => $validated['mobile_phone']     ?? null,
+            'office_location' => $validated['office_location']  ?? null,
+            'street_address'  => $validated['street_address']   ?? null,
+            'city'            => $validated['city']             ?? null,
+            'postal_code'     => $validated['postal_code']      ?? null,
+            'country'         => $validated['country']          ?? null,
+        ]);
+
+        ActivityLog::create([
+            'model_type' => 'IdentityUser',
+            'model_id'   => $user->id,
+            'action'     => 'profile_updated',
+            'changes'    => ['user' => $user->user_principal_name],
+            'user_id'    => Auth::id(),
+        ]);
+
+        return back()->with('success', "Profile updated for {$user->display_name}.");
     }
 
     // ─────────────────────────────────────────────────────────────

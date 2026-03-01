@@ -52,14 +52,24 @@ class GraphService
         });
     }
 
+    /**
+     * Force a fresh token (clears cache and re-requests).
+     * Called automatically on 401/403 responses so newly-granted
+     * permissions are picked up without waiting for cache expiry.
+     */
+    private function refreshToken(): string
+    {
+        Cache::forget("graph_token_{$this->clientId}");
+        return $this->getAccessToken();
+    }
+
     private function get(string $endpoint, array $query = []): array
     {
         $token    = $this->getAccessToken();
         $response = Http::withToken($token)->get($this->baseUrl . $endpoint, $query);
 
         if ($response->status() === 401) {
-            Cache::forget("graph_token_{$this->clientId}");
-            $token    = $this->getAccessToken();
+            $token    = $this->refreshToken();
             $response = Http::withToken($token)->get($this->baseUrl . $endpoint, $query);
         }
 
@@ -75,6 +85,14 @@ class GraphService
         $token    = $this->getAccessToken();
         $response = Http::withToken($token)->patch($this->baseUrl . $endpoint, $data);
 
+        // On 401 or 403 force a token refresh and retry once.
+        // 403 is also retried because a newly granted application permission
+        // (e.g. User.ReadWrite.All) is only reflected in a fresh access token.
+        if ($response->status() === 401 || $response->status() === 403) {
+            $token    = $this->refreshToken();
+            $response = Http::withToken($token)->patch($this->baseUrl . $endpoint, $data);
+        }
+
         if (!$response->successful()) {
             throw new \RuntimeException("Graph PATCH {$endpoint} failed: " . $response->body());
         }
@@ -84,6 +102,11 @@ class GraphService
     {
         $token    = $this->getAccessToken();
         $response = Http::withToken($token)->post($this->baseUrl . $endpoint, $data);
+
+        if ($response->status() === 401 || $response->status() === 403) {
+            $token    = $this->refreshToken();
+            $response = Http::withToken($token)->post($this->baseUrl . $endpoint, $data);
+        }
 
         if (!$response->successful()) {
             throw new \RuntimeException("Graph POST {$endpoint} failed: " . $response->body());
@@ -96,6 +119,11 @@ class GraphService
     {
         $token    = $this->getAccessToken();
         $response = Http::withToken($token)->delete($this->baseUrl . $endpoint);
+
+        if ($response->status() === 401 || $response->status() === 403) {
+            $token    = $this->refreshToken();
+            $response = Http::withToken($token)->delete($this->baseUrl . $endpoint);
+        }
 
         if (!$response->successful()) {
             throw new \RuntimeException("Graph DELETE {$endpoint} failed: " . $response->body());
@@ -144,7 +172,14 @@ class GraphService
     public function listUsers(): array
     {
         return $this->paginate('/users', [
-            '$select' => 'id,displayName,userPrincipalName,mail,jobTitle,department,accountEnabled,assignedLicenses,usageLocation',
+            '$select' => implode(',', [
+                'id', 'displayName', 'userPrincipalName', 'mail',
+                'jobTitle', 'department', 'companyName',
+                'accountEnabled', 'usageLocation',
+                'assignedLicenses',
+                'businessPhones', 'mobilePhone',
+                'officeLocation', 'streetAddress', 'city', 'postalCode', 'country',
+            ]),
             '$expand' => 'memberOf($select=id)',
         ]);
     }

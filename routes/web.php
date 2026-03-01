@@ -301,6 +301,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/sync',                                     [IdentityController::class, 'sync'])           ->name('sync');
         Route::patch('/users/{azureId}/toggle',                  [IdentityController::class, 'toggleUser'])     ->name('user.toggle');
         Route::patch('/users/{azureId}/reset-password',          [IdentityController::class, 'resetPassword'])  ->name('user.reset-password');
+        Route::patch('/users/{azureId}/profile',                 [IdentityController::class, 'updateProfile'])  ->name('user.update-profile');
         Route::post('/users/{azureId}/assign-license',           [IdentityController::class, 'assignLicense'])  ->name('user.assign-license');
         Route::delete('/users/{azureId}/remove-license',         [IdentityController::class, 'removeLicense'])  ->name('user.remove-license');
         Route::post('/users/{azureId}/add-group',                [IdentityController::class, 'addGroup'])       ->name('user.add-group');
