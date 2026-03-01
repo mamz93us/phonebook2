@@ -184,23 +184,66 @@ class GraphService
     }
 
     /**
-     * Return a compact map of [azureUserId => [groupId, ...]] for ALL users.
-     * Fetches only "id" + "memberOf" so the paginated payload stays small
-     * and does not interfere with the (larger) profile-field user sync.
+     * Fetch the user members of multiple groups in one Graph Batch request.
+     *
+     * Graph Batch API allows up to 20 sub-requests per call and processes
+     * them in parallel on Microsoft's side — far faster than iterating over
+     * users with $expand=memberOf (which limits pages to ~100 and blocks on
+     * each HTTP roundtrip).
+     *
+     * @param  array  $groupIds  Azure AD group IDs
+     * @return array             [groupId => [userId, ...]]
      */
-    public function listUserMemberships(): array
+    public function batchGroupMembers(array $groupIds): array
     {
-        $rows = $this->paginate('/users', [
-            '$select' => 'id',
-            '$expand' => 'memberOf($select=id)',
-        ]);
-
-        $map = [];
-        foreach ($rows as $row) {
-            $groupIds   = collect($row['memberOf'] ?? [])->pluck('id')->filter()->values()->all();
-            $map[$row['id']] = $groupIds;
+        if (empty($groupIds)) {
+            return [];
         }
-        return $map; // ['azureUserId' => ['groupId1', 'groupId2', ...], ...]
+
+        $token  = $this->getAccessToken();
+        $result = [];
+
+        // Graph Batch API accepts max 20 requests per call
+        foreach (array_chunk($groupIds, 20) as $chunk) {
+            $requests = [];
+            foreach (array_values($chunk) as $i => $gid) {
+                // /microsoft.graph.user cast filters to user-type members only
+                $requests[] = [
+                    'id'     => (string)($i + 1),
+                    'method' => 'GET',
+                    'url'    => "/groups/{$gid}/members/microsoft.graph.user?\$select=id&\$top=999",
+                ];
+            }
+
+            $resp = Http::withToken($token)
+                ->post($this->baseUrl . '/$batch', ['requests' => $requests]);
+
+            // Retry once on 401 (stale token)
+            if ($resp->status() === 401) {
+                $token = $this->refreshToken();
+                $resp  = Http::withToken($token)
+                    ->post($this->baseUrl . '/$batch', ['requests' => $requests]);
+            }
+
+            if (!$resp->successful()) {
+                throw new \RuntimeException('Graph batch group-members failed: ' . $resp->body());
+            }
+
+            foreach ($resp->json('responses', []) as $r) {
+                $idx     = (int)$r['id'] - 1;
+                $groupId = $chunk[$idx] ?? null;
+                if (!$groupId) {
+                    continue;
+                }
+
+                if ((int)$r['status'] === 200) {
+                    $result[$groupId] = collect($r['body']['value'] ?? [])->pluck('id')->all();
+                }
+                // 403 = app lacks permission to list this group's members — skip silently
+            }
+        }
+
+        return $result; // [groupId => [userId, ...]]
     }
 
     public function getUser(string $id): array
