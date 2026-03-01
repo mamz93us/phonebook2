@@ -290,11 +290,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // ─── Identity (Entra ID / Graph API) ──────────────────────
     Route::middleware('permission:view-identity')->prefix('identity')->name('identity.')->group(function () {
-        Route::get('/users',              [IdentityController::class, 'users'])     ->name('users');
-        Route::get('/users/{azureId}',    [IdentityController::class, 'userDetail'])->name('user');
-        Route::get('/licenses',           [IdentityController::class, 'licenses'])  ->name('licenses');
-        Route::get('/groups',             [IdentityController::class, 'groups'])    ->name('groups');
-        Route::get('/sync-logs',          [IdentityController::class, 'syncLogs'])  ->name('sync-logs');
+        Route::get('/users',                          [IdentityController::class, 'users'])        ->name('users');
+        Route::get('/users/{azureId}',              [IdentityController::class, 'userDetail'])  ->name('user');
+        Route::get('/licenses',                     [IdentityController::class, 'licenses'])     ->name('licenses');
+        Route::get('/groups',                       [IdentityController::class, 'groups'])       ->name('groups');
+        Route::get('/groups/{azureId}/members',     [IdentityController::class, 'groupMembers'])->name('group.members');
+        Route::get('/sync-logs',                    [IdentityController::class, 'syncLogs'])     ->name('sync-logs');
     });
     Route::middleware('permission:manage-identity')->prefix('identity')->name('identity.')->group(function () {
         Route::post('/sync',                                     [IdentityController::class, 'sync'])           ->name('sync');

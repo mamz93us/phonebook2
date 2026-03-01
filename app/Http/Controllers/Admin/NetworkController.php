@@ -338,12 +338,17 @@ class NetworkController extends Controller
     public function testConnection(Request $request)
     {
         $request->validate([
-            'api_key' => 'required|string',
+            'api_key' => 'nullable|string',
             'org_id'  => 'required|string',
         ]);
 
         try {
-            $meraki  = new MerakiService($request->api_key, $request->org_id);
+            // Use the form value; fall back to the saved API key when the field is left blank
+            $apiKey = $request->filled('api_key')
+                ? $request->api_key
+                : (Setting::get()->meraki_api_key ?? '');
+
+            $meraki  = new MerakiService($apiKey, $request->org_id);
             $orgName = $meraki->testConnection();
 
             return response()->json([

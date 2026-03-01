@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - {{ config('app.name') }}</title>
+    <title>Login – SG NOC</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -145,9 +145,11 @@
                 @endif
                 
                 <h1 class="login-title">
-                    {{ $settings->company_name ?? 'Admin Panel' }}
+                    Samir Group Network Operation Center
                 </h1>
-                <p style="margin: 5px 0 0 0; opacity: 0.9;">Sign in to continue</p>
+                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 0.85rem; letter-spacing: 0.05em;">
+                    SG NOC — Sign in to continue
+                </p>
             </div>
             
             <!-- Login Form -->
@@ -261,7 +263,7 @@
         <!-- Footer -->
         <div class="text-center mt-3">
             <small style="color: rgba(255,255,255,0.8);">
-                &copy; {{ date('Y') }} {{ $settings->company_name ?? 'Company' }}. All rights reserved.
+                &copy; {{ date('Y') }} Samir Group. All rights reserved.
             </small>
         </div>
     </div>

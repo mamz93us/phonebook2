@@ -24,16 +24,30 @@
 @if(session('success'))
 <div class="alert alert-success alert-dismissible fade show py-2"><i class="bi bi-check-circle me-1"></i>{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
 @endif
+@if(session('error'))
+<div class="alert alert-danger alert-dismissible fade show py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+@endif
 
-<form method="GET" class="row g-2 mb-3 align-items-end">
+{{-- ── Filter bar ─────────────────────────────────────────────────────── --}}
+<div class="row g-2 mb-3 align-items-center">
+    {{-- Live filter (client-side, no submit) --}}
     <div class="col-auto">
-        <input type="text" name="search" class="form-control form-control-sm" placeholder="Search groups..." value="{{ request('search') }}">
+        <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="grpLiveFilter" class="form-control" placeholder="Filter groups…"
+                   value="{{ request('search') }}" style="min-width:220px">
+            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('grpLiveFilter').value='';filterGroups()">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
     </div>
-    <div class="col-auto">
-        <button type="submit" class="btn btn-sm btn-secondary">Filter</button>
+    {{-- Server-side search (for pagination across all records) --}}
+    <form method="GET" class="d-flex gap-2 align-items-center col-auto">
+        <button type="submit" class="btn btn-sm btn-secondary">Search All Pages</button>
+        <input type="hidden" name="search" id="grpSearchHidden">
         <a href="{{ route('admin.identity.groups') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
-    </div>
-</form>
+    </form>
+</div>
 
 <div class="card shadow-sm">
     <div class="card-body p-0">
@@ -44,7 +58,7 @@
         </div>
         @else
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 small">
+            <table class="table table-hover align-middle mb-0 small" id="grpTable">
                 <thead class="table-light">
                     <tr>
                         <th>Display Name</th>
@@ -52,17 +66,21 @@
                         <th class="text-center">Members</th>
                         <th class="text-center">Mail</th>
                         <th>Description</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($groups as $g)
-                    <tr>
+                    <tr data-name="{{ strtolower($g->display_name) }} {{ strtolower($g->description ?? '') }}">
                         <td class="fw-semibold">{{ $g->display_name }}</td>
                         <td><span class="badge {{ $g->typeBadgeClass() }}">{{ $g->typeLabel() }}</span></td>
                         <td class="text-center">
-                            <span class="badge bg-{{ $g->members_count > 0 ? 'primary' : 'light text-muted border' }}">
+                            <button type="button"
+                                    class="badge bg-{{ $g->members_count > 0 ? 'primary' : 'light text-muted border' }} border-0"
+                                    style="cursor:{{ $g->members_count > 0 ? 'pointer' : 'default' }}"
+                                    onclick="{{ $g->members_count > 0 ? 'loadGroupMembers(\''.addslashes($g->azure_id).'\',\''.addslashes($g->display_name).'\')' : '' }}">
                                 {{ $g->members_count }}
-                            </span>
+                            </button>
                         </td>
                         <td class="text-center">
                             @if($g->mail_enabled)
@@ -78,6 +96,14 @@
                             —
                             @endif
                         </td>
+                        <td>
+                            @if($g->members_count > 0)
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    onclick="loadGroupMembers('{{ $g->azure_id }}','{{ addslashes($g->display_name) }}')">
+                                <i class="bi bi-people me-1"></i>Members
+                            </button>
+                            @endif
+                        </td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -87,4 +113,102 @@
         @endif
     </div>
 </div>
+
+{{-- ── Group Members Modal ─────────────────────────────────────────────── --}}
+<div class="modal fade" id="groupMembersModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title fw-semibold">
+                    <i class="bi bi-people me-2 text-primary"></i><span id="gmModalTitle">Group Members</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="gmLoading" class="text-center py-4 text-muted">
+                    <span class="spinner-border spinner-border-sm me-2"></span>Loading members…
+                </div>
+                <div id="gmContent" class="d-none"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+// ── Live client-side filter ───────────────────────────────────────────────
+const grpLiveInput = document.getElementById('grpLiveFilter');
+
+function filterGroups() {
+    const q = (grpLiveInput.value || '').toLowerCase();
+    document.querySelectorAll('#grpTable tbody tr').forEach(row => {
+        row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+    });
+    // Sync hidden input for server-side search
+    document.getElementById('grpSearchHidden').value = grpLiveInput.value;
+}
+
+grpLiveInput.addEventListener('input', filterGroups);
+// Apply on page load if pre-filled
+filterGroups();
+
+// ── Group Members AJAX modal ──────────────────────────────────────────────
+const gmModal   = new bootstrap.Modal(document.getElementById('groupMembersModal'));
+const gmTitle   = document.getElementById('gmModalTitle');
+const gmLoading = document.getElementById('gmLoading');
+const gmContent = document.getElementById('gmContent');
+
+function loadGroupMembers(azureId, groupName) {
+    gmTitle.textContent = groupName;
+    gmLoading.classList.remove('d-none');
+    gmContent.classList.add('d-none');
+    gmContent.innerHTML = '';
+    gmModal.show();
+
+    fetch('{{ url('admin/identity/groups') }}/' + encodeURIComponent(azureId) + '/members', {
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.members || data.members.length === 0) {
+            gmContent.innerHTML = '<p class="text-center text-muted py-4">No members found in local DB. Run a sync to update.</p>';
+        } else {
+            let rows = data.members.map(m => `
+                <tr>
+                    <td class="fw-semibold">${escHtml(m.display_name)}</td>
+                    <td class="font-monospace text-muted small">${escHtml(m.user_principal_name)}</td>
+                    <td>${escHtml(m.department || '—')}</td>
+                    <td class="text-center">
+                        <span class="badge bg-${m.account_enabled ? 'success' : 'danger'}">
+                            ${m.account_enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                    </td>
+                </tr>`).join('');
+            gmContent.innerHTML = `
+                <div class="small text-muted px-3 pt-2 pb-1">${data.members.length} member(s)</div>
+                <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light">
+                        <tr><th>Name</th><th>UPN</th><th>Department</th><th class="text-center">Status</th></tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                </div>`;
+        }
+        gmLoading.classList.add('d-none');
+        gmContent.classList.remove('d-none');
+    })
+    .catch(() => {
+        gmContent.innerHTML = '<p class="text-center text-danger py-4">Failed to load members.</p>';
+        gmLoading.classList.add('d-none');
+        gmContent.classList.remove('d-none');
+    });
+}
+
+function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+@endpush
+
 @endsection

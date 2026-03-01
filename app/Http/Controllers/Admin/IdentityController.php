@@ -50,11 +50,11 @@ class IdentityController extends Controller
 
     public function userDetail(string $azureId)
     {
-        $user     = IdentityUser::where('azure_id', $azureId)->firstOrFail();
-        $licenses = IdentityLicense::whereIn('sku_id', $user->assigned_licenses ?? [])->get();
+        $user        = IdentityUser::where('azure_id', $azureId)->firstOrFail();
+        $licenses    = IdentityLicense::whereIn('sku_id', $user->assigned_licenses ?? [])->get();
         $allLicenses = IdentityLicense::orderBy('display_name')->get();
-        $groups   = IdentityGroup::whereIn('azure_id', $user->member_of ?? [])->get();
-        $allGroups = IdentityGroup::orderBy('display_name')->get();
+        $groups      = IdentityGroup::whereIn('azure_id', $user->member_of ?? [])->get();
+        $allGroups   = IdentityGroup::orderBy('display_name')->get();
 
         return view('admin.identity.user-detail', compact('user', 'licenses', 'allLicenses', 'groups', 'allGroups'));
     }
@@ -85,6 +85,22 @@ class IdentityController extends Controller
         $groups   = $query->paginate(50)->withQueryString();
         $lastSync = IdentitySyncLog::where('status', 'completed')->latest()->first();
         return view('admin.identity.groups', compact('groups', 'lastSync'));
+    }
+
+    /**
+     * AJAX – return members of a group from local DB.
+     */
+    public function groupMembers(string $azureId)
+    {
+        $group   = IdentityGroup::where('azure_id', $azureId)->firstOrFail();
+        $members = IdentityUser::whereJsonContains('member_of', $azureId)
+                        ->orderBy('display_name')
+                        ->get(['azure_id','display_name','user_principal_name','department','account_enabled']);
+
+        return response()->json([
+            'group'   => $group->display_name,
+            'members' => $members,
+        ]);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -156,11 +172,16 @@ class IdentityController extends Controller
         $request->validate([
             'tenant_id'     => 'required|string',
             'client_id'     => 'required|string',
-            'client_secret' => 'required|string',
+            'client_secret' => 'nullable|string',
         ]);
 
         try {
-            $graph   = new GraphService($request->tenant_id, $request->client_id, $request->client_secret);
+            // Use the form secret; fall back to the saved secret when the field is left blank
+            $secret  = $request->filled('client_secret')
+                ? $request->client_secret
+                : (Setting::get()->graph_client_secret ?? '');
+
+            $graph   = new GraphService($request->tenant_id, $request->client_id, $secret);
             $orgName = $graph->testConnection();
 
             ActivityLog::create([
@@ -186,14 +207,18 @@ class IdentityController extends Controller
         $user  = IdentityUser::where('azure_id', $azureId)->firstOrFail();
         $graph = new GraphService();
 
-        if ($user->account_enabled) {
-            $graph->disableUser($azureId);
-            $user->update(['account_enabled' => false]);
-            $action = 'disabled';
-        } else {
-            $graph->enableUser($azureId);
-            $user->update(['account_enabled' => true]);
-            $action = 'enabled';
+        try {
+            if ($user->account_enabled) {
+                $graph->disableUser($azureId);
+                $user->update(['account_enabled' => false]);
+                $action = 'disabled';
+            } else {
+                $graph->enableUser($azureId);
+                $user->update(['account_enabled' => true]);
+                $action = 'enabled';
+            }
+        } catch (\Exception $e) {
+            return back()->with('error', $this->graphFriendlyError($e));
         }
 
         ActivityLog::create([
@@ -215,8 +240,13 @@ class IdentityController extends Controller
         ]);
 
         $user  = IdentityUser::where('azure_id', $azureId)->firstOrFail();
-        $graph = new GraphService();
-        $graph->resetPassword($azureId, $request->new_password, (bool) $request->force_change);
+
+        try {
+            $graph = new GraphService();
+            $graph->resetPassword($azureId, $request->new_password, (bool) $request->force_change);
+        } catch (\Exception $e) {
+            return back()->with('error', $this->graphFriendlyError($e));
+        }
 
         ActivityLog::create([
             'model_type' => 'IdentityUser',
@@ -234,10 +264,15 @@ class IdentityController extends Controller
         $request->validate(['sku_id' => 'required|string']);
 
         $user  = IdentityUser::where('azure_id', $azureId)->firstOrFail();
-        $graph = new GraphService();
-        $graph->assignLicense($azureId, $request->sku_id);
 
-        $licenses   = array_unique(array_merge($user->assigned_licenses ?? [], [$request->sku_id]));
+        try {
+            $graph = new GraphService();
+            $graph->assignLicense($azureId, $request->sku_id);
+        } catch (\Exception $e) {
+            return back()->with('error', $this->graphFriendlyError($e));
+        }
+
+        $licenses = array_unique(array_merge($user->assigned_licenses ?? [], [$request->sku_id]));
         $user->update(['assigned_licenses' => $licenses, 'licenses_count' => count($licenses)]);
 
         return back()->with('success', 'License assigned.');
@@ -248,10 +283,15 @@ class IdentityController extends Controller
         $request->validate(['sku_id' => 'required|string']);
 
         $user  = IdentityUser::where('azure_id', $azureId)->firstOrFail();
-        $graph = new GraphService();
-        $graph->removeLicense($azureId, $request->sku_id);
 
-        $licenses   = array_values(array_filter($user->assigned_licenses ?? [], fn($s) => $s !== $request->sku_id));
+        try {
+            $graph = new GraphService();
+            $graph->removeLicense($azureId, $request->sku_id);
+        } catch (\Exception $e) {
+            return back()->with('error', $this->graphFriendlyError($e));
+        }
+
+        $licenses = array_values(array_filter($user->assigned_licenses ?? [], fn($s) => $s !== $request->sku_id));
         $user->update(['assigned_licenses' => $licenses, 'licenses_count' => count($licenses)]);
 
         return back()->with('success', 'License removed.');
@@ -262,8 +302,13 @@ class IdentityController extends Controller
         $request->validate(['group_id' => 'required|string']);
 
         $user  = IdentityUser::where('azure_id', $azureId)->firstOrFail();
-        $graph = new GraphService();
-        $graph->addUserToGroup($azureId, $request->group_id);
+
+        try {
+            $graph = new GraphService();
+            $graph->addUserToGroup($azureId, $request->group_id);
+        } catch (\Exception $e) {
+            return back()->with('error', $this->graphFriendlyError($e));
+        }
 
         $groups = array_unique(array_merge($user->member_of ?? [], [$request->group_id]));
         $user->update(['member_of' => $groups, 'groups_count' => count($groups)]);
@@ -276,12 +321,38 @@ class IdentityController extends Controller
         $request->validate(['group_id' => 'required|string']);
 
         $user  = IdentityUser::where('azure_id', $azureId)->firstOrFail();
-        $graph = new GraphService();
-        $graph->removeUserFromGroup($azureId, $request->group_id);
+
+        try {
+            $graph = new GraphService();
+            $graph->removeUserFromGroup($azureId, $request->group_id);
+        } catch (\Exception $e) {
+            return back()->with('error', $this->graphFriendlyError($e));
+        }
 
         $groups = array_values(array_filter($user->member_of ?? [], fn($g) => $g !== $request->group_id));
         $user->update(['member_of' => $groups, 'groups_count' => count($groups)]);
 
         return back()->with('success', 'User removed from group.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Return a human-friendly error string for Graph API failures.
+     * Detects 403 "Authorization_RequestDenied" and explains the fix.
+     */
+    private function graphFriendlyError(\Exception $e): string
+    {
+        $msg = $e->getMessage();
+
+        if (str_contains($msg, 'Authorization_RequestDenied') || str_contains($msg, 'Insufficient privileges')) {
+            return 'Azure AD permission denied. The app registration is missing write permissions. '
+                 . 'Please add the User.ReadWrite.All (Application) permission in Azure AD portal '
+                 . '→ App registrations → API permissions, then grant admin consent.';
+        }
+
+        return $msg;
     }
 }

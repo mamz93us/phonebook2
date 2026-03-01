@@ -29,30 +29,35 @@
 @endif
 
 {{-- Filters --}}
-<form method="GET" class="row g-2 mb-3 align-items-end">
+<div class="row g-2 mb-3 align-items-center">
+    {{-- Live text filter (client-side) --}}
     <div class="col-auto">
-        <input type="text" name="search" class="form-control form-control-sm" placeholder="Name / UPN / Email" value="{{ request('search') }}">
+        <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="userLiveFilter" class="form-control" placeholder="Filter by name / UPN / dept…"
+                   value="{{ request('search') }}" style="min-width:230px">
+            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('userLiveFilter').value='';filterUsers()">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
     </div>
-    <div class="col-auto">
-        <select name="department" class="form-select form-select-sm">
+    {{-- Department & status dropdowns with auto-submit --}}
+    <form method="GET" class="d-flex gap-2 align-items-center flex-wrap col-auto" id="userFilterForm">
+        <input type="hidden" name="search" id="userSearchHidden" value="{{ request('search') }}">
+        <select name="department" class="form-select form-select-sm" onchange="submitUserFilter()">
             <option value="">All Departments</option>
             @foreach($departments as $dep)
             <option value="{{ $dep }}" {{ request('department') == $dep ? 'selected' : '' }}>{{ $dep }}</option>
             @endforeach
         </select>
-    </div>
-    <div class="col-auto">
-        <select name="status" class="form-select form-select-sm">
+        <select name="status" class="form-select form-select-sm" onchange="submitUserFilter()">
             <option value="">All Status</option>
             <option value="enabled"  {{ request('status') == 'enabled'  ? 'selected' : '' }}>Enabled</option>
             <option value="disabled" {{ request('status') == 'disabled' ? 'selected' : '' }}>Disabled</option>
         </select>
-    </div>
-    <div class="col-auto">
-        <button type="submit" class="btn btn-sm btn-secondary">Filter</button>
         <a href="{{ route('admin.identity.users') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
-    </div>
-</form>
+    </form>
+</div>
 
 <div class="card shadow-sm">
     <div class="card-body p-0">
@@ -76,9 +81,9 @@
                         <th></th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="userTableBody">
                     @foreach($users as $u)
-                    <tr>
+                    <tr data-row="{{ strtolower($u->display_name.' '.$u->user_principal_name.' '.($u->department ?? '').' '.($u->mail ?? '').' '.($u->job_title ?? '')) }}">
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold"
@@ -120,4 +125,27 @@
         @endif
     </div>
 </div>
+@push('scripts')
+<script>
+// ── Live client-side filter for current page ──────────────────────────────
+const userLiveInput = document.getElementById('userLiveFilter');
+
+function filterUsers() {
+    const q = (userLiveInput.value || '').toLowerCase();
+    document.querySelectorAll('#userTableBody tr').forEach(row => {
+        row.style.display = (row.dataset.row || '').includes(q) ? '' : 'none';
+    });
+    document.getElementById('userSearchHidden').value = userLiveInput.value;
+}
+
+function submitUserFilter() {
+    document.getElementById('userSearchHidden').value = userLiveInput.value;
+    document.getElementById('userFilterForm').submit();
+}
+
+userLiveInput.addEventListener('input', filterUsers);
+filterUsers(); // apply on load if pre-filled
+</script>
+@endpush
+
 @endsection

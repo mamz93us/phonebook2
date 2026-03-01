@@ -551,8 +551,13 @@ function testGraphConnection() {
 
     fetch('{{ route('admin.settings.test-graph') }}', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-        body: JSON.stringify({ tenant_id: tenantId, client_id: clientId, client_secret: secret })
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        // Send null secret when field is blank — server falls back to the saved value
+        body: JSON.stringify({ tenant_id: tenantId, client_id: clientId, client_secret: secret || null })
     })
     .then(r => r.json())
     .then(data => {
@@ -590,9 +595,11 @@ function testMerakiConnection() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
         },
-        body: JSON.stringify({ api_key: apiKey || '{{-- use saved --}}', org_id: orgId })
+        // Send null api_key when field is blank — server falls back to the saved value
+        body: JSON.stringify({ api_key: apiKey || null, org_id: orgId })
     })
     .then(r => r.json())
     .then(data => {
