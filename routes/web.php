@@ -317,6 +317,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/switches',      [NetworkController::class, 'switches'])    ->name('switches');
         Route::get('/switches/{serial}', [NetworkController::class, 'switchDetail'])->name('switch-detail');
         Route::get('/clients',       [NetworkController::class, 'clients'])     ->name('clients');
+        Route::get('/sync-logs',     [NetworkController::class, 'syncLogs'])   ->name('sync-logs');
         // MAC search for autocomplete in asset/printer forms
         Route::get('/clients/mac-search', [NetworkController::class, 'macSearch'])->name('clients.mac-search');
         // Offices AJAX (public within view-network so asset forms can populate options)

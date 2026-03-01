@@ -12,6 +12,7 @@ use App\Models\NetworkFloor;
 use App\Models\NetworkOffice;
 use App\Models\NetworkRack;
 use App\Models\NetworkSwitch;
+use App\Models\NetworkSyncLog;
 use App\Models\Setting;
 use App\Services\Network\MerakiService;
 use Illuminate\Http\Request;
@@ -43,14 +44,15 @@ class NetworkController extends Controller
             END
         ")->orderBy('name')->get();
 
-        $lastSync = NetworkSwitch::max('updated_at');
+        $lastSync    = NetworkSwitch::max('updated_at');
+        $lastSyncLog = NetworkSyncLog::latest()->first();
 
         $settings = Setting::get();
 
         return view('admin.network.overview', compact(
             'totalSwitches', 'onlineSwitches', 'offlineSwitches', 'alertingSwitches',
             'totalClients', 'onlineClients', 'totalPorts', 'connectedPorts',
-            'switches', 'lastSync', 'settings'
+            'switches', 'lastSync', 'lastSyncLog', 'settings'
         ));
     }
 
@@ -173,26 +175,63 @@ class NetworkController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // Sync trigger (dispatches queue job)
+    // Sync trigger (runs synchronously)
     // ─────────────────────────────────────────────────────────────
 
     public function sync()
     {
+        $settings = Setting::get();
+
+        if (!$settings->meraki_enabled) {
+            return back()->with('error', 'Meraki integration is disabled. Enable it in Settings.');
+        }
+
+        if (empty($settings->meraki_api_key) || empty($settings->meraki_org_id)) {
+            return back()->with('error', 'Meraki API key or Org ID is not configured in Settings.');
+        }
+
+        set_time_limit(300);
+
         try {
-            SyncMerakiData::dispatch();
+            (new SyncMerakiData())->handle();
+
+            $lastLog = NetworkSyncLog::where('status', 'completed')->latest()->first();
+            $msg     = 'Meraki sync completed successfully.';
+            if ($lastLog) {
+                $msg .= " Switches: {$lastLog->switches_synced}, Ports: {$lastLog->ports_synced}, Clients: {$lastLog->clients_synced}.";
+            }
 
             ActivityLog::create([
                 'model_type' => 'Network',
                 'model_id'   => 0,
                 'action'     => 'synced',
-                'changes'    => ['type' => 'meraki_sync_dispatched'],
+                'changes'    => ['type' => 'meraki_sync_completed'],
                 'user_id'    => Auth::id(),
             ]);
 
-            return back()->with('success', 'Meraki sync job dispatched. Data will update shortly.');
+            return redirect()->route('admin.network.sync-logs')->with('success', $msg);
         } catch (\Exception $e) {
+            ActivityLog::create([
+                'model_type' => 'Network',
+                'model_id'   => 0,
+                'action'     => 'sync_failed',
+                'changes'    => ['error' => $e->getMessage()],
+                'user_id'    => Auth::id(),
+            ]);
+
             return back()->with('error', 'Sync failed: ' . $e->getMessage());
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Sync logs
+    // ─────────────────────────────────────────────────────────────
+
+    public function syncLogs()
+    {
+        $logs = NetworkSyncLog::latest()->paginate(25);
+
+        return view('admin.network.sync-logs', compact('logs'));
     }
 
     // ─────────────────────────────────────────────────────────────

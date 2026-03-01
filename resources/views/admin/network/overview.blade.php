@@ -12,9 +12,15 @@
             @if($lastSync)
                 &bull; Last sync: <span class="font-monospace">{{ \Carbon\Carbon::parse($lastSync)->diffForHumans() }}</span>
             @endif
+            @if(isset($lastSyncLog) && $lastSyncLog)
+                &bull; <span class="badge {{ $lastSyncLog->statusBadgeClass() }}">{{ ucfirst($lastSyncLog->status) }}</span>
+            @endif
         </small>
     </div>
     <div class="d-flex gap-2">
+        <a href="{{ route('admin.network.sync-logs') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-clock-history me-1"></i>Sync Logs
+        </a>
         @can('manage-network-settings')
         <form method="POST" action="{{ route('admin.network.sync') }}">
             @csrf
