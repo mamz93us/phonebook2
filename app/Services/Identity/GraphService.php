@@ -145,6 +145,7 @@ class GraphService
     {
         return $this->paginate('/users', [
             '$select' => 'id,displayName,userPrincipalName,mail,jobTitle,department,accountEnabled,assignedLicenses,usageLocation',
+            '$expand' => 'memberOf($select=id)',
         ]);
     }
 

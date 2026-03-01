@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Pagination\Paginator;
 use App\Models\Contact;
 use App\Models\Branch;
 use App\Models\RolePermission;
@@ -20,6 +21,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Use Bootstrap 5 pagination styles
+        Paginator::useBootstrapFive();
+
         // Register observers
         Contact::observe(ContactObserver::class);
         Branch::observe(BranchObserver::class);

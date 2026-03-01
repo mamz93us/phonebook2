@@ -79,9 +79,20 @@ class SyncIdentityData implements ShouldQueue
 
             // ── 3. Sync users ──────────────────────────────────────────
             $users = $graph->listUsers();
+            $groupMemberCounts = []; // tally how many users belong to each group
             foreach ($users as $user) {
                 $licensesCount = count($user['assignedLicenses'] ?? []);
                 $licenseSkus   = collect($user['assignedLicenses'] ?? [])->pluck('skuId')->all();
+
+                // Extract group IDs from the expanded memberOf relationship
+                $memberOf      = $user['memberOf'] ?? [];
+                $groupIds      = collect($memberOf)->pluck('id')->filter()->values()->all();
+                $groupsCount   = count($groupIds);
+
+                // Accumulate per-group member tallies
+                foreach ($groupIds as $gid) {
+                    $groupMemberCounts[$gid] = ($groupMemberCounts[$gid] ?? 0) + 1;
+                }
 
                 IdentityUser::updateOrCreate(
                     ['azure_id' => $user['id']],
@@ -94,10 +105,24 @@ class SyncIdentityData implements ShouldQueue
                         'account_enabled'     => $user['accountEnabled'] ?? true,
                         'usage_location'      => $user['usageLocation'] ?? null,
                         'licenses_count'      => $licensesCount,
+                        'groups_count'        => $groupsCount,
                         'assigned_licenses'   => $licenseSkus,
+                        'member_of'           => $groupIds,
                         'raw_data'            => $user,
                     ]
                 );
+            }
+
+            // ── 4. Back-fill members_count on groups ───────────────────
+            // Use the tally built above — no extra Graph API calls needed
+            foreach ($groupMemberCounts as $azureId => $count) {
+                IdentityGroup::where('azure_id', $azureId)
+                    ->update(['members_count' => $count]);
+            }
+            // Zero out any groups that had no users during this sync
+            if (!empty($groupMemberCounts)) {
+                IdentityGroup::whereNotIn('azure_id', array_keys($groupMemberCounts))
+                    ->update(['members_count' => 0]);
             }
 
             $log->update([

@@ -50,7 +50,7 @@
                         <th>Display Name</th>
                         <th>Type</th>
                         <th class="text-center">Members</th>
-                        <th>Mail</th>
+                        <th class="text-center">Mail</th>
                         <th>Description</th>
                     </tr>
                 </thead>
@@ -64,7 +64,13 @@
                                 {{ $g->members_count }}
                             </span>
                         </td>
-                        <td class="text-muted font-monospace">{{ $g->mail ?: '—' }}</td>
+                        <td class="text-center">
+                            @if($g->mail_enabled)
+                            <span class="badge bg-success"><i class="bi bi-envelope-check me-1"></i>Yes</span>
+                            @else
+                            <span class="badge bg-light text-muted border">No</span>
+                            @endif
+                        </td>
                         <td class="text-muted">
                             @if($g->description)
                             <span title="{{ $g->description }}">{{ Str::limit($g->description, 60) }}</span>
