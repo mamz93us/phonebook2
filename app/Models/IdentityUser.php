@@ -8,6 +8,7 @@ class IdentityUser extends Model
 {
     protected $fillable = [
         'azure_id',
+        'manager_azure_id',
         'display_name',
         'user_principal_name',
         'mail',

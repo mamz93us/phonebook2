@@ -577,8 +577,14 @@
         {{-- ─── Provisioning Settings ──────────────────────────────── --}}
         <div class="card shadow-sm border-0 mb-4" id="provisioning">
             <div class="card-header bg-transparent">
-                <h5 class="mb-0 fw-semibold"><i class="bi bi-person-gear me-2 text-primary"></i>Smart User Provisioning</h5>
-                <small class="text-muted">Configure auto UPN generation, UCM extension assignment, and Azure profile templates</small>
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-person-gear me-2 text-primary"></i>Smart User Provisioning <span class="badge bg-secondary fw-normal fs-6 ms-1">Global Defaults</span></h5>
+                <small class="text-muted">Configure auto UPN generation, UCM extension assignment, and Azure profile templates.</small>
+                <div class="alert alert-info border-0 py-2 mt-2 mb-0 small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>Branch overrides:</strong> UCM server, extension range, and profile templates can be set per-branch in
+                    <a href="{{ route('admin.branches.index') }}" class="alert-link">Branches</a>.
+                    Branch settings take priority; these values are used as fallback when a branch has no UCM configured.
+                </div>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ route('admin.settings.provisioning') }}">

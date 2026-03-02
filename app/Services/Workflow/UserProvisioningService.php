@@ -97,19 +97,27 @@ class UserProvisioningService
             }
         }
 
-        // ── Step 4: Create UCM extension ─────────────────────────
+        // ── Step 4: Create UCM extension (branch-aware) ──────────
+        // Branch UCM + range take priority; global settings are the fallback.
         $extension = null;
         $ucmServer = null;
-        $ucmServerId = $payload['ucm_server_id'] ?? $settings->default_ucm_id;
+        $branch    = $workflow->branch_id ? Branch::find($workflow->branch_id) : null;
 
-        if ($ucmServerId) {
-            $ucmServer = UcmServer::find($ucmServerId);
+        if ($branch) {
+            $ucmServer = $branch->effectiveUcmServer($settings);
+            $extRange  = $branch->effectiveExtRange($settings);
+        } else {
+            $ucmServer = $settings->default_ucm_id ? UcmServer::find($settings->default_ucm_id) : null;
+            $extRange  = [
+                'start' => (int) ($settings->ext_range_start ?? 1000),
+                'end'   => (int) ($settings->ext_range_end   ?? 1999),
+            ];
         }
 
         if ($ucmServer) {
             try {
-                $rangeStart = (int) ($settings->ext_range_start ?: 1000);
-                $rangeEnd   = (int) ($settings->ext_range_end   ?: 1999);
+                $rangeStart = $extRange['start'];
+                $rangeEnd   = $extRange['end'];
 
                 $this->engine->logEvent($workflow, 'info', "Finding available extension ({$rangeStart}–{$rangeEnd}) on UCM: {$ucmServer->name}");
 
@@ -120,7 +128,7 @@ class UserProvisioningService
                 $this->engine->logEvent($workflow, 'success', "UCM extension {$extension} created (voicemail=no, call_waiting=no).");
 
                 $payload = array_merge($payload, [
-                    'extension'    => $extension,
+                    'extension'     => $extension,
                     'ucm_server_id' => $ucmServer->id,
                 ]);
                 $workflow->payload = $payload;
@@ -131,9 +139,12 @@ class UserProvisioningService
             }
         }
 
-        // ── Step 5: Update Azure profile with templates ───────────
-        $branch = $workflow->branch_id ? Branch::find($workflow->branch_id) : null;
-        if ($branch && ($settings->profile_office_template || $settings->profile_phone_template)) {
+        // ── Step 5: Update Azure profile with templates (branch-aware) ──
+        // Branch templates override global settings.
+        $officeTemplate = $branch ? $branch->effectiveOfficeTemplate($settings) : $settings->profile_office_template;
+        $phoneTemplate  = $branch ? $branch->effectivePhoneTemplate($settings)  : $settings->profile_phone_template;
+
+        if ($branch && ($officeTemplate || $phoneTemplate)) {
             try {
                 $this->engine->logEvent($workflow, 'info', 'Updating Azure profile with templates...');
 
@@ -144,8 +155,8 @@ class UserProvisioningService
                     $lastName,
                     $upn,
                     [
-                        'officeLocation' => $settings->profile_office_template,
-                        'phone'          => $settings->profile_phone_template,
+                        'officeLocation' => $officeTemplate,
+                        'phone'          => $phoneTemplate,
                     ]
                 );
 

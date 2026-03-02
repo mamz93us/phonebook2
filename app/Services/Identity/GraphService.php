@@ -171,7 +171,7 @@ class GraphService
 
     public function listUsers(): array
     {
-        return $this->paginate('/users', [
+        $users = $this->paginate('/users', [
             '$select' => implode(',', [
                 'id', 'displayName', 'userPrincipalName', 'mail',
                 'jobTitle', 'department', 'companyName',
@@ -180,7 +180,14 @@ class GraphService
                 'businessPhones', 'mobilePhone',
                 'officeLocation', 'streetAddress', 'city', 'postalCode', 'country',
             ]),
+            '$expand' => 'manager($select=id)',
         ]);
+
+        // Flatten manager relationship into a top-level key for easy access
+        return array_map(function (array $user) {
+            $user['manager_id'] = $user['manager']['id'] ?? null;
+            return $user;
+        }, $users);
     }
 
     /**

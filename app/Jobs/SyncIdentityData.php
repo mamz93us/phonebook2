@@ -91,6 +91,7 @@ class SyncIdentityData implements ShouldQueue
                     IdentityUser::updateOrCreate(
                         ['azure_id' => $user['id']],
                         [
+                            'manager_azure_id'    => $user['manager_id'] ?? null,
                             'display_name'        => $user['displayName'],
                             'user_principal_name' => $user['userPrincipalName'],
                             'mail'                => $user['mail'] ?? null,

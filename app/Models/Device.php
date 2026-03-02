@@ -79,9 +79,15 @@ class Device extends Model
 
     // ─── Helpers ──────────────────────────────────────────────────
 
+    /** Types that represent personal user equipment (assignable to employees) */
+    public const USER_EQUIPMENT_TYPES = [
+        'laptop', 'desktop', 'monitor', 'keyboard', 'mouse', 'headset', 'tablet',
+    ];
+
     public function typeLabel(): string
     {
         return match ($this->type) {
+            // ── Infrastructure ────────────────────────────────────
             'ucm'      => 'UCM / IPPBX',
             'switch'   => 'Network Switch',
             'router'   => 'Router',
@@ -89,6 +95,14 @@ class Device extends Model
             'ap'       => 'Access Point',
             'printer'  => 'Printer',
             'server'   => 'Server',
+            // ── User Equipment ────────────────────────────────────
+            'laptop'   => 'Laptop',
+            'desktop'  => 'Desktop',
+            'monitor'  => 'Monitor',
+            'keyboard' => 'Keyboard',
+            'mouse'    => 'Mouse',
+            'headset'  => 'Headset',
+            'tablet'   => 'Tablet',
             default    => 'Other',
         };
     }
@@ -96,6 +110,7 @@ class Device extends Model
     public function typeIcon(): string
     {
         return match ($this->type) {
+            // ── Infrastructure ────────────────────────────────────
             'ucm'      => 'bi-telephone-fill',
             'switch'   => 'bi-hdd-network',
             'router'   => 'bi-router-fill',
@@ -103,6 +118,14 @@ class Device extends Model
             'ap'       => 'bi-wifi',
             'printer'  => 'bi-printer-fill',
             'server'   => 'bi-server',
+            // ── User Equipment ────────────────────────────────────
+            'laptop'   => 'bi-laptop',
+            'desktop'  => 'bi-pc-display',
+            'monitor'  => 'bi-display',
+            'keyboard' => 'bi-keyboard',
+            'mouse'    => 'bi-mouse',
+            'headset'  => 'bi-headset',
+            'tablet'   => 'bi-tablet',
             default    => 'bi-cpu',
         };
     }
@@ -110,6 +133,7 @@ class Device extends Model
     public function typeBadgeClass(): string
     {
         return match ($this->type) {
+            // ── Infrastructure ────────────────────────────────────
             'ucm'      => 'bg-primary',
             'switch'   => 'bg-info text-dark',
             'router'   => 'bg-warning text-dark',
@@ -117,8 +141,24 @@ class Device extends Model
             'ap'       => 'bg-success',
             'printer'  => 'bg-secondary',
             'server'   => 'bg-dark',
+            // ── User Equipment ────────────────────────────────────
+            'laptop', 'desktop'              => 'bg-primary',
+            'monitor', 'tablet'              => 'bg-info text-dark',
+            'keyboard', 'mouse', 'headset'   => 'bg-secondary',
             default    => 'bg-secondary',
         };
+    }
+
+    /** Scope: only user-equipment types (for employee assignment) */
+    public function scopeUserEquipment($query)
+    {
+        return $query->whereIn('type', self::USER_EQUIPMENT_TYPES);
+    }
+
+    /** Is this device assignable to employees? */
+    public function isUserEquipment(): bool
+    {
+        return in_array($this->type, self::USER_EQUIPMENT_TYPES);
     }
 
     public function statusBadgeClass(): string

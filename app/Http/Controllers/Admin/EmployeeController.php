@@ -41,10 +41,21 @@ class EmployeeController extends Controller
 
     public function show(Employee $employee)
     {
-        $employee->load('branch', 'department', 'manager', 'activeAssets.device', 'assetAssignments.device', 'identityUser');
+        $employee->load([
+            'branch.ucmServer',
+            'department',
+            'manager',
+            'activeAssets.device',
+            'assetAssignments.device',
+            'activeItems',
+            'items',
+            'identityUser',
+        ]);
 
-        $availableDevices = Device::where('status', 'available')
-            ->orWhere(fn ($q) => $q->where('branch_id', $employee->branch_id)->where('status', 'available'))
+        // Only show user-equipment types in the assign modal (laptops, monitors, etc.)
+        $availableDevices = Device::userEquipment()
+            ->where('status', 'available')
+            ->orderBy('type')
             ->orderBy('name')
             ->get();
 
@@ -203,7 +214,6 @@ class EmployeeController extends Controller
             'azure_ids'   => 'required|array|min:1',
             'azure_ids.*' => 'required|string',
             'branch_id'   => 'nullable|exists:branches,id',
-            'department_id' => 'nullable|exists:departments,id',
         ]);
 
         $created = 0;
@@ -214,12 +224,37 @@ class EmployeeController extends Controller
             // Skip if already linked
             if (Employee::where('azure_id', $azureId)->exists()) continue;
 
+            // ── Auto-match Department (create if not found) ───────
+            $department = null;
+            if (! empty($identityUser->department)) {
+                $department = Department::firstOrCreate(
+                    ['name' => $identityUser->department]
+                );
+            }
+
+            // ── Auto-match Manager (only if already imported) ─────
+            $manager = null;
+            if (! empty($identityUser->manager_azure_id)) {
+                $manager = Employee::where('azure_id', $identityUser->manager_azure_id)->first();
+            }
+
+            // ── Auto-match Branch via office_location → branch name ──
+            // Falls back to the form's selected fallback branch_id.
+            $branchId = $request->branch_id;
+            if (! empty($identityUser->office_location)) {
+                $matchedBranch = Branch::where('name', 'like', $identityUser->office_location)->first();
+                if ($matchedBranch) {
+                    $branchId = $matchedBranch->id;
+                }
+            }
+
             Employee::create([
                 'azure_id'      => $azureId,
                 'name'          => $identityUser->display_name,
                 'email'         => $identityUser->mail ?? $identityUser->user_principal_name,
-                'branch_id'     => $request->branch_id,
-                'department_id' => $request->department_id,
+                'branch_id'     => $branchId,
+                'department_id' => $department?->id,
+                'manager_id'    => $manager?->id,
                 'job_title'     => $identityUser->job_title,
                 'status'        => 'active',
                 'hired_date'    => now()->toDateString(),
