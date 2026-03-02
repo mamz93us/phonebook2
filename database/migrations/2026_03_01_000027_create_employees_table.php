@@ -8,6 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Drop if a partial table was left behind by a previously failed migration attempt
+        Schema::dropIfExists('employees');
+
         Schema::create('employees', function (Blueprint $table) {
             $table->id();
             $table->string('azure_id')->nullable()->index();
