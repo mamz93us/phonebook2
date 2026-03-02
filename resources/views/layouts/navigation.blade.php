@@ -27,7 +27,16 @@
                     <x-nav-link :href="route('admin.activity-logs')" :active="request()->routeIs('admin.activity-logs')">
                         {{ __('Activity Logs') }}
                     </x-nav-link>
-                    
+
+                    {{-- FIXED: added space before :active and used :href like others --}}
+                    <x-nav-link :href="route('admin.phone-logs.index')" :active="request()->routeIs('admin.phone-logs.*')">
+                        {{ __('Phone XML Logs') }}
+                    </x-nav-link>
+
+                    <x-nav-link :href="route('admin.extensions.index')" :active="request()->routeIs('admin.extensions.*')">
+                        {{ __('Extensions') }}
+                    </x-nav-link>
+
                     <x-nav-link :href="route('admin.settings.index')" :active="request()->routeIs('admin.settings.*')">
                         {{ __('Settings') }}
                     </x-nav-link>
@@ -103,7 +112,16 @@
             <x-responsive-nav-link :href="route('admin.activity-logs')" :active="request()->routeIs('admin.activity-logs')">
                 {{ __('Activity Logs') }}
             </x-responsive-nav-link>
+
+            {{-- New responsive link --}}
+            <x-responsive-nav-link :href="route('admin.phone-logs.index')" :active="request()->routeIs('admin.phone-logs.*')">
+                {{ __('Phone XML Logs') }}
+            </x-responsive-nav-link>
             
+            <x-responsive-nav-link :href="route('admin.extensions.index')" :active="request()->routeIs('admin.extensions.*')">
+                {{ __('Extensions') }}
+            </x-responsive-nav-link>
+
             <x-responsive-nav-link :href="route('admin.settings.index')" :active="request()->routeIs('admin.settings.*')">
                 {{ __('Settings') }}
             </x-responsive-nav-link>

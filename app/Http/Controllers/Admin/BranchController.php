@@ -3,73 +3,83 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Branch;
+use App\Models\UcmServer;
+use Illuminate\Http\Request;
 
 class BranchController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    private function ucmServers()
+    {
+        return UcmServer::active()->orderBy('name')->get();
+    }
+
     public function index()
     {
-        $branches = Branch::orderBy('id')->paginate(10);
+        $branches = Branch::with('ucmServer')->orderBy('id')->paginate(10);
         return view('admin.branches.index', compact('branches'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        return view('admin.branches.create');
+        $ucmServers = $this->ucmServers();
+        return view('admin.branches.create', compact('ucmServers'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $request->validate([
-            'id'   => 'required|integer|unique:branches,id',
-            'name' => 'required|string|max:255',
+            'id'                      => 'required|integer|unique:branches,id',
+            'name'                    => 'required|string|max:255',
+            'phone_number'            => 'nullable|string|max:50',
+            'ucm_server_id'           => 'nullable|exists:ucm_servers,id',
+            'ext_range_start'         => 'nullable|integer|min:1',
+            'ext_range_end'           => 'nullable|integer|min:1',
+            'profile_office_template' => 'nullable|string|max:255',
+            'profile_phone_template'  => 'nullable|string|max:255',
         ]);
 
-        Branch::create($request->only(['id', 'name']));
+        Branch::create($request->only([
+            'id', 'name', 'phone_number',
+            'ucm_server_id', 'ext_range_start', 'ext_range_end',
+            'profile_office_template', 'profile_phone_template',
+        ]));
 
         return redirect()
             ->route('admin.branches.index')
             ->with('success', 'Branch created successfully.');
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Branch $branch)
     {
-        return view('admin.branches.edit', compact('branch'));
+        $ucmServers = $this->ucmServers();
+        return view('admin.branches.edit', compact('branch', 'ucmServers'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Branch $branch)
     {
         $request->validate([
-            'id'   => 'required|integer|unique:branches,id,' . $branch->id,
-            'name' => 'required|string|max:255',
+            'id'                      => 'required|integer|unique:branches,id,' . $branch->id,
+            'name'                    => 'required|string|max:255',
+            'phone_number'            => 'nullable|string|max:50',
+            'ucm_server_id'           => 'nullable|exists:ucm_servers,id',
+            'ext_range_start'         => 'nullable|integer|min:1',
+            'ext_range_end'           => 'nullable|integer|min:1',
+            'profile_office_template' => 'nullable|string|max:255',
+            'profile_phone_template'  => 'nullable|string|max:255',
         ]);
 
-        $branch->update($request->only(['id', 'name']));
+        $branch->update($request->only([
+            'id', 'name', 'phone_number',
+            'ucm_server_id', 'ext_range_start', 'ext_range_end',
+            'profile_office_template', 'profile_phone_template',
+        ]));
 
         return redirect()
             ->route('admin.branches.index')
             ->with('success', 'Branch updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage (REAL DELETE).
-     */
     public function destroy(Branch $branch)
     {
         $branch->delete();

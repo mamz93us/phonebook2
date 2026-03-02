@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - {{ config('app.name') }}</title>
+    <title>Login – SG NOC</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -145,9 +145,11 @@
                 @endif
                 
                 <h1 class="login-title">
-                    {{ $settings->company_name ?? 'Admin Panel' }}
+                    Samir Group Network Operation Center
                 </h1>
-                <p style="margin: 5px 0 0 0; opacity: 0.9;">Sign in to continue</p>
+                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 0.85rem; letter-spacing: 0.05em;">
+                    SG NOC — Sign in to continue
+                </p>
             </div>
             
             <!-- Login Form -->
@@ -158,7 +160,14 @@
                         {{ session('status') }}
                     </div>
                 @endif
-                
+
+                <!-- SSO / General Errors -->
+                @if (session('error'))
+                    <div class="alert alert-danger mb-3">
+                        ⚠ {{ session('error') }}
+                    </div>
+                @endif
+
                 <!-- Validation Errors -->
                 @if ($errors->any())
                     <div class="alert alert-danger mb-3">
@@ -224,13 +233,37 @@
                         Sign In
                     </button>
                 </form>
+
+                @php $ssoEnabled = App\Models\Setting::first()?->sso_enabled ?? false; @endphp
+                @if($ssoEnabled)
+                <div class="mt-4">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <hr class="flex-grow-1 m-0">
+                        <small class="text-muted px-2">or</small>
+                        <hr class="flex-grow-1 m-0">
+                    </div>
+                    <a href="{{ route('auth.microsoft') }}"
+                       class="btn w-100 d-flex align-items-center justify-content-center gap-2"
+                       style="border:2px solid #e0e0e0;border-radius:10px;padding:10px;font-weight:600;color:#333;background:#fff;transition:box-shadow .2s;"
+                       onmouseover="this.style.boxShadow='0 4px 15px rgba(0,0,0,0.15)'"
+                       onmouseout="this.style.boxShadow='none'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
+                            <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+                            <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+                            <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+                            <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+                        </svg>
+                        Sign in with Microsoft
+                    </a>
+                </div>
+                @endif
             </div>
         </div>
         
         <!-- Footer -->
         <div class="text-center mt-3">
             <small style="color: rgba(255,255,255,0.8);">
-                &copy; {{ date('Y') }} {{ $settings->company_name ?? 'Company' }}. All rights reserved.
+                &copy; {{ date('Y') }} Samir Group. All rights reserved.
             </small>
         </div>
     </div>

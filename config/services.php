@@ -23,7 +23,7 @@ return [
     ],
 
     'ses' => [
-        'key' => env('AWS_ACCESS_KEY_ID'),
+        'key'    => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
@@ -31,8 +31,15 @@ return [
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
-            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
+            'channel'              => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
+    ],
+
+    'gdms' => [
+        'base_url'      => env('GDMS_BASE_URL', 'https://www.gdms.cloud/oapi'),
+        'client_id'     => env('GDMS_CLIENT_ID'),
+        'client_secret' => env('GDMS_CLIENT_SECRET'),
+        'org_id'        => env('GDMS_ORG_ID'),
     ],
 
 ];
