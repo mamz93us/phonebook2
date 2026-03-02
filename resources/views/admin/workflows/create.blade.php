@@ -70,6 +70,32 @@
                                 <label class="form-label small fw-semibold">Last Name <span class="text-danger">*</span></label>
                                 <input type="text" name="last_name" id="lastName" class="form-control form-control-sm" value="{{ old('last_name') }}">
                             </div>
+
+                            {{-- Email Domain picker --}}
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold">Email Domain <span class="text-danger">*</span></label>
+                                @if($upnDomains->count() > 0)
+                                <select name="upn_domain" id="domainSelect" class="form-select form-select-sm">
+                                    @foreach($upnDomains as $d)
+                                    <option value="{{ $d->domain }}"
+                                            {{ old('upn_domain', $upnDomains->firstWhere('is_primary', true)?->domain) === $d->domain ? 'selected' : '' }}>
+                                        {{ $d->domain }}{{ $d->is_primary ? ' (primary)' : '' }}
+                                    </option>
+                                    @endforeach
+                                </select>
+                                <div class="form-text">The <code>@</code>domain part of the user's email address. Manage domains in
+                                    <a href="{{ route('admin.settings.domains') }}" target="_blank">Settings → Domains</a>.
+                                </div>
+                                @else
+                                <input type="text" name="upn_domain" id="domainSelect" class="form-control form-control-sm"
+                                       value="{{ old('upn_domain', $settings->upn_domain) }}"
+                                       placeholder="e.g. samirgroup.com">
+                                <div class="form-text">No domains configured yet.
+                                    <a href="{{ route('admin.settings.domains') }}" target="_blank">Add domains in Settings →</a>
+                                </div>
+                                @endif
+                            </div>
+
                             <div class="col-md-6">
                                 <label class="form-label small fw-semibold">Job Title</label>
                                 <input type="text" name="job_title" class="form-control form-control-sm" value="{{ old('job_title') }}">
@@ -134,21 +160,29 @@
                         <span class="text-muted fst-italic">—</span>
                     </dd>
 
-                    <dt class="col-5 text-muted">Default License</dt>
+                    <dt class="col-5 text-muted">Default Licenses</dt>
                     <dd class="col-7" id="previewLicense">
-                        @if($settings->graph_default_license_sku)
-                        <code class="small">{{ $settings->graph_default_license_sku }}</code>
+                        @php
+                            $previewSkus = $settings->graph_default_license_skus
+                                ?? ($settings->graph_default_license_sku ? [$settings->graph_default_license_sku] : []);
+                        @endphp
+                        @if(!empty($previewSkus))
+                        <ul class="list-unstyled mb-0">
+                            @foreach($previewSkus as $sku)
+                            <li><code class="small">{{ $sku }}</code></li>
+                            @endforeach
+                        </ul>
                         @else
                         <span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Not set</span>
                         @endif
                     </dd>
                 </dl>
-                @unless($settings->graph_default_license_sku)
+                @if(empty($previewSkus))
                 <div class="alert alert-warning py-1 px-2 small mb-0">
                     <i class="bi bi-exclamation-triangle me-1"></i>No default license configured.
                     <a href="{{ route('admin.settings.provisioning-licenses') }}" class="alert-link">Set one →</a>
                 </div>
-                @endunless
+                @endif
             </div>
         </div>
 
@@ -157,7 +191,7 @@
             <div class="card-header bg-transparent"><strong><i class="bi bi-info-circle me-1"></i>Approval Process</strong></div>
             <div class="card-body small text-muted">
                 <p class="mb-2">Approval chains are configured in <a href="{{ route('admin.workflow-templates.index') }}">Workflow Templates</a>. Each request type follows its defined chain before executing.</p>
-                <p class="mb-0"><i class="bi bi-lightning-fill text-warning me-1"></i>For <strong>Create User</strong>: after final approval the account is created immediately — Azure AD user, license, UCM extension, and employee profile are all provisioned in one step.</p>
+                <p class="mb-0"><i class="bi bi-lightning-fill text-warning me-1"></i>For <strong>Create User</strong>: after final approval the account is created immediately — Azure AD user, license(s), UCM extension, and employee profile are all provisioned in one step.</p>
             </div>
         </div>
     </div>
@@ -171,11 +205,13 @@ const CSRF_TOKEN   = '{{ csrf_token() }}';
 const firstNameEl  = document.getElementById('firstName');
 const lastNameEl   = document.getElementById('lastName');
 const branchEl     = document.getElementById('branchSelect');
+const domainEl     = document.getElementById('domainSelect');
 const titleEl      = document.getElementById('titleInput');
 const previewCard  = document.getElementById('provisioningPreview');
 const previewUpn   = document.getElementById('previewUpn');
 const previewRange = document.getElementById('previewRange');
 const previewUcm   = document.getElementById('previewUcm');
+const previewLic   = document.getElementById('previewLicense');
 
 let previewTimeout = null;
 
@@ -189,7 +225,6 @@ document.querySelectorAll('input[name="type"]').forEach(radio => {
             document.getElementById('create_user_fields').classList.remove('d-none');
             previewCard.classList.remove('d-none');
             updatePreview();
-            // Auto-fill title if blank
             if (!titleEl.value.trim()) titleEl.value = 'Create New User';
         } else if (this.value === 'other') {
             document.getElementById('other_fields').classList.remove('d-none');
@@ -202,16 +237,24 @@ if (checked) checked.dispatchEvent(new Event('change'));
 
 // ── Live UPN preview (JS-only, no AJAX) ──
 function sanitizePart(s) {
-    // Approximate the PHP logic: ASCII-ify, lowercase, strip non-alnum
     return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+function currentDomain() {
+    if (!domainEl) return 'example.com';
+    return (domainEl.value || domainEl.tagName === 'SELECT'
+        ? domainEl.options?.[domainEl.selectedIndex]?.value
+        : domainEl.value) || 'example.com';
+}
+
 function updateUpnPreview() {
-    const first = sanitizePart(firstNameEl?.value?.trim() || '');
-    const last  = sanitizePart(lastNameEl?.value?.trim() || '');
-    const domain = '{{ $settings->upn_domain ?: 'example.com' }}';
+    const first  = sanitizePart(firstNameEl?.value?.trim() || '');
+    const last   = sanitizePart(lastNameEl?.value?.trim()  || '');
+    const domain = currentDomain();
     if (first && last) {
         previewUpn.innerHTML = `<span class="text-primary">${first}.${last}@${domain}</span>`;
+    } else if (first || last) {
+        previewUpn.innerHTML = `<span class="text-muted fst-italic">${first || '…'}.${last || '…'}@${domain}</span>`;
     } else {
         previewUpn.innerHTML = '<span class="text-muted fst-italic">type name above…</span>';
     }
@@ -229,12 +272,17 @@ function fetchRangePreview() {
         first_name: firstNameEl?.value?.trim() || '',
         last_name:  lastNameEl?.value?.trim()  || '',
         branch_id:  branchEl?.value || '',
+        domain:     currentDomain(),
     });
     fetch(`${PREVIEW_URL}?${params}`, {
         headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(r => r.json())
     .then(data => {
+        // UPN (more accurate from server, uses same sanitise logic)
+        if (data.upn) {
+            previewUpn.innerHTML = `<span class="text-primary">${data.upn}</span>`;
+        }
         // Range
         if (data.range) {
             previewRange.innerHTML = `<span class="fw-semibold">${data.range.start} – ${data.range.end}</span>`;
@@ -243,6 +291,14 @@ function fetchRangePreview() {
         previewUcm.innerHTML = data.ucmName
             ? `<span class="fw-semibold">${data.ucmName}</span>`
             : '<span class="text-muted">— global default —</span>';
+        // Licenses (array)
+        if (data.licenseSkus && data.licenseSkus.length > 0) {
+            previewLic.innerHTML = '<ul class="list-unstyled mb-0">'
+                + data.licenseSkus.map(s => `<li><code class="small">${s}</code></li>`).join('')
+                + '</ul>';
+        } else {
+            previewLic.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Not set</span>';
+        }
     })
     .catch(() => {
         previewRange.innerHTML = '<span class="text-muted">—</span>';
@@ -254,6 +310,7 @@ function fetchRangePreview() {
 if (firstNameEl) firstNameEl.addEventListener('input', updatePreview);
 if (lastNameEl)  lastNameEl.addEventListener('input', updatePreview);
 if (branchEl)    branchEl.addEventListener('change', updatePreview);
+if (domainEl)    domainEl.addEventListener('change', updatePreview);
 </script>
 @endpush
 @endsection

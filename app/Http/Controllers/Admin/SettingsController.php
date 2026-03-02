@@ -424,20 +424,44 @@ class SettingsController extends Controller
 
     public function setDefaultLicense(Request $request)
     {
-        $request->validate(['license_sku' => 'nullable|string|max:100']);
+        $request->validate([
+            'license_skus'   => 'nullable|array',
+            'license_skus.*' => 'string|max:100',
+            // fallback for manual single-SKU entry when Azure is unreachable
+            'license_sku'    => 'nullable|string|max:100',
+        ]);
 
         $settings = Setting::get();
-        $settings->graph_default_license_sku = $request->license_sku ?: null;
+
+        // Prefer multi-select checkboxes; fall back to single-SKU manual entry
+        if ($request->has('license_skus')) {
+            $skus = array_values(array_filter((array) $request->input('license_skus', [])));
+            $settings->graph_default_license_skus = empty($skus) ? null : $skus;
+            // Keep legacy single-sku field pointing at the first selection for backward compat
+            $settings->graph_default_license_sku  = $skus[0] ?? null;
+        } else {
+            // Manual single-SKU entry (used when Azure is unreachable)
+            $sku = $request->license_sku ?: null;
+            $settings->graph_default_license_sku  = $sku;
+            $settings->graph_default_license_skus = $sku ? [$sku] : null;
+        }
+
         $settings->save();
 
         ActivityLog::create([
             'model_type' => 'Setting',
             'model_id'   => 1,
             'action'     => 'updated',
-            'changes'    => ['section' => 'provisioning_license', 'sku' => $request->license_sku],
+            'changes'    => [
+                'section' => 'provisioning_license',
+                'skus'    => $settings->graph_default_license_skus,
+            ],
             'user_id'    => Auth::id(),
         ]);
 
-        return back()->with('success', 'Default provisioning license updated.');
+        $count = count($settings->graph_default_license_skus ?? []);
+        return back()->with('success', $count > 0
+            ? "Default provisioning license(s) updated ({$count} selected)."
+            : 'Default provisioning license cleared.');
     }
 }

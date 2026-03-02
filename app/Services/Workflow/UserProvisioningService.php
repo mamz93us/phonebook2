@@ -45,7 +45,9 @@ class UserProvisioningService
         }
 
         // ── Step 1: Build UPN ─────────────────────────────────────
-        $domain = $settings->upn_domain ?: 'example.com';
+        // Use domain chosen on the create-user form (payload['upn_domain']),
+        // then fall back to the global default, then a hard-coded placeholder.
+        $domain = trim($payload['upn_domain'] ?? $settings->upn_domain ?? 'example.com') ?: 'example.com';
         $upn    = $this->buildUPN($firstName, $lastName, $domain);
         $this->engine->logEvent($workflow, 'info', "Generated UPN: {$upn}");
 
@@ -85,15 +87,28 @@ class UserProvisioningService
             throw new \RuntimeException('Failed to create Azure user: ' . $e->getMessage());
         }
 
-        // ── Step 3: Assign default license ───────────────────────
-        $licenseSku = $settings->graph_default_license_sku ?: ($payload['license_sku'] ?? null);
-        if ($licenseSku) {
-            $this->engine->logEvent($workflow, 'info', "Assigning license SKU: {$licenseSku}");
-            try {
-                $graph->assignLicense($azureId, $licenseSku);
-                $this->engine->logEvent($workflow, 'success', 'License assigned.');
-            } catch (\Throwable $e) {
-                $this->engine->logEvent($workflow, 'warning', 'License assignment failed (non-fatal): ' . $e->getMessage());
+        // ── Step 3: Assign default license(s) ────────────────────
+        // Priority: multi-sku array → legacy single sku → payload override
+        $licenseSkus = $settings->graph_default_license_skus ?? [];
+        if (empty($licenseSkus) && $settings->graph_default_license_sku) {
+            $licenseSkus = [$settings->graph_default_license_sku];
+        }
+        // Allow payload to override (future: per-request license selection)
+        if (!empty($payload['license_skus'])) {
+            $licenseSkus = (array) $payload['license_skus'];
+        } elseif (!empty($payload['license_sku']) && empty($licenseSkus)) {
+            $licenseSkus = [$payload['license_sku']];
+        }
+
+        if (!empty($licenseSkus)) {
+            foreach (array_filter($licenseSkus) as $sku) {
+                $this->engine->logEvent($workflow, 'info', "Assigning license SKU: {$sku}");
+                try {
+                    $graph->assignLicense($azureId, $sku);
+                    $this->engine->logEvent($workflow, 'success', "License {$sku} assigned.");
+                } catch (\Throwable $e) {
+                    $this->engine->logEvent($workflow, 'warning', "License {$sku} assignment failed (non-fatal): " . $e->getMessage());
+                }
             }
         }
 
