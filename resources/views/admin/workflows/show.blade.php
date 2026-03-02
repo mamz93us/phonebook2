@@ -1,6 +1,12 @@
 @extends('layouts.admin')
 @section('content')
 
+@php
+    $payload = $workflow->payload ?? [];
+    $isCreateUser = $workflow->type === 'create_user';
+    $isCompleted  = $workflow->status === 'completed';
+@endphp
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="mb-0 fw-bold"><i class="bi bi-diagram-2-fill me-2 text-primary"></i>{{ $workflow->title }}</h4>
@@ -18,6 +24,83 @@
 @endif
 @if(session('error'))
 <div class="alert alert-danger alert-dismissible fade show"><i class="bi bi-exclamation-circle me-2"></i>{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+@endif
+
+{{-- ✅ Provisioned Account card (create_user completed only) --}}
+@if($isCreateUser && $isCompleted)
+@php
+    $ucmServerName = null;
+    if (!empty($payload['ucm_server_id'])) {
+        $ucmServerName = \App\Models\UcmServer::find($payload['ucm_server_id'])?->name;
+    }
+@endphp
+<div class="alert alert-success border-success shadow-sm mb-4 p-0 overflow-hidden">
+    <div class="d-flex align-items-center gap-2 px-4 py-3 bg-success bg-opacity-10 border-bottom border-success border-opacity-25">
+        <i class="bi bi-check-circle-fill text-success fs-5"></i>
+        <strong class="text-success fs-6">Account Successfully Provisioned</strong>
+    </div>
+    <div class="px-4 py-3">
+        <div class="row g-3">
+            <div class="col-12 col-md-6">
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-muted">Full Name</dt>
+                    <dd class="col-7 fw-semibold">{{ $payload['display_name'] ?? ($payload['first_name'] ?? '') . ' ' . ($payload['last_name'] ?? '') }}</dd>
+
+                    <dt class="col-5 text-muted">Email (UPN)</dt>
+                    <dd class="col-7">
+                        @if(!empty($payload['upn']))
+                        <span class="fw-semibold text-primary">{{ $payload['upn'] }}</span>
+                        @else <span class="text-muted">—</span> @endif
+                    </dd>
+
+                    <dt class="col-5 text-muted">Initial Password</dt>
+                    <dd class="col-7">
+                        @if(!empty($payload['initial_password']))
+                        <code class="small">{{ $payload['initial_password'] }}</code>
+                        <span class="text-muted small ms-1">(user must change)</span>
+                        @else <span class="text-muted small">Auto-generated</span> @endif
+                    </dd>
+
+                    <dt class="col-5 text-muted">Branch</dt>
+                    <dd class="col-7">{{ $workflow->branch?->name ?? '—' }}</dd>
+                </dl>
+            </div>
+            <div class="col-12 col-md-6">
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-muted">Extension</dt>
+                    <dd class="col-7">
+                        @if(!empty($payload['extension']))
+                        <span class="badge bg-primary fs-6 px-2">{{ $payload['extension'] }}</span>
+                        @if($ucmServerName) <span class="text-muted ms-1 small">({{ $ucmServerName }})</span> @endif
+                        @else <span class="text-muted">Not assigned</span> @endif
+                    </dd>
+
+                    <dt class="col-5 text-muted">Azure ID</dt>
+                    <dd class="col-7">
+                        @if(!empty($payload['azure_id']))
+                        <code class="small" style="font-size:.7rem">{{ Str::limit($payload['azure_id'], 20) }}</code>
+                        @else <span class="text-muted">—</span> @endif
+                    </dd>
+
+                    <dt class="col-5 text-muted">Job Title</dt>
+                    <dd class="col-7">{{ $payload['job_title'] ?? '—' }}</dd>
+
+                    <dt class="col-5 text-muted">Department</dt>
+                    <dd class="col-7">{{ $payload['department'] ?? '—' }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        @if(!empty($payload['employee_id']))
+        <div class="mt-3 pt-3 border-top border-success border-opacity-25">
+            <a href="{{ route('admin.employees.show', $payload['employee_id']) }}"
+               class="btn btn-success btn-sm">
+                <i class="bi bi-person-badge-fill me-1"></i>View Employee Profile
+            </a>
+        </div>
+        @endif
+    </div>
+</div>
 @endif
 
 <div class="row g-4">
@@ -52,7 +135,8 @@
         </div>
         @endif
 
-        @if($workflow->payload)
+        {{-- Show raw payload only for non-completed create_user, or for other types always --}}
+        @if($workflow->payload && !($isCreateUser && $isCompleted))
         <div class="card shadow-sm border-0">
             <div class="card-header bg-transparent"><strong><i class="bi bi-code me-1"></i>Request Data</strong></div>
             <div class="card-body p-0">

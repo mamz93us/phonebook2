@@ -163,8 +163,8 @@ class WorkflowEngine
     public function executeWorkflow(WorkflowRequest $workflow): void
     {
         $workflow->update(['status' => 'executing']);
-        $this->logEvent($workflow, 'info', 'Dispatching workflow execution job.');
-        ExecuteWorkflowJob::dispatch($workflow->id);
+        $this->logEvent($workflow, 'info', 'Executing workflow...');
+        ExecuteWorkflowJob::dispatchSync($workflow->id);
     }
 
     // ─────────────────────────────────────────────────────────────

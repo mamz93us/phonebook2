@@ -180,7 +180,7 @@ class UserProvisioningService
         // ── Step 6: Create employee record ────────────────────────
         $this->engine->logEvent($workflow, 'info', 'Creating employee record...');
         try {
-            Employee::create([
+            $employee = Employee::create([
                 'azure_id'         => $azureId,
                 'name'             => $displayName,
                 'email'            => $upn,
@@ -193,6 +193,11 @@ class UserProvisioningService
                 'ucm_server_id'    => $ucmServer?->id,
             ]);
             $this->engine->logEvent($workflow, 'success', 'Employee record created.');
+
+            // Save employee ID to payload so the show page can link to the profile
+            $payload = array_merge($payload, ['employee_id' => $employee->id]);
+            $workflow->payload = $payload;
+            $workflow->save();
         } catch (\Throwable $e) {
             $this->engine->logEvent($workflow, 'warning', 'Employee record creation failed (non-fatal): ' . $e->getMessage());
         }

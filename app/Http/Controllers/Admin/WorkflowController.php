@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Department;
+use App\Models\Setting;
+use App\Models\UcmServer;
 use App\Models\WorkflowRequest;
 use App\Models\WorkflowStep;
 use App\Services\Workflow\WorkflowEngine;
@@ -70,9 +73,11 @@ class WorkflowController extends Controller
     // Create form
     public function create(Request $request)
     {
-        $type     = $request->query('type');
-        $branches = Branch::orderBy('name')->get();
-        $types    = [
+        $type        = $request->query('type');
+        $branches    = Branch::orderBy('name')->get();
+        $departments = Department::orderBy('name')->get(['id', 'name']);
+        $settings    = Setting::get();
+        $types       = [
             'create_user'      => 'Create New User',
             'delete_user'      => 'Deactivate User',
             'license_change'   => 'License Change',
@@ -83,7 +88,43 @@ class WorkflowController extends Controller
             'other'            => 'Other Request',
         ];
 
-        return view('admin.workflows.create', compact('type', 'types', 'branches'));
+        return view('admin.workflows.create', compact('type', 'types', 'branches', 'departments', 'settings'));
+    }
+
+    // AJAX: preview provisioning data for create_user form
+    public function previewUser(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $settings  = Setting::get();
+        $firstName = trim($request->query('first_name', ''));
+        $lastName  = trim($request->query('last_name', ''));
+        $branchId  = $request->query('branch_id');
+
+        // Build preview UPN (no collision check needed — just a preview)
+        $sanitize = function (string $s): string {
+            $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s) ?: $s;
+            return strtolower(preg_replace('/[^a-z0-9]/', '', $s));
+        };
+        $upn = ($firstName && $lastName)
+            ? $sanitize($firstName) . '.' . $sanitize($lastName) . '@' . ($settings->upn_domain ?: 'example.com')
+            : null;
+
+        // Extension range (branch-aware)
+        $branch = $branchId ? Branch::find($branchId) : null;
+        $range  = $branch
+            ? $branch->effectiveExtRange($settings)
+            : ['start' => (int) ($settings->ext_range_start ?? 1000), 'end' => (int) ($settings->ext_range_end ?? 1999)];
+
+        // UCM server name
+        $ucmName = null;
+        if ($branch) {
+            $ucmName = $branch->effectiveUcmServer($settings)?->name;
+        } elseif ($settings->default_ucm_id) {
+            $ucmName = UcmServer::find($settings->default_ucm_id)?->name;
+        }
+
+        $licenseSku = $settings->graph_default_license_sku;
+
+        return response()->json(compact('upn', 'range', 'ucmName', 'licenseSku'));
     }
 
     // Submit new request

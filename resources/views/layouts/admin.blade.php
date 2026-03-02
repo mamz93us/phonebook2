@@ -324,6 +324,14 @@
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header text-secondary"><i class="bi bi-cloud-check me-1"></i>Provisioning</h6></li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.settings.provisioning-licenses') ? 'active' : '' }}"
+                                   href="{{ route('admin.settings.provisioning-licenses') }}">
+                                    <i class="bi bi-patch-check-fill me-2"></i>Provisioning Licenses
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
                             @endcan
                             @can('manage-users')
                             <li>

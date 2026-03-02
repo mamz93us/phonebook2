@@ -11,6 +11,7 @@ use App\Models\NetworkOffice;
 use App\Models\NetworkRack;
 use App\Models\Setting;
 use App\Models\UcmServer;
+use App\Services\Identity\GraphService;
 use App\Services\Network\MerakiService;
 use App\Services\SmtpConfigService;
 use Illuminate\Http\Request;
@@ -399,5 +400,44 @@ class SettingsController extends Controller
             ->route('admin.settings.index')
             ->with('success', 'Provisioning settings updated.')
             ->withFragment('provisioning');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Provisioning Licenses — list Azure SKUs + set default
+    // ─────────────────────────────────────────────────────────────
+
+    public function provisioningLicenses()
+    {
+        $settings = Setting::get();
+        $licenses = [];
+        $error    = null;
+
+        try {
+            $graph    = new GraphService();
+            $licenses = $graph->listSubscribedSkus();
+        } catch (\Throwable $e) {
+            $error = $e->getMessage();
+        }
+
+        return view('admin.settings.provisioning-licenses', compact('settings', 'licenses', 'error'));
+    }
+
+    public function setDefaultLicense(Request $request)
+    {
+        $request->validate(['license_sku' => 'nullable|string|max:100']);
+
+        $settings = Setting::get();
+        $settings->graph_default_license_sku = $request->license_sku ?: null;
+        $settings->save();
+
+        ActivityLog::create([
+            'model_type' => 'Setting',
+            'model_id'   => 1,
+            'action'     => 'updated',
+            'changes'    => ['section' => 'provisioning_license', 'sku' => $request->license_sku],
+            'user_id'    => Auth::id(),
+        ]);
+
+        return back()->with('success', 'Default provisioning license updated.');
     }
 }

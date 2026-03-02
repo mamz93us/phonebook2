@@ -392,9 +392,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('workflows/my-requests',  [WorkflowController::class, 'myRequests']) ->name('workflows.my-requests');
     });
     Route::middleware('permission:manage-workflows')->group(function () {
-        Route::get('workflows/create',       [WorkflowController::class, 'create'])     ->name('workflows.create');
-        Route::post('workflows',             [WorkflowController::class, 'store'])      ->name('workflows.store');
-        Route::post('workflows/{workflow}/cancel', [WorkflowController::class, 'cancel']) ->name('workflows.cancel');
+        Route::get('workflows/create',         [WorkflowController::class, 'create'])      ->name('workflows.create');
+        Route::get('workflows/preview-user',   [WorkflowController::class, 'previewUser']) ->name('workflows.preview-user');
+        Route::post('workflows',               [WorkflowController::class, 'store'])       ->name('workflows.store');
+        Route::post('workflows/{workflow}/cancel', [WorkflowController::class, 'cancel'])  ->name('workflows.cancel');
     });
     Route::middleware('permission:approve-workflows')->group(function () {
         Route::get('workflows/pending',      [WorkflowController::class, 'pending'])    ->name('workflows.pending');
@@ -473,6 +474,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // ── Provisioning Settings ─────────────────────────────────────
     Route::post('/settings/provisioning', [SettingsController::class, 'updateProvisioning'])->name('settings.provisioning');
+    Route::get('/settings/provisioning-licenses',  [SettingsController::class, 'provisioningLicenses'])->name('settings.provisioning-licenses');
+    Route::post('/settings/provisioning-licenses', [SettingsController::class, 'setDefaultLicense'])   ->name('settings.provisioning-licenses.save');
 
 });
 
