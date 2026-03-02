@@ -443,36 +443,36 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     });
 
     // ── Workflow Templates ────────────────────────────────────────
-    Route::get('/workflow-templates', [WorkflowTemplateController::class, 'index'])->name('admin.workflow-templates.index');
-    Route::post('/workflow-templates', [WorkflowTemplateController::class, 'store'])->name('admin.workflow-templates.store');
-    Route::put('/workflow-templates/{workflowTemplate}', [WorkflowTemplateController::class, 'update'])->name('admin.workflow-templates.update');
-    Route::delete('/workflow-templates/{workflowTemplate}', [WorkflowTemplateController::class, 'destroy'])->name('admin.workflow-templates.destroy');
+    Route::get('/workflow-templates', [WorkflowTemplateController::class, 'index'])->name('workflow-templates.index');
+    Route::post('/workflow-templates', [WorkflowTemplateController::class, 'store'])->name('workflow-templates.store');
+    Route::put('/workflow-templates/{workflowTemplate}', [WorkflowTemplateController::class, 'update'])->name('workflow-templates.update');
+    Route::delete('/workflow-templates/{workflowTemplate}', [WorkflowTemplateController::class, 'destroy'])->name('workflow-templates.destroy');
 
     // ── Email Logs ────────────────────────────────────────────────
-    Route::get('/notifications/email-log', [EmailLogController::class, 'index'])->name('admin.email-log.index');
-    Route::delete('/notifications/email-log', [EmailLogController::class, 'clearAll'])->name('admin.email-log.clear');
+    Route::get('/notifications/email-log', [EmailLogController::class, 'index'])->name('email-log.index');
+    Route::delete('/notifications/email-log', [EmailLogController::class, 'clearAll'])->name('email-log.clear');
 
     // ── Notification Rules ────────────────────────────────────────
-    Route::get('/notifications/rules', [NotificationRuleController::class, 'index'])->name('admin.notification-rules.index');
-    Route::post('/notifications/rules', [NotificationRuleController::class, 'store'])->name('admin.notification-rules.store');
-    Route::put('/notifications/rules/{notificationRule}', [NotificationRuleController::class, 'update'])->name('admin.notification-rules.update');
-    Route::delete('/notifications/rules/{notificationRule}', [NotificationRuleController::class, 'destroy'])->name('admin.notification-rules.destroy');
+    Route::get('/notifications/rules', [NotificationRuleController::class, 'index'])->name('notification-rules.index');
+    Route::post('/notifications/rules', [NotificationRuleController::class, 'store'])->name('notification-rules.store');
+    Route::put('/notifications/rules/{notificationRule}', [NotificationRuleController::class, 'update'])->name('notification-rules.update');
+    Route::delete('/notifications/rules/{notificationRule}', [NotificationRuleController::class, 'destroy'])->name('notification-rules.destroy');
 
     // ── License Monitors ──────────────────────────────────────────
-    Route::get('/license-monitors', [LicenseMonitorController::class, 'index'])->name('admin.license-monitors.index');
-    Route::post('/license-monitors', [LicenseMonitorController::class, 'store'])->name('admin.license-monitors.store');
-    Route::put('/license-monitors/{licenseMonitor}', [LicenseMonitorController::class, 'update'])->name('admin.license-monitors.update');
-    Route::patch('/license-monitors/{licenseMonitor}/toggle', [LicenseMonitorController::class, 'toggleActive'])->name('admin.license-monitors.toggle');
-    Route::delete('/license-monitors/{licenseMonitor}', [LicenseMonitorController::class, 'destroy'])->name('admin.license-monitors.destroy');
+    Route::get('/license-monitors', [LicenseMonitorController::class, 'index'])->name('license-monitors.index');
+    Route::post('/license-monitors', [LicenseMonitorController::class, 'store'])->name('license-monitors.store');
+    Route::put('/license-monitors/{licenseMonitor}', [LicenseMonitorController::class, 'update'])->name('license-monitors.update');
+    Route::patch('/license-monitors/{licenseMonitor}/toggle', [LicenseMonitorController::class, 'toggleActive'])->name('license-monitors.toggle');
+    Route::delete('/license-monitors/{licenseMonitor}', [LicenseMonitorController::class, 'destroy'])->name('license-monitors.destroy');
 
     // ── Allowed Domains ───────────────────────────────────────────
-    Route::get('/settings/domains', [AllowedDomainController::class, 'index'])->name('admin.settings.domains');
-    Route::post('/settings/domains', [AllowedDomainController::class, 'store'])->name('admin.settings.domains.store');
-    Route::patch('/settings/domains/{allowedDomain}/primary', [AllowedDomainController::class, 'setPrimary'])->name('admin.settings.domains.primary');
-    Route::delete('/settings/domains/{allowedDomain}', [AllowedDomainController::class, 'destroy'])->name('admin.settings.domains.destroy');
+    Route::get('/settings/domains', [AllowedDomainController::class, 'index'])->name('settings.domains');
+    Route::post('/settings/domains', [AllowedDomainController::class, 'store'])->name('settings.domains.store');
+    Route::patch('/settings/domains/{allowedDomain}/primary', [AllowedDomainController::class, 'setPrimary'])->name('settings.domains.primary');
+    Route::delete('/settings/domains/{allowedDomain}', [AllowedDomainController::class, 'destroy'])->name('settings.domains.destroy');
 
     // ── Provisioning Settings ─────────────────────────────────────
-    Route::post('/settings/provisioning', [SettingsController::class, 'updateProvisioning'])->name('admin.settings.provisioning');
+    Route::post('/settings/provisioning', [SettingsController::class, 'updateProvisioning'])->name('settings.provisioning');
 
 });
 
