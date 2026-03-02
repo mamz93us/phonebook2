@@ -18,7 +18,9 @@ return new class extends Migration
             $table->string('title');
             $table->text('description')->nullable();
             $table->json('payload')->nullable();
-            $table->foreignId('branch_id')->nullable()->constrained('branches')->nullOnDelete();
+            // branches.id is unsignedInteger (not bigint), so we match the type explicitly
+            $table->unsignedInteger('branch_id')->nullable()->index();
+            $table->foreign('branch_id')->references('id')->on('branches')->nullOnDelete();
             $table->foreignId('requested_by')->constrained('users');
             $table->enum('status', [
                 'draft', 'pending', 'approved', 'rejected',

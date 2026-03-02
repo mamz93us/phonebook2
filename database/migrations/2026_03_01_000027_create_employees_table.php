@@ -13,7 +13,8 @@ return new class extends Migration
             $table->string('azure_id')->nullable()->index();
             $table->string('name');
             $table->string('email')->nullable();
-            $table->foreignId('branch_id')->nullable()->constrained('branches')->nullOnDelete();
+            // branches.id is unsignedInteger (not bigint), so we match the type explicitly
+            $table->unsignedInteger('branch_id')->nullable()->index();
             $table->foreignId('department_id')->nullable()->constrained('departments')->nullOnDelete();
             $table->unsignedBigInteger('manager_id')->nullable()->index();
             $table->string('job_title')->nullable();
@@ -23,6 +24,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
+            $table->foreign('branch_id')->references('id')->on('branches')->nullOnDelete();
             $table->foreign('manager_id')->references('id')->on('employees')->nullOnDelete();
         });
     }
