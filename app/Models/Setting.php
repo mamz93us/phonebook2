@@ -28,6 +28,14 @@ class Setting extends Model
         'graph_default_license_sku',
         'identity_sync_enabled',
         'identity_sync_interval',
+        // SMTP / Notifications
+        'smtp_host',
+        'smtp_port',
+        'smtp_encryption',
+        'smtp_username',
+        'smtp_password',
+        'smtp_from_address',
+        'smtp_from_name',
     ];
 
     protected $casts = [
@@ -93,6 +101,23 @@ class Setting extends Model
     }
 
     public function getGraphClientSecretAttribute(?string $value): ?string
+    {
+        if (!$value) return null;
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    // ─── SMTP password — encrypted at rest ────────────────────────
+
+    public function setSmtpPasswordAttribute(?string $value): void
+    {
+        $this->attributes['smtp_password'] = $value ? Crypt::encryptString($value) : null;
+    }
+
+    public function getSmtpPasswordAttribute(?string $value): ?string
     {
         if (!$value) return null;
         try {

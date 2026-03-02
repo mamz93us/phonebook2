@@ -52,5 +52,12 @@ class AppServiceProvider extends ServiceProvider
 
         // Legacy aliases for existing @can() calls in blade templates
         Gate::define('edit-content', fn($user) => $gateCheck($user, 'manage-contacts'));
+
+        // Load SMTP configuration from DB settings into Laravel mail config at runtime
+        try {
+            (new \App\Services\SmtpConfigService())->loadFromSettings();
+        } catch (\Exception) {
+            // Silently skip if DB is not ready yet (first install / migration not run)
+        }
     }
 }

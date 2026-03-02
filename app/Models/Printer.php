@@ -27,6 +27,16 @@ class Printer extends Model
         'snmp_community',
         'snmp_version',
         'notes',
+        // Maintenance fields
+        'toner_last_changed',
+        'expected_page_yield',
+        'last_service_date',
+        'service_interval_days',
+    ];
+
+    protected $casts = [
+        'toner_last_changed' => 'date',
+        'last_service_date'  => 'date',
     ];
 
     // ─── Relationships ────────────────────────────────────────────
@@ -94,5 +104,51 @@ class Printer extends Model
     public function credentialsCount(): int
     {
         return $this->device?->credentials()->count() ?? 0;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Maintenance relations
+    // ─────────────────────────────────────────────────────────────
+
+    public function maintenanceLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PrinterMaintenanceLog::class)->orderByDesc('performed_at');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Maintenance alerts
+    // ─────────────────────────────────────────────────────────────
+
+    public function isMaintenanceDue(): bool
+    {
+        if (!$this->service_interval_days) return false;
+
+        $lastService = $this->last_service_date ?? $this->created_at?->toDate();
+        if (!$lastService) return false;
+
+        return \Carbon\Carbon::parse($lastService)->addDays($this->service_interval_days)->isPast();
+    }
+
+    public function isTonerDue(): bool
+    {
+        if (!$this->toner_last_changed) return false;
+
+        // Assume toner due after 180 days if no page yield tracking
+        return \Carbon\Carbon::parse($this->toner_last_changed)->addDays(180)->isPast();
+    }
+
+    public function daysSinceLastService(): ?int
+    {
+        if (!$this->last_service_date) return null;
+        return (int) \Carbon\Carbon::parse($this->last_service_date)->diffInDays(now());
+    }
+
+    public function daysUntilServiceDue(): ?int
+    {
+        if (!$this->service_interval_days) return null;
+        $lastService = $this->last_service_date ?? $this->created_at?->toDate();
+        if (!$lastService) return null;
+        $dueDate = \Carbon\Carbon::parse($lastService)->addDays($this->service_interval_days);
+        return (int) now()->diffInDays($dueDate, false);
     }
 }

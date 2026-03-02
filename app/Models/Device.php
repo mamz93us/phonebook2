@@ -25,10 +25,14 @@ class Device extends Model
         'source',
         'source_id',
         'status',
+        'purchase_date',
+        'warranty_expiry',
     ];
 
     protected $casts = [
-        'status' => 'string',
+        'status'          => 'string',
+        'purchase_date'   => 'date',
+        'warranty_expiry' => 'date',
     ];
 
     // ─── Relationships ────────────────────────────────────────────
@@ -61,6 +65,16 @@ class Device extends Model
     public function printer(): HasOne
     {
         return $this->hasOne(Printer::class);
+    }
+
+    public function employeeAssignments(): HasMany
+    {
+        return $this->hasMany(EmployeeAsset::class, 'asset_id');
+    }
+
+    public function currentAssignment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(EmployeeAsset::class, 'asset_id')->whereNull('returned_date');
     }
 
     // ─── Helpers ──────────────────────────────────────────────────
@@ -111,10 +125,25 @@ class Device extends Model
     {
         return match ($this->status) {
             'active'      => 'bg-success',
+            'assigned'    => 'bg-primary',
+            'available'   => 'bg-success',
+            'repair'      => 'bg-warning text-dark',
             'retired'     => 'bg-secondary',
             'maintenance' => 'bg-warning text-dark',
             default       => 'bg-secondary',
         };
+    }
+
+    public function isWarrantyExpired(): bool
+    {
+        if (!$this->warranty_expiry) return false;
+        return $this->warranty_expiry->isPast();
+    }
+
+    public function warrantyDaysLeft(): ?int
+    {
+        if (!$this->warranty_expiry) return null;
+        return (int) now()->diffInDays($this->warranty_expiry, false);
     }
 
     /**

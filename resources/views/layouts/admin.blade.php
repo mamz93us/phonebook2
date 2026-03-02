@@ -138,9 +138,9 @@
                     @endcan
 
                     {{-- ── Assets dropdown ── --}}
-                    @canany(['view-assets','view-printers','view-credentials'])
+                    @canany(['view-assets','view-printers','view-credentials','view-employees'])
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ request()->is('admin/devices*','admin/printers*','admin/credentials*') ? 'active' : '' }}"
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/devices*','admin/printers*','admin/credentials*','admin/employees*') ? 'active' : '' }}"
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-cpu me-1"></i>Assets
                         </a>
@@ -169,9 +169,78 @@
                                 </a>
                             </li>
                             @endcan
+                            @can('view-employees')
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/employees*') ? 'active' : '' }}"
+                                   href="{{ route('admin.employees.index') }}">
+                                    <i class="bi bi-person-vcard-fill me-2"></i>Employees
+                                </a>
+                            </li>
+                            @endcan
                         </ul>
                     </li>
                     @endcanany
+
+                    {{-- ── Workflows dropdown ── --}}
+                    @canany(['view-workflows','manage-workflows','approve-workflows'])
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/workflows*') ? 'active' : '' }}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-diagram-2-fill me-1"></i>Workflows
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark shadow">
+                            @can('view-workflows')
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.workflows.my-requests') ? 'active' : '' }}"
+                                   href="{{ route('admin.workflows.my-requests') }}">
+                                    <i class="bi bi-send me-2"></i>My Requests
+                                </a>
+                            </li>
+                            @endcan
+                            @can('approve-workflows')
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.workflows.pending') ? 'active' : '' }}"
+                                   href="{{ route('admin.workflows.pending') }}">
+                                    <i class="bi bi-clock-fill me-2"></i>Pending Approvals
+                                    @php $__pendingCount = \App\Models\WorkflowRequest::where('status','pending')->count(); @endphp
+                                    @if($__pendingCount > 0)
+                                    <span class="badge bg-danger ms-1">{{ $__pendingCount }}</span>
+                                    @endif
+                                </a>
+                            </li>
+                            @endcan
+                            @can('view-workflows')
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.workflows.index') ? 'active' : '' }}"
+                                   href="{{ route('admin.workflows.index') }}">
+                                    <i class="bi bi-list-ul me-2"></i>All Workflows
+                                </a>
+                            </li>
+                            @endcan
+                            @can('manage-workflows')
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.workflows.create') ? 'active' : '' }}"
+                                   href="{{ route('admin.workflows.create') }}">
+                                    <i class="bi bi-plus-circle-fill me-2"></i>New Request
+                                </a>
+                            </li>
+                            @endcan
+                        </ul>
+                    </li>
+                    @endcanany
+
+                    {{-- ── NOC link ── --}}
+                    @can('view-noc')
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->is('admin/noc*') ? 'active' : '' }}"
+                           href="{{ route('admin.noc.dashboard') }}">
+                            <i class="bi bi-speedometer2 me-1"></i>NOC
+                        </a>
+                    </li>
+                    @endcan
 
                     {{-- ── Identity dropdown ── --}}
                     @can('view-identity')
@@ -283,6 +352,40 @@
 
                 </ul>
 
+                {{-- ── Notification Bell ── --}}
+                <ul class="navbar-nav ms-2">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link position-relative px-2" href="#"
+                           role="button" data-bs-toggle="dropdown" aria-expanded="false"
+                           id="notifBell">
+                            <i class="bi bi-bell-fill fs-5"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                                  id="notifBadge" style="font-size:10px"></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width:320px;max-width:380px" id="notifDropdown">
+                            <li class="px-3 py-2 d-flex justify-content-between align-items-center">
+                                <strong class="small">Notifications</strong>
+                                <form method="POST" action="{{ route('admin.notifications.read-all') }}" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-link btn-sm p-0 text-muted small">Mark all read</button>
+                                </form>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li id="notifItems">
+                                <div class="px-3 py-3 text-center text-muted small" id="notifEmpty">
+                                    <i class="bi bi-bell-slash me-1"></i>No new notifications
+                                </div>
+                            </li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <a class="dropdown-item text-center small" href="{{ route('admin.notifications.index') }}">
+                                    <i class="bi bi-list-ul me-1"></i>View All Notifications
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+
                 {{-- ── Profile dropdown ── --}}
                 <ul class="navbar-nav ms-2">
                     <li class="nav-item dropdown">
@@ -385,6 +488,58 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     @stack('scripts')
+
+    {{-- Notification Bell Polling --}}
+    <script>
+    (function () {
+        const bell    = document.getElementById('notifBell');
+        const badge   = document.getElementById('notifBadge');
+        const items   = document.getElementById('notifItems');
+        const empty   = document.getElementById('notifEmpty');
+
+        function severityBorder(s) {
+            return s === 'critical' ? '#dc3545' : (s === 'warning' ? '#ffc107' : '#0dcaf0');
+        }
+
+        function loadNotifications() {
+            fetch('{{ route('admin.notifications.unread-count') }}', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                const count = data.count ?? 0;
+                if (count > 0) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
+                }
+
+                // Render latest unread items
+                if (data.items && data.items.length > 0) {
+                    let html = '';
+                    data.items.forEach(n => {
+                        html += `<li>
+                            <a href="${n.link || '#'}" class="dropdown-item py-2 px-3 small"
+                               style="border-left:3px solid ${severityBorder(n.severity)};white-space:normal">
+                                <div class="fw-semibold">${n.title}</div>
+                                <div class="text-muted" style="font-size:11px">${n.created_at}</div>
+                            </a>
+                        </li>`;
+                    });
+                    items.innerHTML = html;
+                } else {
+                    items.innerHTML = '<div class="px-3 py-3 text-center text-muted small"><i class="bi bi-bell-slash me-1"></i>No new notifications</div>';
+                }
+            })
+            .catch(() => {});
+        }
+
+        // Load once on page load and then every 60 seconds
+        loadNotifications();
+        setInterval(loadNotifications, 60000);
+    })();
+    </script>
 
 </body>
 </html>

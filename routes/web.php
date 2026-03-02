@@ -17,7 +17,12 @@ use App\Http\Controllers\Admin\NetworkController;
 use App\Http\Controllers\Admin\DeviceController;
 use App\Http\Controllers\Admin\CredentialController;
 use App\Http\Controllers\Admin\PrinterController;
+use App\Http\Controllers\Admin\PrinterMaintenanceController;
 use App\Http\Controllers\Admin\IdentityController;
+use App\Http\Controllers\Admin\WorkflowController;
+use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\NocController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
@@ -206,6 +211,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('settings/departments',                       [SettingsController::class, 'storeDepartment']) ->name('settings.departments.store');
         Route::put('settings/departments/{department}',           [SettingsController::class, 'updateDepartment'])->name('settings.departments.update');
         Route::delete('settings/departments/{department}',        [SettingsController::class, 'destroyDepartment'])->name('settings.departments.destroy');
+
+        // ── SMTP / Outgoing Mail ──────────────────────────────────────
+        Route::post('settings/smtp',      [SettingsController::class, 'updateSmtp']) ->name('settings.smtp');
+        Route::post('settings/test-smtp', [SettingsController::class, 'testSmtp'])   ->name('settings.test-smtp');
     });
 
     // ─── UCM Servers (managed from Settings page) ─────────────
@@ -348,6 +357,76 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('/racks/{rack}',                    [NetworkController::class, 'destroyRack'])  ->name('racks.destroy');
 
         Route::post('/switches/{serial}/assign-location', [NetworkController::class, 'assignLocation'])->name('switches.assign-location');
+    });
+
+    // ─── Notifications (all authenticated users) ──────────────
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/',           [NotificationController::class, 'index'])          ->name('index');
+        Route::get('settings',    [NotificationController::class, 'settings'])       ->name('settings');
+        Route::get('unread-count',[NotificationController::class, 'unreadCount'])    ->name('unread-count');
+        Route::patch('{id}/read', [NotificationController::class, 'markRead'])       ->name('read');
+        Route::post('read-all',   [NotificationController::class, 'markAllRead'])    ->name('read-all');
+        Route::put('settings',    [NotificationController::class, 'updateSettings']) ->name('settings.update');
+    });
+
+    // ─── NOC Dashboard ────────────────────────────────────────
+    Route::middleware('permission:view-noc')->prefix('noc')->name('noc.')->group(function () {
+        Route::get('/',           [NocController::class, 'dashboard']) ->name('dashboard');
+        Route::get('/branch/{id}',[NocController::class, 'branch'])    ->name('branch');
+        Route::get('/events',     [NocController::class, 'events'])    ->name('events');
+    });
+    Route::middleware('permission:manage-noc')->prefix('noc')->name('noc.')->group(function () {
+        Route::post('/events/{id}/acknowledge', [NocController::class, 'acknowledge']) ->name('events.acknowledge');
+        Route::post('/events/{id}/resolve',     [NocController::class, 'resolve'])     ->name('events.resolve');
+    });
+
+    // ─── Workflows ────────────────────────────────────────────
+    Route::middleware('permission:view-workflows')->group(function () {
+        Route::get('workflows',              [WorkflowController::class, 'index'])      ->name('workflows.index');
+        Route::get('workflows/my-requests',  [WorkflowController::class, 'myRequests']) ->name('workflows.my-requests');
+    });
+    Route::middleware('permission:manage-workflows')->group(function () {
+        Route::get('workflows/create',       [WorkflowController::class, 'create'])     ->name('workflows.create');
+        Route::post('workflows',             [WorkflowController::class, 'store'])      ->name('workflows.store');
+        Route::post('workflows/{workflow}/cancel', [WorkflowController::class, 'cancel']) ->name('workflows.cancel');
+    });
+    Route::middleware('permission:approve-workflows')->group(function () {
+        Route::get('workflows/pending',      [WorkflowController::class, 'pending'])    ->name('workflows.pending');
+        Route::post('workflows/{workflow}/approve', [WorkflowController::class, 'approve']) ->name('workflows.approve');
+        Route::post('workflows/{workflow}/reject',  [WorkflowController::class, 'reject'])  ->name('workflows.reject');
+    });
+    Route::middleware('permission:view-workflows')->group(function () {
+        Route::get('workflows/{workflow}',   [WorkflowController::class, 'show'])       ->name('workflows.show');
+    });
+
+    // ─── Employees ────────────────────────────────────────────
+    Route::middleware('permission:view-employees')->group(function () {
+        Route::get('employees',              [EmployeeController::class, 'index'])      ->name('employees.index');
+    });
+    Route::middleware('permission:manage-employees')->group(function () {
+        Route::get('employees/create',       [EmployeeController::class, 'create'])     ->name('employees.create');
+        Route::post('employees',             [EmployeeController::class, 'store'])      ->name('employees.store');
+    });
+    Route::middleware('permission:view-employees')->group(function () {
+        Route::get('employees/{employee}',   [EmployeeController::class, 'show'])       ->name('employees.show');
+    });
+    Route::middleware('permission:manage-employees')->group(function () {
+        Route::get('employees/{employee}/edit',            [EmployeeController::class, 'edit'])         ->name('employees.edit');
+        Route::put('employees/{employee}',                 [EmployeeController::class, 'update'])        ->name('employees.update');
+        Route::post('employees/{employee}/assets',         [EmployeeController::class, 'assignAsset'])   ->name('employees.assets.assign');
+        Route::patch('employees/{employee}/assets/{asset}/return', [EmployeeController::class, 'returnAsset']) ->name('employees.assets.return');
+    });
+
+    // ─── Printer Maintenance (nested under printers) ──────────
+    Route::middleware('permission:view-printers')->group(function () {
+        Route::get('printers/{printer}/maintenance',
+            [PrinterMaintenanceController::class, 'index'])   ->name('printers.maintenance.index');
+    });
+    Route::middleware('permission:manage-printers')->group(function () {
+        Route::post('printers/{printer}/maintenance',
+            [PrinterMaintenanceController::class, 'store'])   ->name('printers.maintenance.store');
+        Route::delete('printers/{printer}/maintenance/{log}',
+            [PrinterMaintenanceController::class, 'destroy']) ->name('printers.maintenance.destroy');
     });
 });
 

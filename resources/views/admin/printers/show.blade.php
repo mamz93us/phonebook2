@@ -16,6 +16,39 @@
 <div class="alert alert-success alert-dismissible fade show py-2"><i class="bi bi-check-circle me-1"></i>{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
 @endif
 
+{{-- Maintenance Alert Banners --}}
+@if($printer->isMaintenanceDue() || $printer->isTonerDue())
+<div class="row g-2 mb-3">
+    @if($printer->isMaintenanceDue())
+    <div class="col-md-6">
+        <div class="alert alert-warning py-2 mb-0 d-flex align-items-center gap-3">
+            <i class="bi bi-wrench-fill fs-4 text-warning flex-shrink-0"></i>
+            <div>
+                <strong>Service Overdue</strong><br>
+                <small>
+                    Last serviced {{ $printer->last_service_date ? $printer->last_service_date->diffForHumans() : 'never' }}.
+                    Interval: {{ $printer->service_interval_days }} days.
+                </small>
+            </div>
+            <a href="{{ route('admin.printers.maintenance.index', $printer) }}" class="btn btn-sm btn-warning ms-auto">Log Service</a>
+        </div>
+    </div>
+    @endif
+    @if($printer->isTonerDue())
+    <div class="col-md-6">
+        <div class="alert alert-info py-2 mb-0 d-flex align-items-center gap-3">
+            <i class="bi bi-printer-fill fs-4 text-info flex-shrink-0"></i>
+            <div>
+                <strong>Toner Change Due</strong><br>
+                <small>Last changed {{ $printer->toner_last_changed ? $printer->toner_last_changed->diffForHumans() : 'never' }}.</small>
+            </div>
+            <a href="{{ route('admin.printers.maintenance.index', $printer) }}" class="btn btn-sm btn-info ms-auto">Log Toner</a>
+        </div>
+    </div>
+    @endif
+</div>
+@endif
+
 <div class="row g-3">
 
     {{-- Printer Info --}}
@@ -84,6 +117,59 @@
                 @endif
             </div>
         </div>
+    </div>
+</div>
+
+{{-- Maintenance History --}}
+<div class="card shadow-sm border-0 mt-3">
+    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+        <strong><i class="bi bi-tools me-2"></i>Maintenance History</strong>
+        @can('manage-printers')
+        <a href="{{ route('admin.printers.maintenance.index', $printer) }}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Record
+        </a>
+        @endcan
+    </div>
+    <div class="card-body p-0">
+        @if($maintenanceLogs->isEmpty())
+        <div class="text-center py-3 text-muted small"><i class="bi bi-wrench me-1"></i>No maintenance records yet.</div>
+        @else
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 small">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Date</th>
+                        <th>Type</th>
+                        <th>Performed By</th>
+                        <th>Cost</th>
+                        <th class="pe-3">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($maintenanceLogs->take(5) as $log)
+                    <tr>
+                        <td class="ps-3 text-nowrap">{{ $log->performed_at->format('d M Y') }}</td>
+                        <td>
+                            <span class="badge {{ $log->typeBadgeClass() }}">
+                                <i class="{{ $log->typeIcon() }} me-1"></i>{{ $log->typeLabel() }}
+                            </span>
+                        </td>
+                        <td>{{ $log->performerName() }}</td>
+                        <td>{{ $log->cost ? number_format($log->cost, 2) . ' SAR' : '—' }}</td>
+                        <td class="pe-3 text-muted">{{ \Illuminate\Support\Str::limit($log->notes ?? $log->description, 60) }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @if($maintenanceLogs->count() > 5)
+        <div class="text-center py-2 border-top">
+            <a href="{{ route('admin.printers.maintenance.index', $printer) }}" class="btn btn-sm btn-link">
+                <i class="bi bi-arrow-right me-1"></i>View all {{ $maintenanceLogs->count() }} records
+            </a>
+        </div>
+        @endif
+        @endif
     </div>
 </div>
 

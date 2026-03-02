@@ -12,6 +12,7 @@ use App\Models\NetworkRack;
 use App\Models\Setting;
 use App\Models\UcmServer;
 use App\Services\Network\MerakiService;
+use App\Services\SmtpConfigService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -227,6 +228,75 @@ class SettingsController extends Controller
         return redirect()
             ->route('admin.settings.index')
             ->with('success', 'Identity (Graph) settings updated.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // SMTP / Outgoing Mail Settings
+    // ─────────────────────────────────────────────────────────────
+
+    public function updateSmtp(Request $request)
+    {
+        $request->validate([
+            'smtp_host'         => 'nullable|string|max:255',
+            'smtp_port'         => 'nullable|integer|min:1|max:65535',
+            'smtp_encryption'   => 'nullable|in:tls,ssl,none',
+            'smtp_username'     => 'nullable|string|max:255',
+            'smtp_password'     => 'nullable|string|max:500',
+            'smtp_from_address' => 'nullable|email|max:255',
+            'smtp_from_name'    => 'nullable|string|max:255',
+        ]);
+
+        $settings = Setting::get();
+        $settings->smtp_host         = $request->smtp_host;
+        $settings->smtp_port         = $request->smtp_port ?: 587;
+        $settings->smtp_encryption   = $request->smtp_encryption ?: 'tls';
+        $settings->smtp_username     = $request->smtp_username;
+        $settings->smtp_from_address = $request->smtp_from_address;
+        $settings->smtp_from_name    = $request->smtp_from_name;
+
+        if ($request->filled('smtp_password')) {
+            $settings->smtp_password = $request->smtp_password;
+        }
+
+        $settings->save();
+
+        ActivityLog::create([
+            'model_type' => 'Setting',
+            'model_id'   => 1,
+            'action'     => 'updated',
+            'changes'    => [
+                'smtp_host'         => $request->smtp_host,
+                'smtp_port'         => $settings->smtp_port,
+                'smtp_encryption'   => $settings->smtp_encryption,
+                'smtp_username'     => $settings->smtp_username,
+                'smtp_from_address' => $settings->smtp_from_address,
+                'password_changed'  => $request->filled('smtp_password'),
+            ],
+            'user_id' => Auth::id(),
+        ]);
+
+        return redirect()
+            ->route('admin.settings.index')
+            ->with('success', 'SMTP settings updated.')
+            ->withFragment('smtp');
+    }
+
+    public function testSmtp(Request $request)
+    {
+        $request->validate(['to' => 'required|email']);
+
+        try {
+            (new SmtpConfigService())->sendTestEmail($request->to);
+            return response()->json([
+                'success' => true,
+                'message' => "Test email sent to {$request->to}.",
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

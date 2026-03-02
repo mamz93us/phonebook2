@@ -474,6 +474,106 @@
 </div>
 @endcan
 
+{{-- ─────────────────────────────────────────────────────── --}}
+{{-- SMTP Email (Outgoing Mail) Section                     --}}
+{{-- ─────────────────────────────────────────────────────── --}}
+<div class="card mt-4" id="smtp">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-envelope-fill text-primary fs-5"></i>
+        <h5 class="mb-0">SMTP Email (Outgoing Mail)</h5>
+        @if($settings->smtp_host)
+            <span class="badge bg-success ms-auto">Configured</span>
+        @else
+            <span class="badge bg-secondary ms-auto">Not Configured</span>
+        @endif
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            Used for sending notification emails and workflow alerts. Credentials are stored encrypted.
+        </div>
+        <form method="POST" action="{{ route('admin.settings.smtp') }}">
+            @csrf
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">SMTP Host</label>
+                    <input type="text" name="smtp_host" class="form-control font-monospace"
+                        value="{{ old('smtp_host', $settings->smtp_host) }}"
+                        placeholder="smtp.office365.com">
+                    <div class="form-text">e.g. smtp.office365.com, smtp.gmail.com, smtp.mailgun.org</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Port</label>
+                    <input type="number" name="smtp_port" class="form-control"
+                        value="{{ old('smtp_port', $settings->smtp_port ?? 587) }}"
+                        min="1" max="65535">
+                    <div class="form-text">587 (TLS) · 465 (SSL) · 25</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Encryption</label>
+                    <select name="smtp_encryption" class="form-select">
+                        <option value="tls"  {{ ($settings->smtp_encryption ?? 'tls') === 'tls'  ? 'selected' : '' }}>TLS (STARTTLS)</option>
+                        <option value="ssl"  {{ ($settings->smtp_encryption ?? '') === 'ssl'  ? 'selected' : '' }}>SSL</option>
+                        <option value="none" {{ ($settings->smtp_encryption ?? '') === 'none' ? 'selected' : '' }}>None</option>
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Username</label>
+                    <input type="text" name="smtp_username" class="form-control"
+                        value="{{ old('smtp_username', $settings->smtp_username) }}"
+                        placeholder="noc@yourdomain.com">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Password</label>
+                    <input type="password" name="smtp_password" class="form-control"
+                        placeholder="{{ $settings->smtp_password ? '••••••••  (leave blank to keep current)' : 'Enter password or app password' }}">
+                    <div class="form-text">Stored encrypted.</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">From Address</label>
+                    <input type="email" name="smtp_from_address" class="form-control"
+                        value="{{ old('smtp_from_address', $settings->smtp_from_address) }}"
+                        placeholder="noc@yourdomain.com">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">From Name</label>
+                    <input type="text" name="smtp_from_name" class="form-control"
+                        value="{{ old('smtp_from_name', $settings->smtp_from_name) }}"
+                        placeholder="SG NOC">
+                </div>
+
+                {{-- Test Email --}}
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Send Test Email</label>
+                    <div class="input-group" style="max-width:480px">
+                        <input type="email" id="smtpTestAddr" class="form-control"
+                            placeholder="recipient@example.com">
+                        <button type="button" class="btn btn-outline-secondary" id="testSmtpBtn"
+                            onclick="testSmtpConnection()">
+                            <i class="bi bi-send me-1"></i>Send Test
+                        </button>
+                    </div>
+                    <div id="smtpTestResult" class="mt-1 small text-muted">
+                        Save settings first, then send a test email to verify delivery.
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i>Save SMTP Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {{-- Add UCM Modal --}}
 <div class="modal fade" id="addUcmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -573,6 +673,46 @@ function testGraphConnection() {
     .finally(() => {
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-plug me-1"></i>Test Connection';
+    });
+}
+
+function testSmtpConnection() {
+    const btn    = document.getElementById('testSmtpBtn');
+    const result = document.getElementById('smtpTestResult');
+    const addr   = document.getElementById('smtpTestAddr').value.trim();
+
+    if (!addr) {
+        result.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Enter a recipient email address first</span>';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending…';
+    result.innerHTML = '<span class="text-muted">Connecting to SMTP server…</span>';
+
+    fetch('{{ route('admin.settings.test-smtp') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ to: addr })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            result.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
+        } else {
+            result.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + '</span>';
+        }
+    })
+    .catch(() => {
+        result.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>Request failed</span>';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send me-1"></i>Send Test';
     });
 }
 

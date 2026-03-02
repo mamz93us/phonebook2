@@ -46,7 +46,11 @@ class PrinterController extends Controller
     public function show(Printer $printer)
     {
         $printer->load(['branch', 'device.credentials.creator']);
-        return view('admin.printers.show', compact('printer'));
+        $maintenanceLogs = $printer->maintenanceLogs()
+            ->with('performedByUser')
+            ->orderByDesc('performed_at')
+            ->get();
+        return view('admin.printers.show', compact('printer', 'maintenanceLogs'));
     }
 
     public function create()
