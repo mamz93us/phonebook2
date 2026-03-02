@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('gdms:sync-contacts')->everyFiveMinutes();
+Schedule::job(new \App\Jobs\RunNocAlertsJob)->everyFiveMinutes();
