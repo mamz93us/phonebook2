@@ -306,9 +306,15 @@
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header text-secondary"><i class="bi bi-building me-1"></i>Organisation</h6></li>
                             <li>
-                                <a class="dropdown-item {{ request()->routeIs('admin.settings.locations') || request()->is('admin/branches*') ? 'active' : '' }}"
+                                <a class="dropdown-item {{ request()->routeIs('admin.settings.locations') ? 'active' : '' }}"
                                    href="{{ route('admin.settings.locations') }}">
                                     <i class="bi bi-geo-alt-fill me-2"></i>Locations
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->is('admin/branches*') ? 'active' : '' }}"
+                                   href="{{ route('admin.branches.index') }}">
+                                    <i class="bi bi-building me-2"></i>Branches
                                 </a>
                             </li>
                             <li>

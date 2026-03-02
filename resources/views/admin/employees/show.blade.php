@@ -280,15 +280,16 @@
                                     @if($item->model)<div class="text-muted">{{ $item->model }}</div>@endif
                                 </td>
                                 <td class="text-center"><span class="badge bg-{{ $item->conditionBadgeClass() }}">{{ ucfirst($item->condition) }}</span></td>
-                                <td>{{ ->assigned_date ? \Carbon\Carbon::parse(->assigned_date)->format('d M Y') : '—' }}</td>
+                                <td>{{ $item->assigned_date ? \Carbon\Carbon::parse($item->assigned_date)->format('d M Y') : '—' }}</td>
                                 <td>
                                     @if($item->returned_date)
-                                    <span class="text-success">{{ \Carbon\Carbon::parse(->returned_date)->format('d M Y') }}</span>
+                                    <span class="text-success">{{ \Carbon\Carbon::parse($item->returned_date)->format('d M Y') }}</span>
                                     @else<span class="text-muted">Active</span>
                                     @endif
                                 </td>
                                 <td class="text-end pe-3">
-                                    @if(!$item->returned_date)@can('manage-employees')
+                                    @if(!$item->returned_date)
+                                    @can('manage-employees')
                                     <form method="POST" action="{{ route('admin.employees.items.return', [$employee->id, $item->id]) }}" class="d-inline">
                                         @csrf @method('PATCH')
                                         <input type="hidden" name="returned_date" value="{{ now()->toDateString() }}">
@@ -297,7 +298,8 @@
                                             <i class="bi bi-box-arrow-in-left"></i>
                                         </button>
                                     </form>
-                                    @endcan@endif
+                                    @endcan
+                                    @endif
                                     @can('manage-employees')
                                     <form method="POST" action="{{ route('admin.employees.items.destroy', [$employee->id, $item->id]) }}"
                                           class="d-inline" onsubmit="return confirm('Remove this item?')">
