@@ -232,4 +232,28 @@ class WorkflowController extends Controller
             ->route('admin.workflows.my-requests')
             ->with('success', 'Request cancelled.');
     }
+
+    // Retry a failed workflow execution (skips approval — already approved)
+    public function retry(int $id)
+    {
+        $workflow = WorkflowRequest::findOrFail($id);
+
+        if ($workflow->status !== 'failed') {
+            return back()->with('error', 'Only failed workflows can be retried.');
+        }
+
+        try {
+            $this->engine->logEvent($workflow, 'info', 'Manual retry triggered by ' . Auth::user()->name . '.');
+            $this->engine->executeWorkflow($workflow);
+        } catch (\Throwable $e) {
+            $this->engine->markFailed($workflow, $e->getMessage());
+            return redirect()
+                ->route('admin.workflows.show', $id)
+                ->with('error', 'Retry failed: ' . $e->getMessage());
+        }
+
+        return redirect()
+            ->route('admin.workflows.show', $id)
+            ->with('success', 'Workflow retried successfully.');
+    }
 }

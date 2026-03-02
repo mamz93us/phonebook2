@@ -147,6 +147,18 @@ class IdentityController extends Controller
             return back()->with('error', 'Microsoft Graph credentials are not configured. Go to Settings → Identity (Graph) to set them up.');
         }
 
+        // ── Clean up orphaned "started" logs older than 10 minutes ──
+        // These are left behind when a previous sync was killed mid-run
+        // (e.g. PHP timeout, server restart). Mark them failed so the
+        // "Sync in progress…" banner disappears.
+        IdentitySyncLog::where('status', 'started')
+            ->where('started_at', '<', now()->subMinutes(10))
+            ->update([
+                'status'        => 'failed',
+                'error_message' => 'Sync aborted — process was interrupted before completion.',
+                'completed_at'  => now(),
+            ]);
+
         try {
             (new SyncIdentityData())->handle();
 

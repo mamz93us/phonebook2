@@ -1,7 +1,14 @@
 @extends('layouts.admin')
 @section('content')
 
-@php $hasPending = $logs->contains(fn($l) => $l->status === 'started'); @endphp
+@php
+    // Only treat 'started' entries from the last 15 minutes as genuinely in-progress.
+    // Older ones are orphaned (interrupted sync) and should not block the Sync Now button.
+    $hasPending = $logs->contains(
+        fn($l) => $l->status === 'started'
+               && ($l->started_at ?? $l->created_at)->gt(now()->subMinutes(15))
+    );
+@endphp
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>

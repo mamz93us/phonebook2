@@ -110,15 +110,37 @@ class UserProvisioningService
             }
 
             $assignedLicenses = [];
+            $licenseIndex     = 0;
             foreach (array_filter($licenseSkus) as $sku) {
                 $skuName = $skuNameMap[$sku] ?? $sku;
+
+                // Space out consecutive assignments to avoid Azure ConcurrencyViolation
+                if ($licenseIndex > 0) {
+                    sleep(2);
+                }
+                $licenseIndex++;
+
                 $this->engine->logEvent($workflow, 'info', "Assigning license: {$skuName}");
-                try {
-                    $graph->assignLicense($azureId, $sku);
-                    $this->engine->logEvent($workflow, 'success', "License '{$skuName}' assigned.");
-                    $assignedLicenses[] = ['sku' => $sku, 'name' => $skuName];
-                } catch (\Throwable $e) {
-                    $this->engine->logEvent($workflow, 'warning', "License '{$skuName}' assignment failed (non-fatal): " . $e->getMessage());
+
+                // Retry up to 3 times on ConcurrencyViolation (transient Azure error)
+                $assigned = false;
+                for ($attempt = 1; $attempt <= 3; $attempt++) {
+                    try {
+                        $graph->assignLicense($azureId, $sku);
+                        $this->engine->logEvent($workflow, 'success', "License '{$skuName}' assigned.");
+                        $assignedLicenses[] = ['sku' => $sku, 'name' => $skuName];
+                        $assigned = true;
+                        break;
+                    } catch (\Throwable $e) {
+                        if ($attempt < 3 && str_contains($e->getMessage(), 'ConcurrencyViolation')) {
+                            $wait = $attempt * 3;
+                            $this->engine->logEvent($workflow, 'warning', "License '{$skuName}' ConcurrencyViolation — retrying in {$wait}s (attempt {$attempt}/3)...");
+                            sleep($wait);
+                        } else {
+                            $this->engine->logEvent($workflow, 'warning', "License '{$skuName}' assignment failed (non-fatal): " . $e->getMessage());
+                            break;
+                        }
+                    }
                 }
             }
 

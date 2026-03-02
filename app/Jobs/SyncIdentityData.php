@@ -37,6 +37,15 @@ class SyncIdentityData implements ShouldQueue
             return;
         }
 
+        // Clean up any orphaned "started" entries from interrupted previous runs
+        IdentitySyncLog::where('status', 'started')
+            ->where('started_at', '<', now()->subMinutes(10))
+            ->update([
+                'status'        => 'failed',
+                'error_message' => 'Sync aborted — process was interrupted before completion.',
+                'completed_at'  => now(),
+            ]);
+
         $log = IdentitySyncLog::create([
             'type'       => 'full',
             'status'     => 'started',

@@ -13,6 +13,17 @@
         <small class="text-muted">Workflow #{{ $workflow->id }} &bull; {{ $workflow->typeLabel() }}</small>
     </div>
     <div class="d-flex gap-2">
+        @if($workflow->status === 'failed')
+        @can('approve-workflows')
+        <form method="POST" action="{{ route('admin.workflows.retry', $workflow->id) }}" class="d-inline">
+            @csrf
+            <button type="submit" class="btn btn-warning btn-sm"
+                    onclick="return confirm('Retry execution of this workflow? The provisioning steps will run again.')">
+                <i class="bi bi-arrow-clockwise me-1"></i>Retry Execution
+            </button>
+        </form>
+        @endcan
+        @endif
         <a href="{{ route('admin.workflows.index') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left me-1"></i>Back
         </a>
