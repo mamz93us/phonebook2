@@ -64,6 +64,19 @@ class RolePermission extends Model
                 'manage-users'       => 'Manage Users',
                 'manage-permissions' => 'Manage Role Permissions',
             ],
+            'Workflows' => [
+                'view-workflows'    => 'View Workflow Requests',
+                'manage-workflows'  => 'Create / Cancel Workflow Requests',
+                'approve-workflows' => 'Approve / Reject Workflow Steps',
+            ],
+            'Employees' => [
+                'view-employees'   => 'View Employee Directory',
+                'manage-employees' => 'Create / Edit Employees & Assign Assets',
+            ],
+            'NOC' => [
+                'view-noc'   => 'View NOC Dashboard & Events',
+                'manage-noc' => 'Acknowledge / Resolve NOC Events',
+            ],
         ];
     }
 
@@ -93,6 +106,7 @@ class RolePermission extends Model
             'view-activity-logs', 'view-phone-logs',
             'view-extensions', 'view-trunks',
             'view-network', 'view-assets', 'view-printers',
+            'view-workflows', 'view-employees', 'view-noc',
         ];
 
         return [
