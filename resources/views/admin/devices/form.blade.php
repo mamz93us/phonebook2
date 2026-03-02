@@ -22,9 +22,16 @@
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Type <span class="text-danger">*</span></label>
                     <select name="type" class="form-select @error('type') is-invalid @enderror" required>
+                        <optgroup label="Infrastructure">
                         @foreach(['ucm','switch','router','firewall','ap','printer','server','other'] as $t)
                         <option value="{{ $t }}" {{ old('type', $device->type ?? '') == $t ? 'selected' : '' }}>{{ ucfirst($t) }}</option>
                         @endforeach
+                        </optgroup>
+                        <optgroup label="User Equipment">
+                        @foreach(['laptop','desktop','monitor','keyboard','mouse','headset','tablet'] as $t)
+                        <option value="{{ $t }}" {{ old('type', $device->type ?? '') == $t ? 'selected' : '' }}>{{ ucfirst($t) }}</option>
+                        @endforeach
+                        </optgroup>
                     </select>
                     @error('type')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
@@ -32,6 +39,8 @@
                     <label class="form-label fw-semibold">Status <span class="text-danger">*</span></label>
                     <select name="status" class="form-select @error('status') is-invalid @enderror" required>
                         <option value="active"      {{ old('status', $device->status ?? 'active') == 'active'      ? 'selected' : '' }}>Active</option>
+                        <option value="available"   {{ old('status', $device->status ?? '') == 'available'   ? 'selected' : '' }}>Available (ready to assign)</option>
+                        <option value="assigned"    {{ old('status', $device->status ?? '') == 'assigned'    ? 'selected' : '' }}>Assigned</option>
                         <option value="maintenance" {{ old('status', $device->status ?? '') == 'maintenance' ? 'selected' : '' }}>Maintenance</option>
                         <option value="retired"     {{ old('status', $device->status ?? '') == 'retired'     ? 'selected' : '' }}>Retired</option>
                     </select>

@@ -40,7 +40,8 @@ class DeviceController extends Controller
 
         $devices  = $query->paginate(50)->withQueryString();
         $branches = Branch::orderBy('name')->get(['id', 'name']);
-        $types    = ['ucm', 'switch', 'router', 'firewall', 'ap', 'printer', 'server', 'other'];
+        $types    = ['ucm', 'switch', 'router', 'firewall', 'ap', 'printer', 'server',
+                     'laptop', 'desktop', 'monitor', 'keyboard', 'mouse', 'headset', 'tablet', 'other'];
 
         return view('admin.devices.index', compact('devices', 'branches', 'types'));
     }
@@ -61,7 +62,7 @@ class DeviceController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'type'                 => 'required|in:ucm,switch,router,firewall,ap,printer,server,other',
+            'type'                 => 'required|in:ucm,switch,router,firewall,ap,printer,server,laptop,desktop,monitor,keyboard,mouse,headset,tablet,other',
             'name'                 => 'required|string|max:255',
             'model'                => 'nullable|string|max:255',
             'serial_number'        => 'nullable|string|max:100',
@@ -73,7 +74,7 @@ class DeviceController extends Controller
             'department_id'        => 'nullable|exists:departments,id',
             'location_description' => 'nullable|string|max:255',
             'notes'                => 'nullable|string',
-            'status'               => 'required|in:active,retired,maintenance',
+            'status'               => 'required|in:active,available,assigned,maintenance,retired',
         ]);
 
         $device = Device::create(array_merge($data, ['source' => 'manual']));
@@ -101,7 +102,7 @@ class DeviceController extends Controller
     public function update(Request $request, Device $device)
     {
         $data = $request->validate([
-            'type'                 => 'required|in:ucm,switch,router,firewall,ap,printer,server,other',
+            'type'                 => 'required|in:ucm,switch,router,firewall,ap,printer,server,laptop,desktop,monitor,keyboard,mouse,headset,tablet,other',
             'name'                 => 'required|string|max:255',
             'model'                => 'nullable|string|max:255',
             'serial_number'        => 'nullable|string|max:100',
@@ -113,7 +114,7 @@ class DeviceController extends Controller
             'department_id'        => 'nullable|exists:departments,id',
             'location_description' => 'nullable|string|max:255',
             'notes'                => 'nullable|string',
-            'status'               => 'required|in:active,retired,maintenance',
+            'status'               => 'required|in:active,available,assigned,maintenance,retired',
         ]);
 
         $device->update($data);
