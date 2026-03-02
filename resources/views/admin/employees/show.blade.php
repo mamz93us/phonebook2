@@ -229,11 +229,13 @@
                                     @endif
                                 </td>
                                 <td class="pe-3">
-                                    @if(!$a->returned_date)@can('manage-employees')
+                                    @if(!$a->returned_date)
+                                    @can('manage-employees')
                                     <button class="btn btn-sm btn-outline-secondary"
                                             data-bs-toggle="modal"
                                             data-bs-target="#returnAssetModal{{ $a->id }}">Return</button>
-                                    @endcan@endif
+                                    @endcan
+                                    @endif
                                 </td>
                             </tr>
                             @endforeach
