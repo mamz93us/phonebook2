@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Models\UcmServer;
 use App\Models\WorkflowRequest;
 use App\Models\WorkflowStep;
+use App\Services\Identity\GraphService;
 use App\Services\Workflow\WorkflowEngine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -127,13 +128,29 @@ class WorkflowController extends Controller
             $ucmName = UcmServer::find($settings->default_ucm_id)?->name;
         }
 
-        // Multi-license: return array of SKUs
+        // Multi-license: return array of {sku, name} objects for display
         $licenseSkus = $settings->graph_default_license_skus ?? [];
         if (empty($licenseSkus) && $settings->graph_default_license_sku) {
             $licenseSkus = [$settings->graph_default_license_sku];
         }
 
-        return response()->json(compact('upn', 'range', 'ucmName', 'licenseSkus'));
+        // Resolve friendly names via cached Azure SKU map
+        $licenseData = [];
+        if (!empty($licenseSkus)) {
+            try {
+                $skuMap = (new GraphService())->getSkuNameMap();
+                foreach ($licenseSkus as $sku) {
+                    $licenseData[] = ['sku' => $sku, 'name' => $skuMap[$sku] ?? $sku];
+                }
+            } catch (\Throwable) {
+                // Azure unreachable — fall back to raw SKU IDs
+                foreach ($licenseSkus as $sku) {
+                    $licenseData[] = ['sku' => $sku, 'name' => $sku];
+                }
+            }
+        }
+
+        return response()->json(compact('upn', 'range', 'ucmName', 'licenseData'));
     }
 
     // Submit new request

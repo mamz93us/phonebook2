@@ -101,14 +101,32 @@ class UserProvisioningService
         }
 
         if (!empty($licenseSkus)) {
+            // Build a name map so we can log/store friendly names
+            $skuNameMap = [];
+            try {
+                $skuNameMap = $graph->getSkuNameMap();
+            } catch (\Throwable) {
+                // Azure name lookup non-fatal
+            }
+
+            $assignedLicenses = [];
             foreach (array_filter($licenseSkus) as $sku) {
-                $this->engine->logEvent($workflow, 'info', "Assigning license SKU: {$sku}");
+                $skuName = $skuNameMap[$sku] ?? $sku;
+                $this->engine->logEvent($workflow, 'info', "Assigning license: {$skuName}");
                 try {
                     $graph->assignLicense($azureId, $sku);
-                    $this->engine->logEvent($workflow, 'success', "License {$sku} assigned.");
+                    $this->engine->logEvent($workflow, 'success', "License '{$skuName}' assigned.");
+                    $assignedLicenses[] = ['sku' => $sku, 'name' => $skuName];
                 } catch (\Throwable $e) {
-                    $this->engine->logEvent($workflow, 'warning', "License {$sku} assignment failed (non-fatal): " . $e->getMessage());
+                    $this->engine->logEvent($workflow, 'warning', "License '{$skuName}' assignment failed (non-fatal): " . $e->getMessage());
                 }
+            }
+
+            // Persist assigned licenses to payload for the show-page summary
+            if (!empty($assignedLicenses)) {
+                $payload = array_merge($payload, ['assigned_licenses' => $assignedLicenses]);
+                $workflow->payload = $payload;
+                $workflow->save();
             }
         }
 

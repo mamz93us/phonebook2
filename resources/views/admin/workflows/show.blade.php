@@ -87,6 +87,21 @@
 
                     <dt class="col-5 text-muted">Department</dt>
                     <dd class="col-7">{{ $payload['department'] ?? '—' }}</dd>
+
+                    <dt class="col-5 text-muted">Licenses</dt>
+                    <dd class="col-7">
+                        @if(!empty($payload['assigned_licenses']))
+                            <ul class="list-unstyled mb-0">
+                            @foreach($payload['assigned_licenses'] as $lic)
+                                <li class="fw-semibold">{{ $lic['name'] ?? $lic['sku'] ?? $lic }}</li>
+                            @endforeach
+                            </ul>
+                        @elseif(!empty($payload['license_sku']))
+                            <code class="small" style="font-size:.7rem">{{ $payload['license_sku'] }}</code>
+                        @else
+                            <span class="text-muted">None assigned</span>
+                        @endif
+                    </dd>
                 </dl>
             </div>
         </div>

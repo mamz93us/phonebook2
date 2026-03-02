@@ -286,6 +286,41 @@ class GraphService
         ]);
     }
 
+    /**
+     * Create a new Azure AD user and return the full user object (including 'id').
+     *
+     * Required fields in $data:
+     *   displayName, userPrincipalName, mailNickname, password
+     * Optional:
+     *   accountEnabled (default true), usageLocation (default 'EG'),
+     *   jobTitle, department
+     */
+    public function createUser(array $data): array
+    {
+        $body = [
+            'accountEnabled'    => $data['accountEnabled'] ?? true,
+            'displayName'       => $data['displayName'],
+            'mailNickname'      => $data['mailNickname'],
+            'userPrincipalName' => $data['userPrincipalName'],
+            'passwordProfile'   => [
+                'forceChangePasswordNextSignIn' => true,
+                'password'                      => $data['password'],
+            ],
+            'usageLocation'     => $data['usageLocation'] ?? 'EG',
+        ];
+
+        // Only include optional fields when they have a value — the Graph API
+        // rejects null for these properties.
+        if (!empty($data['jobTitle']))  {
+            $body['jobTitle']   = $data['jobTitle'];
+        }
+        if (!empty($data['department'])) {
+            $body['department'] = $data['department'];
+        }
+
+        return $this->post('/users', $body);
+    }
+
     // ─────────────────────────────────────────────────────────────
     // License Operations
     // ─────────────────────────────────────────────────────────────
@@ -316,6 +351,24 @@ class GraphService
     {
         $user = $this->get("/users/{$userId}", ['$select' => 'assignedLicenses']);
         return $user['assignedLicenses'] ?? [];
+    }
+
+    /**
+     * Return a cached map of [ skuId => skuPartNumber ] for quick name lookups.
+     * Cached for 5 minutes so provisioning-preview AJAX calls are fast.
+     */
+    public function getSkuNameMap(): array
+    {
+        $cacheKey = "graph_sku_name_map_{$this->clientId}";
+        return Cache::remember($cacheKey, 300, function () {
+            $map = [];
+            foreach ($this->listSubscribedSkus() as $sku) {
+                if (!empty($sku['skuId'])) {
+                    $map[$sku['skuId']] = $sku['skuPartNumber'] ?? $sku['skuId'];
+                }
+            }
+            return $map;
+        });
     }
 
     // ─────────────────────────────────────────────────────────────

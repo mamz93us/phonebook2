@@ -167,11 +167,7 @@
                                 ?? ($settings->graph_default_license_sku ? [$settings->graph_default_license_sku] : []);
                         @endphp
                         @if(!empty($previewSkus))
-                        <ul class="list-unstyled mb-0">
-                            @foreach($previewSkus as $sku)
-                            <li><code class="small">{{ $sku }}</code></li>
-                            @endforeach
-                        </ul>
+                        <span class="text-muted fst-italic small">loading names…</span>
                         @else
                         <span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Not set</span>
                         @endif
@@ -291,10 +287,12 @@ function fetchRangePreview() {
         previewUcm.innerHTML = data.ucmName
             ? `<span class="fw-semibold">${data.ucmName}</span>`
             : '<span class="text-muted">— global default —</span>';
-        // Licenses (array)
-        if (data.licenseSkus && data.licenseSkus.length > 0) {
+        // Licenses — show friendly names (licenseData = [{sku, name}, ...])
+        if (data.licenseData && data.licenseData.length > 0) {
             previewLic.innerHTML = '<ul class="list-unstyled mb-0">'
-                + data.licenseSkus.map(s => `<li><code class="small">${s}</code></li>`).join('')
+                + data.licenseData.map(l =>
+                    `<li class="fw-semibold">${l.name}<br><code class="text-muted small" style="font-size:.7rem">${l.sku}</code></li>`
+                  ).join('')
                 + '</ul>';
         } else {
             previewLic.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Not set</span>';
