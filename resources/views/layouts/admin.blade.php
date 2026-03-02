@@ -228,6 +228,15 @@
                                 </a>
                             </li>
                             @endcan
+                            @can('manage-workflow-templates')
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.workflow-templates.index') ? 'active' : '' }}"
+                                   href="{{ route('admin.workflow-templates.index') }}">
+                                    <i class="bi bi-diagram-3 me-2"></i>Workflow Templates
+                                </a>
+                            </li>
+                            @endcan
                         </ul>
                     </li>
                     @endcanany
@@ -280,9 +289,9 @@
                     @endcan
 
                     {{-- ── Settings dropdown ── --}}
-                    @canany(['manage-settings','manage-users','manage-permissions','view-phone-logs','view-activity-logs'])
+                    @canany(['manage-settings','manage-users','manage-permissions','view-phone-logs','view-activity-logs','manage-notification-rules','view-email-logs','manage-license-monitors','manage-allowed-domains'])
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ request()->is('admin/settings*','admin/users*','admin/permissions*','admin/phone-logs*','admin/activity-logs*','admin/branches*') ? 'active' : '' }}"
+                        <a class="nav-link dropdown-toggle {{ request()->is('admin/settings*','admin/users*','admin/permissions*','admin/phone-logs*','admin/activity-logs*','admin/branches*','admin/notifications*','admin/license-monitors*') ? 'active' : '' }}"
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-gear-fill me-1"></i>Settings
                         </a>
@@ -326,6 +335,34 @@
                                 </a>
                             </li>
                             @endcan
+                            @canany(['manage-notification-rules','view-email-logs','manage-license-monitors','manage-allowed-domains'])
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header text-secondary"><i class="bi bi-layers me-1"></i>Platform</h6></li>
+                            @can('manage-notification-rules')
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.notification-rules.index') ? 'active' : '' }}"
+                                   href="{{ route('admin.notification-rules.index') }}">
+                                    <i class="bi bi-funnel-fill me-2"></i>Notification Rules
+                                </a>
+                            </li>
+                            @endcan
+                            @can('view-email-logs')
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.email-log.index') ? 'active' : '' }}"
+                                   href="{{ route('admin.email-log.index') }}">
+                                    <i class="bi bi-envelope-check me-2"></i>Email Log
+                                </a>
+                            </li>
+                            @endcan
+                            @can('manage-license-monitors')
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.license-monitors.index') ? 'active' : '' }}"
+                                   href="{{ route('admin.license-monitors.index') }}">
+                                    <i class="bi bi-clipboard2-pulse me-2"></i>License Monitors
+                                </a>
+                            </li>
+                            @endcan
+                            @endcanany
                             @canany(['view-phone-logs','view-activity-logs'])
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header text-secondary"><i class="bi bi-journal-text me-1"></i>Logs</h6></li>

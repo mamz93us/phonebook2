@@ -23,6 +23,12 @@ use App\Http\Controllers\Admin\WorkflowController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\NocController;
+use App\Http\Controllers\Admin\WorkflowTemplateController;
+use App\Http\Controllers\Admin\EmailLogController;
+use App\Http\Controllers\Admin\NotificationRuleController;
+use App\Http\Controllers\Admin\LicenseMonitorController;
+use App\Http\Controllers\Admin\AllowedDomainController;
+use App\Http\Controllers\Admin\EmployeeItemController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
@@ -404,7 +410,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('employees',              [EmployeeController::class, 'index'])      ->name('employees.index');
     });
     Route::middleware('permission:manage-employees')->group(function () {
+        // Static routes MUST come before {employee} wildcard
         Route::get('employees/create',       [EmployeeController::class, 'create'])     ->name('employees.create');
+        Route::get('employees/sync',         [EmployeeController::class, 'showSync'])   ->name('employees.sync');
+        Route::post('employees/sync',        [EmployeeController::class, 'doSync'])     ->name('employees.sync.do');
         Route::post('employees',             [EmployeeController::class, 'store'])      ->name('employees.store');
     });
     Route::middleware('permission:view-employees')->group(function () {
@@ -415,6 +424,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::put('employees/{employee}',                 [EmployeeController::class, 'update'])        ->name('employees.update');
         Route::post('employees/{employee}/assets',         [EmployeeController::class, 'assignAsset'])   ->name('employees.assets.assign');
         Route::patch('employees/{employee}/assets/{asset}/return', [EmployeeController::class, 'returnAsset']) ->name('employees.assets.return');
+        // Employee items (standalone equipment)
+        Route::post('employees/{employee}/items',                     [EmployeeItemController::class, 'store'])      ->name('employees.items.store');
+        Route::patch('employees/{employee}/items/{item}/return',      [EmployeeItemController::class, 'returnItem']) ->name('employees.items.return');
+        Route::delete('employees/{employee}/items/{item}',            [EmployeeItemController::class, 'destroy'])    ->name('employees.items.destroy');
     });
 
     // ─── Printer Maintenance (nested under printers) ──────────
@@ -428,6 +441,39 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('printers/{printer}/maintenance/{log}',
             [PrinterMaintenanceController::class, 'destroy']) ->name('printers.maintenance.destroy');
     });
+
+    // ── Workflow Templates ────────────────────────────────────────
+    Route::get('/workflow-templates', [WorkflowTemplateController::class, 'index'])->name('admin.workflow-templates.index');
+    Route::post('/workflow-templates', [WorkflowTemplateController::class, 'store'])->name('admin.workflow-templates.store');
+    Route::put('/workflow-templates/{workflowTemplate}', [WorkflowTemplateController::class, 'update'])->name('admin.workflow-templates.update');
+    Route::delete('/workflow-templates/{workflowTemplate}', [WorkflowTemplateController::class, 'destroy'])->name('admin.workflow-templates.destroy');
+
+    // ── Email Logs ────────────────────────────────────────────────
+    Route::get('/notifications/email-log', [EmailLogController::class, 'index'])->name('admin.email-log.index');
+    Route::delete('/notifications/email-log', [EmailLogController::class, 'clearAll'])->name('admin.email-log.clear');
+
+    // ── Notification Rules ────────────────────────────────────────
+    Route::get('/notifications/rules', [NotificationRuleController::class, 'index'])->name('admin.notification-rules.index');
+    Route::post('/notifications/rules', [NotificationRuleController::class, 'store'])->name('admin.notification-rules.store');
+    Route::put('/notifications/rules/{notificationRule}', [NotificationRuleController::class, 'update'])->name('admin.notification-rules.update');
+    Route::delete('/notifications/rules/{notificationRule}', [NotificationRuleController::class, 'destroy'])->name('admin.notification-rules.destroy');
+
+    // ── License Monitors ──────────────────────────────────────────
+    Route::get('/license-monitors', [LicenseMonitorController::class, 'index'])->name('admin.license-monitors.index');
+    Route::post('/license-monitors', [LicenseMonitorController::class, 'store'])->name('admin.license-monitors.store');
+    Route::put('/license-monitors/{licenseMonitor}', [LicenseMonitorController::class, 'update'])->name('admin.license-monitors.update');
+    Route::patch('/license-monitors/{licenseMonitor}/toggle', [LicenseMonitorController::class, 'toggleActive'])->name('admin.license-monitors.toggle');
+    Route::delete('/license-monitors/{licenseMonitor}', [LicenseMonitorController::class, 'destroy'])->name('admin.license-monitors.destroy');
+
+    // ── Allowed Domains ───────────────────────────────────────────
+    Route::get('/settings/domains', [AllowedDomainController::class, 'index'])->name('admin.settings.domains');
+    Route::post('/settings/domains', [AllowedDomainController::class, 'store'])->name('admin.settings.domains.store');
+    Route::patch('/settings/domains/{allowedDomain}/primary', [AllowedDomainController::class, 'setPrimary'])->name('admin.settings.domains.primary');
+    Route::delete('/settings/domains/{allowedDomain}', [AllowedDomainController::class, 'destroy'])->name('admin.settings.domains.destroy');
+
+    // ── Provisioning Settings ─────────────────────────────────────
+    Route::post('/settings/provisioning', [SettingsController::class, 'updateProvisioning'])->name('admin.settings.provisioning');
+
 });
 
 /*

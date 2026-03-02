@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('gdms:sync-contacts')->everyFiveMinutes();
 Schedule::job(new \App\Jobs\RunNocAlertsJob)->everyFiveMinutes();
+Schedule::job(new \App\Jobs\CheckLicenseMonitorsJob)->hourly();

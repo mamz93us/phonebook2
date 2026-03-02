@@ -50,8 +50,22 @@
         </a>
         @endif
     </div>
+    <div class="form-check form-switch ms-2 align-self-center">
+        <input class="form-check-input" type="checkbox" id="showExternal" name="show_external" value="1"
+               {{ $showExternal ? 'checked' : '' }} onchange="this.form.submit()">
+        <label class="form-check-label small" for="showExternal">Show External (#EXT#)</label>
+    </div>
     <div class="form-text ps-1 mt-1">Searching across all {{ number_format($users->total()) }} users</div>
 </form>
+@if(! empty($allowedDomains))
+<div class="mb-2">
+    <small class="text-muted"><i class="bi bi-funnel me-1"></i>Filtering by domains:
+    @foreach($allowedDomains as $d)
+    <span class="badge bg-light text-dark border ms-1">{{ $d }}</span>
+    @endforeach
+    </small>
+</div>
+@endif
 
 <div class="card shadow-sm">
     <div class="card-body p-0">

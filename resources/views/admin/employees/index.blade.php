@@ -7,9 +7,14 @@
         <small class="text-muted">{{ number_format($total) }} total employees</small>
     </div>
     @can('manage-employees')
-    <a href="{{ route('admin.employees.create') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-person-plus-fill me-1"></i>Add Employee
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('admin.employees.sync') }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-cloud-arrow-down me-1"></i>Sync from Azure
+        </a>
+        <a href="{{ route('admin.employees.create') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-person-plus-fill me-1"></i>Add Employee
+        </a>
+    </div>
     @endcan
 </div>
 

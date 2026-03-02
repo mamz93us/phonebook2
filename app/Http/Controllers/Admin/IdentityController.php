@@ -37,10 +37,27 @@ class IdentityController extends Controller
             $query->where('account_enabled', $request->status === 'enabled');
         }
 
+        // By default, hide external (#EXT#) guest users
+        if (! $request->boolean('show_external')) {
+            $query->where('user_principal_name', 'not like', '%#EXT#%');
+        }
+
+        // Filter by allowed domains if configured
+        $allowedDomains = \App\Models\AllowedDomain::getList();
+        if (! empty($allowedDomains) && ! $request->boolean('show_external')) {
+            $query->where(function ($q) use ($allowedDomains) {
+                foreach ($allowedDomains as $domain) {
+                    $q->orWhere('user_principal_name', 'like', "%@{$domain}");
+                }
+            });
+        }
+
         $users    = $query->paginate(50)->withQueryString();
         $lastSync = IdentitySyncLog::where('status', 'completed')->latest()->first();
 
-        return view('admin.identity.users', compact('users', 'lastSync'));
+        $showExternal   = $request->boolean('show_external');
+        $allowedDomains = \App\Models\AllowedDomain::getList();
+        return view('admin.identity.users', compact('users', 'lastSync', 'showExternal', 'allowedDomains'));
     }
 
     public function userDetail(string $azureId)

@@ -574,6 +574,119 @@
     </div>
 </div>
 
+        {{-- ─── Provisioning Settings ──────────────────────────────── --}}
+        <div class="card shadow-sm border-0 mb-4" id="provisioning">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-person-gear me-2 text-primary"></i>Smart User Provisioning</h5>
+                <small class="text-muted">Configure auto UPN generation, UCM extension assignment, and Azure profile templates</small>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ route('admin.settings.provisioning') }}">
+                    @csrf
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">UPN Domain <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text text-muted">@</span>
+                                <input type="text" name="upn_domain" class="form-control"
+                                       value="{{ $settings->upn_domain }}" placeholder="samirgroup.com">
+                            </div>
+                            <small class="text-muted">New users will get UPN: firstname.lastname@this-domain</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Default UCM Server</label>
+                            <select name="default_ucm_id" class="form-select">
+                                <option value="">— None —</option>
+                                @foreach($ucmServers as $ucm)
+                                <option value="{{ $ucm->id }}" {{ $settings->default_ucm_id == $ucm->id ? 'selected' : '' }}>{{ $ucm->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Extension Range Start</label>
+                            <input type="number" name="ext_range_start" class="form-control" value="{{ $settings->ext_range_start ?? 1000 }}" min="1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Extension Range End</label>
+                            <input type="number" name="ext_range_end" class="form-control" value="{{ $settings->ext_range_end ?? 1999 }}" min="1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Default Extension Secret</label>
+                            <input type="text" name="ext_default_secret" class="form-control"
+                                   value="{{ $settings->ext_default_secret }}" placeholder="changeme123">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Default Permission Level</label>
+                            <select name="ext_default_permission" class="form-select">
+                                @foreach(['internal' => 'Internal', 'local' => 'Local', 'national' => 'National', 'international' => 'International'] as $val => $lbl)
+                                <option value="{{ $val }}" {{ $settings->ext_default_permission === $val ? 'selected' : '' }}>{{ $lbl }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Office Location Template</label>
+                            <input type="text" name="profile_office_template" class="form-control"
+                                   value="{{ $settings->profile_office_template }}" placeholder="{branch_name}">
+                            <small class="text-muted">Variables: <code>{branch_name}</code>, <code>{branch_phone}</code>, <code>{extension}</code>, <code>{first_name}</code>, <code>{last_name}</code>, <code>{upn}</code></small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Business Phone Template</label>
+                            <input type="text" name="profile_phone_template" class="form-control"
+                                   value="{{ $settings->profile_phone_template }}" placeholder="{branch_phone} EXT {extension}">
+                            <small class="text-muted">Same variables as above.</small>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Save Provisioning Settings</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- ─── Allowed Domains ────────────────────────────────────── --}}
+        @can('manage-allowed-domains')
+        <div class="card shadow-sm border-0 mb-4" id="domains">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-globe me-2 text-primary"></i>Allowed Domains</h5>
+                <small class="text-muted">Organizational email domains — used to filter external/guest Azure AD users</small>
+            </div>
+            <div class="card-body">
+                @php $allowedDomains = \App\Models\AllowedDomain::orderBy('domain')->get(); @endphp
+                @if($allowedDomains->isNotEmpty())
+                <div class="mb-3">
+                    @foreach($allowedDomains as $domain)
+                    <span class="badge bg-light text-dark border me-2 mb-2 p-2">
+                        @if($domain->is_primary)<i class="bi bi-star-fill text-warning me-1"></i>@endif
+                        {{ $domain->domain }}
+                        <form method="POST" action="{{ route('admin.settings.domains.destroy', $domain->id) }}" class="d-inline"
+                              onsubmit="return confirm('Remove domain {{ $domain->domain }}?')">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="btn-close btn-close-sm ms-1" style="font-size:0.6em"></button>
+                        </form>
+                    </span>
+                    @endforeach
+                </div>
+                @endif
+                <form method="POST" action="{{ route('admin.settings.domains.store') }}" class="d-flex gap-2 align-items-end">
+                    @csrf
+                    <div>
+                        <label class="form-label fw-semibold small">Add Domain</label>
+                        <input type="text" name="domain" class="form-control form-control-sm" placeholder="samirgroup.com" required>
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold small">Description</label>
+                        <input type="text" name="description" class="form-control form-control-sm" placeholder="Optional">
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" name="is_primary" value="1" id="isPrimaryDomain">
+                        <label class="form-check-label small" for="isPrimaryDomain">Primary</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm mb-0"><i class="bi bi-plus me-1"></i>Add</button>
+                </form>
+            </div>
+        </div>
+        @endcan
+
 {{-- Add UCM Modal --}}
 <div class="modal fade" id="addUcmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">

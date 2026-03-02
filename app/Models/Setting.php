@@ -36,6 +36,15 @@ class Setting extends Model
         'smtp_password',
         'smtp_from_address',
         'smtp_from_name',
+        // Provisioning / UCM
+        'upn_domain',
+        'default_ucm_id',
+        'ext_range_start',
+        'ext_range_end',
+        'ext_default_secret',
+        'ext_default_permission',
+        'profile_office_template',
+        'profile_phone_template',
     ];
 
     protected $casts = [
@@ -44,6 +53,9 @@ class Setting extends Model
         'meraki_polling_interval' => 'integer',
         'identity_sync_enabled'   => 'boolean',
         'identity_sync_interval'  => 'integer',
+        'default_ucm_id'          => 'integer',
+        'ext_range_start'         => 'integer',
+        'ext_range_end'           => 'integer',
     ];
 
     /**

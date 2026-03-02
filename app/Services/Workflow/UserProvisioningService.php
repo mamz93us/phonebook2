@@ -2,92 +2,233 @@
 
 namespace App\Services\Workflow;
 
+use App\Models\Branch;
 use App\Models\Employee;
+use App\Models\IdentityUser;
+use App\Models\Setting;
+use App\Models\UcmServer;
 use App\Models\WorkflowRequest;
 use App\Services\Identity\GraphService;
-use Illuminate\Support\Facades\Log;
+use App\Services\NotificationService;
+use Illuminate\Support\Str;
 
 class UserProvisioningService
 {
-    public function __construct(private WorkflowEngine $engine) {}
+    public function __construct(
+        private WorkflowEngine              $engine,
+        private ExtensionProvisioningService $extProvisioning,
+        private NotificationService          $notifications
+    ) {}
 
     // ─────────────────────────────────────────────────────────────
-    // Provision new user
+    // Provision new user (7 steps)
     // ─────────────────────────────────────────────────────────────
 
     public function provisionUser(WorkflowRequest $workflow): void
     {
-        $payload = $workflow->payload ?? [];
+        $payload  = $workflow->payload ?? [];
+        $settings = Setting::get();
 
         $this->engine->logEvent($workflow, 'info', 'Starting user provisioning.');
 
-        // Step 1: Create Azure user
+        $firstName   = trim($payload['first_name']   ?? '');
+        $lastName    = trim($payload['last_name']    ?? '');
+        $displayName = trim("{$firstName} {$lastName}");
+
+        // ── Step 0: Duplicate name check ─────────────────────────
+        $this->engine->logEvent($workflow, 'info', "Checking for duplicate display name: {$displayName}");
+        $existingUser = IdentityUser::where('display_name', $displayName)->first();
+        if ($existingUser) {
+            throw new \RuntimeException(
+                "User '{$displayName}' already exists in Azure (UPN: {$existingUser->user_principal_name})."
+            );
+        }
+
+        // ── Step 1: Build UPN ─────────────────────────────────────
+        $domain = $settings->upn_domain ?: 'example.com';
+        $upn    = $this->buildUPN($firstName, $lastName, $domain);
+        $this->engine->logEvent($workflow, 'info', "Generated UPN: {$upn}");
+
+        // ── Step 2: Create Azure user ─────────────────────────────
         $this->engine->logEvent($workflow, 'info', 'Creating Azure AD user...');
+        $graph    = new GraphService();
+        $password = $payload['initial_password'] ?? (Str::random(12) . '!1A');
+
         try {
-            $graph = new GraphService();
-
-            $displayName = trim(($payload['first_name'] ?? '') . ' ' . ($payload['last_name'] ?? ''));
-            $upn         = $payload['user_principal_name'] ?? null;
-            $password    = $payload['initial_password'] ?? \Illuminate\Support\Str::random(16) . '!1';
-
-            if (!$upn) {
-                throw new \RuntimeException('User Principal Name is required.');
-            }
-
             $azureUser = $graph->createUser([
                 'displayName'       => $displayName,
                 'userPrincipalName' => $upn,
                 'mailNickname'      => explode('@', $upn)[0],
                 'password'          => $password,
-                'usageLocation'     => $payload['usage_location'] ?? 'US',
-                'jobTitle'          => $payload['job_title'] ?? null,
-                'department'        => $payload['department'] ?? null,
+                'usageLocation'     => 'EG',
+                'jobTitle'          => $payload['job_title']   ?? null,
+                'department'        => $payload['department']  ?? null,
                 'accountEnabled'    => true,
             ]);
 
             $azureId = $azureUser['id'] ?? null;
-            if (!$azureId) {
+            if (! $azureId) {
                 throw new \RuntimeException('Azure user created but no ID returned.');
             }
 
             $this->engine->logEvent($workflow, 'success', "Azure user created: {$upn} (ID: {$azureId})");
-            $workflow->payload = array_merge($payload, ['azure_id' => $azureId]);
+
+            $payload = array_merge($payload, [
+                'upn'          => $upn,
+                'azure_id'     => $azureId,
+                'display_name' => $displayName,
+            ]);
+            $workflow->payload = $payload;
             $workflow->save();
 
         } catch (\Throwable $e) {
             throw new \RuntimeException('Failed to create Azure user: ' . $e->getMessage());
         }
 
-        // Step 2: Assign license
-        if (!empty($payload['license_sku'])) {
-            $this->engine->logEvent($workflow, 'info', 'Assigning license...');
+        // ── Step 3: Assign default license ───────────────────────
+        $licenseSku = $settings->graph_default_license_sku ?: ($payload['license_sku'] ?? null);
+        if ($licenseSku) {
+            $this->engine->logEvent($workflow, 'info', "Assigning license SKU: {$licenseSku}");
             try {
-                $graph->assignLicense($workflow->payload['azure_id'], $payload['license_sku']);
-                $this->engine->logEvent($workflow, 'success', 'License assigned: ' . $payload['license_sku']);
+                $graph->assignLicense($azureId, $licenseSku);
+                $this->engine->logEvent($workflow, 'success', 'License assigned.');
             } catch (\Throwable $e) {
                 $this->engine->logEvent($workflow, 'warning', 'License assignment failed (non-fatal): ' . $e->getMessage());
             }
         }
 
-        // Step 3: Create employee record
+        // ── Step 4: Create UCM extension ─────────────────────────
+        $extension = null;
+        $ucmServer = null;
+        $ucmServerId = $payload['ucm_server_id'] ?? $settings->default_ucm_id;
+
+        if ($ucmServerId) {
+            $ucmServer = UcmServer::find($ucmServerId);
+        }
+
+        if ($ucmServer) {
+            try {
+                $rangeStart = (int) ($settings->ext_range_start ?: 1000);
+                $rangeEnd   = (int) ($settings->ext_range_end   ?: 1999);
+
+                $this->engine->logEvent($workflow, 'info', "Finding available extension ({$rangeStart}–{$rangeEnd}) on UCM: {$ucmServer->name}");
+
+                $extension = $this->extProvisioning->getFirstAvailable($ucmServer, $rangeStart, $rangeEnd);
+                $this->engine->logEvent($workflow, 'info', "Using extension: {$extension}");
+
+                $this->extProvisioning->createForUser($ucmServer, $extension, $displayName, $upn);
+                $this->engine->logEvent($workflow, 'success', "UCM extension {$extension} created (voicemail=no, call_waiting=no).");
+
+                $payload = array_merge($payload, [
+                    'extension'    => $extension,
+                    'ucm_server_id' => $ucmServer->id,
+                ]);
+                $workflow->payload = $payload;
+                $workflow->save();
+
+            } catch (\Throwable $e) {
+                $this->engine->logEvent($workflow, 'warning', 'UCM extension creation failed (non-fatal): ' . $e->getMessage());
+            }
+        }
+
+        // ── Step 5: Update Azure profile with templates ───────────
+        $branch = $workflow->branch_id ? Branch::find($workflow->branch_id) : null;
+        if ($branch && ($settings->profile_office_template || $settings->profile_phone_template)) {
+            try {
+                $this->engine->logEvent($workflow, 'info', 'Updating Azure profile with templates...');
+
+                $profileFields = $this->extProvisioning->buildProfileFields(
+                    $branch,
+                    $extension ?? '',
+                    $firstName,
+                    $lastName,
+                    $upn,
+                    [
+                        'officeLocation' => $settings->profile_office_template,
+                        'phone'          => $settings->profile_phone_template,
+                    ]
+                );
+
+                $updateData = [];
+                if (! empty($profileFields['officeLocation'])) {
+                    $updateData['officeLocation'] = $profileFields['officeLocation'];
+                }
+                if (! empty($profileFields['phone'])) {
+                    $updateData['businessPhones'] = [$profileFields['phone']];
+                }
+
+                if (! empty($updateData)) {
+                    $graph->updateUser($azureId, $updateData);
+                    $this->engine->logEvent($workflow, 'success', 'Azure profile updated with office/phone templates.');
+                }
+            } catch (\Throwable $e) {
+                $this->engine->logEvent($workflow, 'warning', 'Azure profile update failed (non-fatal): ' . $e->getMessage());
+            }
+        }
+
+        // ── Step 6: Create employee record ────────────────────────
         $this->engine->logEvent($workflow, 'info', 'Creating employee record...');
         try {
             Employee::create([
-                'azure_id'      => $workflow->payload['azure_id'],
-                'name'          => $displayName ?? 'Unknown',
-                'email'         => $upn ?? null,
-                'branch_id'     => $workflow->branch_id,
-                'department_id' => $payload['department_id'] ?? null,
-                'job_title'     => $payload['job_title'] ?? null,
-                'status'        => 'active',
-                'hired_date'    => now()->toDateString(),
+                'azure_id'         => $azureId,
+                'name'             => $displayName,
+                'email'            => $upn,
+                'branch_id'        => $workflow->branch_id,
+                'department_id'    => $payload['department_id'] ?? null,
+                'job_title'        => $payload['job_title']     ?? null,
+                'status'           => 'active',
+                'hired_date'       => now()->toDateString(),
+                'extension_number' => $extension,
+                'ucm_server_id'    => $ucmServer?->id,
             ]);
             $this->engine->logEvent($workflow, 'success', 'Employee record created.');
         } catch (\Throwable $e) {
             $this->engine->logEvent($workflow, 'warning', 'Employee record creation failed (non-fatal): ' . $e->getMessage());
         }
 
+        // ── Step 7: Notify admins ─────────────────────────────────
+        $extInfo = $extension ? " Extension: {$extension}." : '';
+        $this->notifications->notifyAdmins(
+            'workflow_complete',
+            'User Provisioned',
+            "New user '{$displayName}' ({$upn}) has been successfully provisioned.{$extInfo}",
+            route('admin.workflows.show', $workflow->id),
+            'info'
+        );
+
         $this->engine->logEvent($workflow, 'success', 'User provisioning complete.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Build UPN: first.last@domain (with collision suffix)
+    // ─────────────────────────────────────────────────────────────
+
+    private function buildUPN(string $firstName, string $lastName, string $domain): string
+    {
+        $sanitize = function (string $s): string {
+            $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s) ?: $s;
+            $s = strtolower($s);
+            $s = preg_replace('/[^a-z0-9]/', '', $s);
+            return $s;
+        };
+
+        $first = $sanitize($firstName);
+        $last  = $sanitize($lastName);
+        $base  = $first . '.' . $last;
+
+        $upn = "{$base}@{$domain}";
+        if (! IdentityUser::where('user_principal_name', $upn)->exists()) {
+            return $upn;
+        }
+
+        for ($i = 2; $i <= 99; $i++) {
+            $candidate = "{$base}{$i}@{$domain}";
+            if (! IdentityUser::where('user_principal_name', $candidate)->exists()) {
+                return $candidate;
+            }
+        }
+
+        throw new \RuntimeException("No available UPN for {$firstName} {$lastName}@{$domain}");
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -102,7 +243,6 @@ class UserProvisioningService
         $this->engine->logEvent($workflow, 'info', 'Starting user deprovisioning.');
 
         if ($azureId) {
-            // Step 1: Disable Azure user
             $this->engine->logEvent($workflow, 'info', 'Disabling Azure user...');
             try {
                 $graph = new GraphService();
@@ -112,16 +252,13 @@ class UserProvisioningService
                 throw new \RuntimeException('Failed to disable Azure user: ' . $e->getMessage());
             }
 
-            // Step 2: Update employee record
             $employee = Employee::where('azure_id', $azureId)->first();
             if ($employee) {
                 $employee->update([
-                    'status'           => 'terminated',
-                    'terminated_date'  => now()->toDateString(),
+                    'status'          => 'terminated',
+                    'terminated_date' => now()->toDateString(),
                 ]);
                 $this->engine->logEvent($workflow, 'success', 'Employee record updated to terminated.');
-
-                // Step 3: Flag assets as pending return
                 $employee->activeAssets()->update(['notes' => 'PENDING RETURN — employee terminated']);
                 $this->engine->logEvent($workflow, 'info', 'Active asset assignments flagged for return.');
             }

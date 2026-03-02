@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\Device;
 use App\Models\Employee;
 use App\Models\EmployeeAsset;
+use App\Models\AllowedDomain;
 use App\Models\IdentityUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -156,5 +157,78 @@ class EmployeeController extends Controller
         Device::where('id', $asset->asset_id)->update(['status' => 'available']);
 
         return back()->with('success', 'Asset returned successfully.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Azure Sync
+    // ─────────────────────────────────────────────────────────────
+
+    public function showSync()
+    {
+        $this->authorize('manage-employees');
+
+        // Get existing Azure IDs already linked
+        $linkedAzureIds = Employee::whereNotNull('azure_id')->pluck('azure_id')->toArray();
+
+        // Get allowed domains for filtering
+        $allowedDomains = \App\Models\AllowedDomain::getList();
+
+        // Find unlinked Azure users: no #EXT# and not already linked
+        $query = IdentityUser::whereNotIn('azure_id', $linkedAzureIds)
+            ->where('account_enabled', true)
+            ->where('user_principal_name', 'not like', '%#EXT#%')
+            ->orderBy('display_name');
+
+        // If allowed domains are configured, filter to those domains
+        if (! empty($allowedDomains)) {
+            $query->where(function ($q) use ($allowedDomains) {
+                foreach ($allowedDomains as $domain) {
+                    $q->orWhere('user_principal_name', 'like', "%@{$domain}");
+                }
+            });
+        }
+
+        $azureUsers = $query->get();
+        $departments = Department::orderBy('name')->get();
+        $branches    = Branch::orderBy('name')->get();
+
+        return view('admin.employees.sync', compact('azureUsers', 'departments', 'branches'));
+    }
+
+    public function doSync(Request $request)
+    {
+        $this->authorize('manage-employees');
+
+        $request->validate([
+            'azure_ids'   => 'required|array|min:1',
+            'azure_ids.*' => 'required|string',
+            'branch_id'   => 'nullable|exists:branches,id',
+            'department_id' => 'nullable|exists:departments,id',
+        ]);
+
+        $created = 0;
+        foreach ($request->azure_ids as $azureId) {
+            $identityUser = IdentityUser::where('azure_id', $azureId)->first();
+            if (! $identityUser) continue;
+
+            // Skip if already linked
+            if (Employee::where('azure_id', $azureId)->exists()) continue;
+
+            Employee::create([
+                'azure_id'      => $azureId,
+                'name'          => $identityUser->display_name,
+                'email'         => $identityUser->mail ?? $identityUser->user_principal_name,
+                'branch_id'     => $request->branch_id,
+                'department_id' => $request->department_id,
+                'job_title'     => $identityUser->job_title,
+                'status'        => 'active',
+                'hired_date'    => now()->toDateString(),
+            ]);
+            $created++;
+        }
+
+        return redirect()
+            ->route('admin.employees.index')
+            ->with('success', "{$created} employee(s) imported from Azure.");
     }
 }

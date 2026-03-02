@@ -77,6 +77,13 @@ class RolePermission extends Model
                 'view-noc'   => 'View NOC Dashboard & Events',
                 'manage-noc' => 'Acknowledge / Resolve NOC Events',
             ],
+            'Platform' => [
+                'manage-workflow-templates' => 'Edit Workflow Types & Approval Chains',
+                'view-email-logs'           => 'View Email Send Log',
+                'manage-notification-rules' => 'Manage Notification Routing Rules',
+                'manage-license-monitors'   => 'Manage License Inventory Monitors',
+                'manage-allowed-domains'    => 'Manage Allowed Domains',
+            ],
         ];
     }
 

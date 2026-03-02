@@ -59,35 +59,29 @@
 
                     {{-- Dynamic fields for create_user --}}
                     <div id="create_user_fields" class="mt-4 d-none">
-                        <hr><h6 class="text-muted fw-semibold">New User Details</h6>
+                        <hr>
+                        <h6 class="text-muted fw-semibold">New User Details</h6>
+                        <p class="text-muted small"><i class="bi bi-info-circle me-1"></i>UPN, license, and UCM extension will be assigned automatically based on provisioning settings.</p>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label small">First Name</label>
-                                <input type="text" name="first_name" class="form-control form-control-sm" value="{{ old('first_name') }}">
+                                <label class="form-label small fw-semibold">First Name <span class="text-danger">*</span></label>
+                                <input type="text" name="first_name" class="form-control form-control-sm" value="{{ old('first_name') }}" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small">Last Name</label>
-                                <input type="text" name="last_name" class="form-control form-control-sm" value="{{ old('last_name') }}">
+                                <label class="form-label small fw-semibold">Last Name <span class="text-danger">*</span></label>
+                                <input type="text" name="last_name" class="form-control form-control-sm" value="{{ old('last_name') }}" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small">User Principal Name (UPN)</label>
-                                <input type="email" name="user_principal_name" class="form-control form-control-sm" placeholder="user@domain.com" value="{{ old('user_principal_name') }}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small">Job Title</label>
+                                <label class="form-label small fw-semibold">Job Title</label>
                                 <input type="text" name="job_title" class="form-control form-control-sm" value="{{ old('job_title') }}">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small">Department</label>
+                                <label class="form-label small fw-semibold">Department</label>
                                 <input type="text" name="department" class="form-control form-control-sm" value="{{ old('department') }}">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small">Usage Location</label>
-                                <input type="text" name="usage_location" class="form-control form-control-sm" placeholder="SA, US, GB..." value="{{ old('usage_location', 'SA') }}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small">License SKU ID</label>
-                                <input type="text" name="license_sku" class="form-control form-control-sm" placeholder="Optional" value="{{ old('license_sku') }}">
+                                <label class="form-label small fw-semibold">Initial Password</label>
+                                <input type="text" name="initial_password" class="form-control form-control-sm" placeholder="Auto-generated if blank" value="{{ old('initial_password') }}">
                             </div>
                         </div>
                     </div>
@@ -114,13 +108,8 @@
         <div class="card shadow-sm border-0">
             <div class="card-header bg-transparent"><strong><i class="bi bi-info-circle me-1"></i>Approval Process</strong></div>
             <div class="card-body small">
-                <ul class="list-unstyled mb-0">
-                    <li class="mb-2"><span class="badge bg-success me-1">Create User</span> HR &rarr; IT Manager</li>
-                    <li class="mb-2"><span class="badge bg-danger me-1">Delete User</span> IT Manager &rarr; Super Admin</li>
-                    <li class="mb-2"><span class="badge bg-info text-dark me-1">License</span> IT Manager</li>
-                    <li class="mb-2"><span class="badge bg-secondary me-1">Asset</span> Manager</li>
-                    <li><span class="badge bg-primary me-1">Extension</span> IT Manager</li>
-                </ul>
+                <p class="text-muted small">Approval chains are configured in <a href="{{ route('admin.workflow-templates.index') }}">Workflow Templates</a>. Each request type follows its defined approval chain before executing.</p>
+                <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>For <strong>Create User</strong>: UPN, license, and extension are auto-generated after all approvals.</p>
             </div>
         </div>
     </div>

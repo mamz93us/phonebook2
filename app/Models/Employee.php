@@ -20,11 +20,14 @@ class Employee extends Model
         'hired_date',
         'terminated_date',
         'notes',
+        'extension_number',
+        'ucm_server_id',
     ];
 
     protected $casts = [
         'hired_date'      => 'date',
         'terminated_date' => 'date',
+        'ucm_server_id'   => 'integer',
     ];
 
     // ─────────────────────────────────────────────────────────────
@@ -64,6 +67,21 @@ class Employee extends Model
     public function identityUser(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(IdentityUser::class, 'azure_id', 'azure_id');
+    }
+
+    public function ucmServer()
+    {
+        return $this->belongsTo(\App\Models\UcmServer::class, 'ucm_server_id');
+    }
+
+    public function items()
+    {
+        return $this->hasMany(\App\Models\EmployeeItem::class);
+    }
+
+    public function activeItems()
+    {
+        return $this->hasMany(\App\Models\EmployeeItem::class)->whereNull('returned_date');
     }
 
     // ─────────────────────────────────────────────────────────────

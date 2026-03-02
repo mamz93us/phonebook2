@@ -26,7 +26,7 @@ class ExecuteWorkflowJob implements ShouldQueue
     {
         $workflow = WorkflowRequest::find($this->workflowId);
 
-        if (!$workflow) {
+        if (! $workflow) {
             Log::warning("ExecuteWorkflowJob: workflow #{$this->workflowId} not found.");
             return;
         }
@@ -36,32 +36,34 @@ class ExecuteWorkflowJob implements ShouldQueue
             return;
         }
 
-        $engine       = app(WorkflowEngine::class);
+        $engine        = app(WorkflowEngine::class);
         $notifications = app(NotificationService::class);
 
         try {
             $engine->logEvent($workflow, 'info', 'Execution job started.');
 
-            $provisioning = new UserProvisioningService($engine);
+            $provisioning = app(UserProvisioningService::class);
 
             match ($workflow->type) {
-                'create_user' => $provisioning->provisionUser($workflow),
-                'delete_user' => $provisioning->deprovisionUser($workflow),
-                default       => $engine->logEvent($workflow, 'info', "Workflow type {$workflow->type} has no automated execution handler."),
+                'create_user'      => $provisioning->provisionUser($workflow),
+                'delete_user'      => $provisioning->deprovisionUser($workflow),
+                'license_purchase' => $engine->logEvent($workflow, 'info', 'License purchase request approved — procurement team to proceed manually.'),
+                default            => $engine->logEvent($workflow, 'info', "Workflow type '{$workflow->type}' has no automated execution handler."),
             };
 
             $workflow->update(['status' => 'completed']);
             $engine->logEvent($workflow, 'success', 'Workflow execution completed successfully.');
 
-            // Notify requester
-            $notifications->notify(
-                $workflow->requested_by,
-                'workflow_complete',
-                "Request Completed — {$workflow->title}",
-                "Your request has been fully processed and completed.",
-                route('admin.workflows.show', $workflow->id),
-                'info'
-            );
+            if ($workflow->requested_by) {
+                $notifications->notify(
+                    $workflow->requested_by,
+                    'workflow_complete',
+                    "Request Completed — {$workflow->title}",
+                    'Your request has been fully processed and completed.',
+                    route('admin.workflows.show', $workflow->id),
+                    'info'
+                );
+            }
 
             Log::info("ExecuteWorkflowJob: workflow #{$this->workflowId} completed.");
 

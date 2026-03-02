@@ -243,4 +243,139 @@
     </div>
 </div>
 @endforeach
+
+{{-- ═══════════════════════════════════════════════════════════
+     Equipment Section (employee_items — standalone, not in device inventory)
+══════════════════════════════════════════════════════════════ --}}
+@can('manage-employees')
+<div class="card shadow-sm border-0 mt-4">
+    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+        <strong><i class="bi bi-laptop me-1"></i>Personal Equipment</strong>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addItemModal">
+            <i class="bi bi-plus-circle me-1"></i>Add Item
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th>Item</th>
+                    <th>Type</th>
+                    <th>Serial / Model</th>
+                    <th class="text-center">Condition</th>
+                    <th>Assigned</th>
+                    <th>Returned</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @forelse($employee->items as $item)
+            <tr class="{{ $item->returned_date ? 'text-muted' : '' }}">
+                <td class="fw-semibold">{{ $item->item_name }}</td>
+                <td><span class="badge {{ $item->typeBadgeClass() }}">{{ $item->typeLabel() }}</span></td>
+                <td>
+                    @if($item->serial_number)<div>SN: {{ $item->serial_number }}</div>@endif
+                    @if($item->model)<div class="text-muted">{{ $item->model }}</div>@endif
+                </td>
+                <td class="text-center">
+                    <span class="badge {{ $item->conditionBadgeClass() }}">{{ ucfirst($item->condition) }}</span>
+                </td>
+                <td>{{ $item->assigned_date ? \Carbon\Carbon::parse($item->assigned_date)->format('d M Y') : '—' }}</td>
+                <td>
+                    @if($item->returned_date)
+                    <span class="text-success">{{ \Carbon\Carbon::parse($item->returned_date)->format('d M Y') }}</span>
+                    @else
+                    <span class="text-muted">Active</span>
+                    @endif
+                </td>
+                <td class="text-end">
+                    @if(! $item->returned_date)
+                    <form method="POST" action="{{ route('admin.employees.items.return', [$employee->id, $item->id]) }}" class="d-inline">
+                        @csrf @method('PATCH')
+                        <input type="hidden" name="returned_date" value="{{ now()->toDateString() }}">
+                        <button type="submit" class="btn btn-outline-success btn-sm" onclick="return confirm('Mark as returned today?')">
+                            <i class="bi bi-box-arrow-in-left"></i> Return
+                        </button>
+                    </form>
+                    @endif
+                    <form method="POST" action="{{ route('admin.employees.items.destroy', [$employee->id, $item->id]) }}" class="d-inline"
+                          onsubmit="return confirm('Remove this item?')">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+                    </form>
+                </td>
+            </tr>
+            @empty
+            <tr><td colspan="7" class="text-center text-muted py-3">No equipment assigned to this employee.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{-- Add Item Modal --}}
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('admin.employees.items.store', $employee->id) }}">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-laptop me-2"></i>Add Equipment Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Item Name <span class="text-danger">*</span></label>
+                            <input type="text" name="item_name" class="form-control" placeholder="e.g. Dell XPS 15 Laptop" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Type <span class="text-danger">*</span></label>
+                            <select name="item_type" class="form-select" required>
+                                <option value="laptop">Laptop</option>
+                                <option value="desktop">Desktop</option>
+                                <option value="phone">Phone</option>
+                                <option value="headset">Headset</option>
+                                <option value="tablet">Tablet</option>
+                                <option value="keyboard">Keyboard</option>
+                                <option value="mouse">Mouse</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Condition <span class="text-danger">*</span></label>
+                            <select name="condition" class="form-select" required>
+                                <option value="good">Good</option>
+                                <option value="fair">Fair</option>
+                                <option value="poor">Poor</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Serial Number</label>
+                            <input type="text" name="serial_number" class="form-control" placeholder="Optional">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Model</label>
+                            <input type="text" name="model" class="form-control" placeholder="Optional">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Assigned Date <span class="text-danger">*</span></label>
+                            <input type="date" name="assigned_date" class="form-control" value="{{ now()->toDateString() }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-plus me-1"></i>Add Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endcan
+
 @endsection

@@ -6,23 +6,12 @@ use App\Jobs\ExecuteWorkflowJob;
 use App\Models\WorkflowLog;
 use App\Models\WorkflowRequest;
 use App\Models\WorkflowStep;
+use App\Models\WorkflowTemplate;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 
 class WorkflowEngine
 {
-    // Approval chain definition: type => [role, role, ...]
-    private const CHAINS = [
-        'create_user'       => ['hr', 'it_manager'],
-        'delete_user'       => ['it_manager', 'super_admin'],
-        'license_change'    => ['it_manager'],
-        'asset_assign'      => ['manager'],
-        'asset_return'      => ['manager'],
-        'extension_create'  => ['it_manager'],
-        'extension_delete'  => ['it_manager'],
-        'other'             => ['it_manager'],
-    ];
-
     public function __construct(private NotificationService $notifications) {}
 
     // ─────────────────────────────────────────────────────────────
@@ -30,14 +19,18 @@ class WorkflowEngine
     // ─────────────────────────────────────────────────────────────
 
     public function createRequest(
-        string $type,
-        array $payload,
-        ?int $branchId,
-        int $requestedBy,
-        string $title,
+        string  $type,
+        array   $payload,
+        ?int    $branchId,
+        ?int    $requestedBy,
+        string  $title,
         ?string $description = null
     ): WorkflowRequest {
-        $chain = self::CHAINS[$type] ?? ['it_manager'];
+        // Resolve approval chain from DB template (falls back to ['it_manager'])
+        $template = WorkflowTemplate::where('type_slug', $type)
+            ->where('is_active', 1)
+            ->first();
+        $chain = $template?->approval_chain ?? ['it_manager'];
 
         $workflow = WorkflowRequest::create([
             'type'         => $type,
@@ -52,7 +45,9 @@ class WorkflowEngine
         ]);
 
         $this->buildApprovalChain($workflow, $chain);
-        $this->logEvent($workflow, 'info', "Workflow created by user #{$requestedBy}: {$title}");
+
+        $actor = $requestedBy ? "user #{$requestedBy}" : 'system';
+        $this->logEvent($workflow, 'info', "Workflow created by {$actor}: {$title}");
 
         // Notify approvers of step 1
         $this->notifyApprovers($workflow, 1);
@@ -84,7 +79,7 @@ class WorkflowEngine
     {
         $step = $workflow->currentStepRecord();
 
-        if (!$step || $step->status !== 'pending') {
+        if (! $step || $step->status !== 'pending') {
             throw new \RuntimeException('No pending step to approve.');
         }
 
@@ -97,15 +92,16 @@ class WorkflowEngine
 
         $this->logEvent($workflow, 'success', "Step {$step->step_number} approved by {$user->name}" . ($comments ? ": {$comments}" : ''));
 
-        // Notify requester
-        $this->notifications->notify(
-            $workflow->requested_by,
-            'approval_action',
-            "Step {$step->step_number} Approved — {$workflow->title}",
-            "{$user->name} approved step {$step->step_number} ({$step->approverRoleLabel()}).",
-            route('admin.workflows.show', $workflow->id),
-            'info'
-        );
+        if ($workflow->requested_by) {
+            $this->notifications->notify(
+                $workflow->requested_by,
+                'approval_action',
+                "Step {$step->step_number} Approved — {$workflow->title}",
+                "{$user->name} approved step {$step->step_number} ({$step->approverRoleLabel()}).",
+                route('admin.workflows.show', $workflow->id),
+                'info'
+            );
+        }
 
         $this->moveToNextStep($workflow);
     }
@@ -114,7 +110,7 @@ class WorkflowEngine
     {
         $step = $workflow->currentStepRecord();
 
-        if (!$step || $step->status !== 'pending') {
+        if (! $step || $step->status !== 'pending') {
             throw new \RuntimeException('No pending step to reject.');
         }
 
@@ -128,15 +124,16 @@ class WorkflowEngine
         $workflow->update(['status' => 'rejected']);
         $this->logEvent($workflow, 'error', "Step {$step->step_number} rejected by {$user->name}" . ($comments ? ": {$comments}" : ''));
 
-        // Notify requester
-        $this->notifications->notify(
-            $workflow->requested_by,
-            'approval_action',
-            "Request Rejected — {$workflow->title}",
-            "{$user->name} rejected this request at step {$step->step_number}." . ($comments ? " Reason: {$comments}" : ''),
-            route('admin.workflows.show', $workflow->id),
-            'warning'
-        );
+        if ($workflow->requested_by) {
+            $this->notifications->notify(
+                $workflow->requested_by,
+                'approval_action',
+                "Request Rejected — {$workflow->title}",
+                "{$user->name} rejected this request at step {$step->step_number}." . ($comments ? " Reason: {$comments}" : ''),
+                route('admin.workflows.show', $workflow->id),
+                'warning'
+            );
+        }
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -149,12 +146,10 @@ class WorkflowEngine
         $nextStep = $workflow->current_step + 1;
 
         if ($nextStep > $workflow->total_steps) {
-            // All steps approved — execute
             $workflow->update(['status' => 'approved']);
             $this->logEvent($workflow, 'success', 'All approval steps completed. Queuing execution.');
             $this->executeWorkflow($workflow);
         } else {
-            // Move to next step
             $workflow->update(['current_step' => $nextStep]);
             $this->logEvent($workflow, 'info', "Advanced to step {$nextStep}.");
             $this->notifyApprovers($workflow, $nextStep);
@@ -184,19 +179,21 @@ class WorkflowEngine
         $this->notifications->notifyAdmins(
             'workflow_failed',
             "Workflow Failed — {$workflow->title}",
-            "Workflow #{$workflow->id} ({$workflow->typeLabel()}) failed during execution: {$message}",
+            "Workflow #{$workflow->id} ({$workflow->typeLabel()}) failed: {$message}",
             route('admin.workflows.show', $workflow->id),
             'critical'
         );
 
-        $this->notifications->notify(
-            $workflow->requested_by,
-            'workflow_failed',
-            "Your Request Failed — {$workflow->title}",
-            "Your request could not be completed: {$message}",
-            route('admin.workflows.show', $workflow->id),
-            'critical'
-        );
+        if ($workflow->requested_by) {
+            $this->notifications->notify(
+                $workflow->requested_by,
+                'workflow_failed',
+                "Your Request Failed — {$workflow->title}",
+                "Your request could not be completed: {$message}",
+                route('admin.workflows.show', $workflow->id),
+                'critical'
+            );
+        }
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -224,9 +221,8 @@ class WorkflowEngine
             ->where('step_number', $stepNumber)
             ->first();
 
-        if (!$step) return;
+        if (! $step) return;
 
-        // If assigned to specific user
         if ($step->approver_id) {
             $this->notifications->notify(
                 $step->approver_id,
@@ -239,7 +235,6 @@ class WorkflowEngine
             return;
         }
 
-        // Role-based: notify all admins (simplified)
         $this->notifications->notifyAdmins(
             'approval_request',
             "Approval Required — {$workflow->title}",

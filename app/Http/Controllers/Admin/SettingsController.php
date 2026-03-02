@@ -358,4 +358,46 @@ class SettingsController extends Controller
         $department->delete();
         return back()->with('success', "Department \"{$name}\" deleted.");
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // Provisioning Settings
+    // ─────────────────────────────────────────────────────────────
+
+    public function updateProvisioning(Request $request)
+    {
+        $request->validate([
+            'upn_domain'              => 'nullable|string|max:100',
+            'default_ucm_id'          => 'nullable|exists:ucm_servers,id',
+            'ext_range_start'         => 'nullable|integer|min:1',
+            'ext_range_end'           => 'nullable|integer|min:1',
+            'ext_default_secret'      => 'nullable|string|max:100',
+            'ext_default_permission'  => 'nullable|in:internal,local,national,international',
+            'profile_office_template' => 'nullable|string|max:255',
+            'profile_phone_template'  => 'nullable|string|max:255',
+        ]);
+
+        $settings = Setting::get();
+        $settings->upn_domain              = $request->upn_domain;
+        $settings->default_ucm_id          = $request->default_ucm_id ?: null;
+        $settings->ext_range_start         = $request->ext_range_start ?: 1000;
+        $settings->ext_range_end           = $request->ext_range_end   ?: 1999;
+        $settings->ext_default_secret      = $request->ext_default_secret;
+        $settings->ext_default_permission  = $request->ext_default_permission ?: 'local';
+        $settings->profile_office_template = $request->profile_office_template;
+        $settings->profile_phone_template  = $request->profile_phone_template;
+        $settings->save();
+
+        ActivityLog::create([
+            'model_type' => 'Setting',
+            'model_id'   => 1,
+            'action'     => 'updated',
+            'changes'    => ['section' => 'provisioning', 'upn_domain' => $request->upn_domain],
+            'user_id'    => Auth::id(),
+        ]);
+
+        return redirect()
+            ->route('admin.settings.index')
+            ->with('success', 'Provisioning settings updated.')
+            ->withFragment('provisioning');
+    }
 }
