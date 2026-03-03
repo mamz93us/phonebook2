@@ -49,17 +49,21 @@ class ExtensionProvisioningService
         $api = new IppbxApiService($server);
         $api->login();
 
+        $defaultSecret = $settings->ext_default_secret ?: 'changeme1@3';
+
         $result = $api->createExtension([
-            'extension'    => $extension,
-            'fullname'     => $displayName,
-            'email'        => $email,
-            'hasvoicemail' => 'no',
-            'call_waiting' => 'no',
+            'extension'     => $extension,
+            'fullname'      => $displayName,
+            'email'         => $email,
+            'hasvoicemail'  => 'no',
+            'call_waiting'  => 'no',
             // UCM password complexity policy requires uppercase+lowercase+digit+special char.
             // Do NOT strip special characters — they are required, not forbidden.
-            'secret'       => ($settings->ext_default_secret ?: 'changeme1@3'),
+            'secret'        => $defaultSecret,
+            'user_password' => $defaultSecret, // Required by addSIPAccountAndUser
+            'vmsecret'      => $defaultSecret, // Required by addSIPAccountAndUser
             // UCM permission values must be the full cumulative strings (per API docs)
-            'permission'   => $settings->ext_default_permission ?: 'internal-local',
+            'permission'    => $settings->ext_default_permission ?: 'internal-local',
         ]);
 
         $api->applyChanges();

@@ -81,11 +81,12 @@ class ExtensionController extends Controller
 
             // ── Step 1: Create extension with MINIMUM required fields only ──
             // Sending extra/undocumented fields to addSIPAccountAndUser can trigger -25.
-            // The API docs only guarantee: extension, secret, user_password, permission.
+            // The API docs specifically show: extension, secret, user_password, vmsecret, permission.
             $api->createExtension([
                 'extension'     => $data['extension'],
                 'secret'        => $data['secret'],
                 'user_password' => $data['user_password'],
+                'vmsecret'      => $data['secret'], // UCM expects vmsecret too
                 'permission'    => $data['permission'],
             ]);
 
