@@ -342,6 +342,12 @@
                                     <i class="bi bi-grid-1x2-fill me-2"></i>Departments
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.settings.domains') ? 'active' : '' }}"
+                                   href="{{ route('admin.settings.domains') }}">
+                                    <i class="bi bi-globe me-2"></i>Allowed Domains
+                                </a>
+                            </li>
                             <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header text-secondary"><i class="bi bi-cloud-check me-1"></i>Provisioning</h6></li>
                             <li>
