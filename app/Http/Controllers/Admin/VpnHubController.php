@@ -223,7 +223,7 @@ class VpnHubController extends Controller
 
         return response()->json([
             'is_up' => $isEstablished,
-            'raw_output' => $this->sanitizeLog($result['output'] ?? 'No status output available.')
+            'raw_output' => $this->sanitizeLog($result['output'] ?? (is_string($result) ? $result : 'No status output available.'))
         ]);
     }
 
@@ -247,7 +247,13 @@ class VpnHubController extends Controller
     protected function sanitizeLog($text)
     {
         if (!$text) return '';
-        // Force UTF-8 and remove invalid characters to prevent JSON 500 errors
-        return mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+        if (is_array($text)) $text = print_r($text, true);
+        
+        // Force UTF-8 and discard invalid sequences (aggressive)
+        // Using //IGNORE to drop characters that can't be represented
+        $clean = iconv('UTF-8', 'UTF-8//IGNORE', $text);
+        
+        // Final safety net to ensure JSON encoding never fails
+        return mb_convert_encoding($clean, 'UTF-8', 'UTF-8');
     }
 }
