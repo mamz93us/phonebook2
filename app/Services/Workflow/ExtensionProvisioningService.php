@@ -49,13 +49,17 @@ class ExtensionProvisioningService
         $api = new IppbxApiService($server);
         $api->login();
 
-        $defaultSecret = $settings->ext_default_secret ?: 'changeme1@3';
+        // UCM strictly requires an alphanumeric password WITH special characters
+        $complexSecret = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 6) . 
+                         substr(str_shuffle('0123456789'), 0, 3) . 
+                         substr(str_shuffle('!@#$%^&*_+?'), 0, 3);
+        $complexSecret = str_shuffle($complexSecret);
 
         // 1. Create with minimal required fields (avoids error -25)
         $result = $api->createExtension([
             'extension'     => $extension,
-            'secret'        => $defaultSecret,
-            'user_password' => $defaultSecret, 
+            'secret'        => $complexSecret,
+            'user_password' => $complexSecret, 
             'vmsecret'      => (string) random_int(100000, 999999),
             'permission'    => $settings->ext_default_permission ?: 'internal-local',
         ]);
