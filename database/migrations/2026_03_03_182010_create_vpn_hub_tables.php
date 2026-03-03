@@ -14,7 +14,8 @@ return new class extends Migration
         // ── 1. VPN Tunnels ──
         Schema::create('vpn_tunnels', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
+            $table->unsignedInteger('branch_id');
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->string('name')->unique();
             $table->string('remote_public_ip');
             $table->string('remote_subnet');
@@ -43,7 +44,8 @@ return new class extends Migration
         // ── 3. Monitored Hosts ──
         Schema::create('monitored_hosts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->nullable()->constrained()->onDelete('set null');
+            $table->unsignedInteger('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('set null');
             $table->foreignId('vpn_id')->nullable()->constrained('vpn_tunnels')->onDelete('set null');
             $table->string('name');
             $table->string('ip');
