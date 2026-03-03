@@ -29,7 +29,9 @@ class SyncGdmsContacts extends Command
 
         do {
             $pageData = $gdms->listSipAccounts($pageNum, $pageSize);
-            $accounts = $pageData['list'] ?? [];
+            
+            // GDMS API returns the items inside 'result' or 'list'
+            $accounts = $pageData['list'] ?? $pageData['result'] ?? [];
             $total    = $pageData['total'] ?? count($accounts);
 
             if ($pageNum === 1) {
