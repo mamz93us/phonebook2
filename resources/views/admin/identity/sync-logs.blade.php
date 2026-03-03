@@ -33,6 +33,9 @@
 @if(session('success'))
 <div class="alert alert-success alert-dismissible fade show py-2"><i class="bi bi-check-circle me-1"></i>{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
 @endif
+@if(session('info'))
+<div class="alert alert-info alert-dismissible fade show py-2"><i class="bi bi-arrow-repeat me-1"></i>{{ session('info') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+@endif
 @if(session('error'))
 <div class="alert alert-danger alert-dismissible fade show py-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
 @endif
@@ -91,10 +94,11 @@
     </div>
 </div>
 
-{{-- Auto-refresh every 5 s while a sync is in progress --}}
-@if($hasPending)
+{{-- Auto-refresh while a sync is in progress or was just dispatched --}}
+@if($hasPending || session('info'))
 @push('scripts')
-<script>setTimeout(() => location.reload(), 5000);</script>
+{{-- 2 s on first load after dispatch (lets artisan create the log entry), 5 s thereafter --}}
+<script>setTimeout(() => location.reload(), {{ $hasPending ? 5000 : 2000 }});</script>
 @endpush
 @endif
 

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SyncIdentityData;
 use App\Models\ActivityLog;
 use App\Models\IdentityGroup;
 use App\Models\IdentityLicense;
@@ -135,11 +134,6 @@ class IdentityController extends Controller
 
     public function sync()
     {
-        // Keep running even if NGINX closes the HTTP connection (fastcgi_read_timeout).
-        // Without this, the sync silently dies mid-run and the log stays "started" forever.
-        ignore_user_abort(true);
-        set_time_limit(600);
-
         $settings = Setting::get();
 
         if (!$settings->identity_sync_enabled) {
@@ -151,9 +145,7 @@ class IdentityController extends Controller
         }
 
         // ── Clean up orphaned "started" logs older than 10 minutes ──
-        // These are left behind when a previous sync was killed mid-run
-        // (e.g. PHP timeout, server restart). Mark them failed so the
-        // "Sync in progress…" banner disappears.
+        // These are left behind when a previous sync was killed mid-run.
         IdentitySyncLog::where('status', 'started')
             ->where('started_at', '<', now()->subMinutes(10))
             ->update([
@@ -162,35 +154,34 @@ class IdentityController extends Controller
                 'completed_at'  => now(),
             ]);
 
-        try {
-            (new SyncIdentityData())->handle();
+        // ── Prevent double-dispatch if sync is already running ──
+        $alreadyRunning = IdentitySyncLog::where('status', 'started')
+            ->where('started_at', '>=', now()->subMinutes(10))
+            ->exists();
 
-            $lastLog = IdentitySyncLog::where('status', 'completed')->latest()->first();
-            $msg = 'Identity sync completed successfully.';
-            if ($lastLog) {
-                $msg .= " Users: {$lastLog->users_synced}, Licenses: {$lastLog->licenses_synced}, Groups: {$lastLog->groups_synced}.";
-            }
-
-            ActivityLog::create([
-                'model_type' => 'Identity',
-                'model_id'   => 0,
-                'action'     => 'synced',
-                'changes'    => ['type' => 'identity_sync_completed'],
-                'user_id'    => Auth::id(),
-            ]);
-
-            return redirect()->route('admin.identity.sync-logs')->with('success', $msg);
-        } catch (\Exception $e) {
-            ActivityLog::create([
-                'model_type' => 'Identity',
-                'model_id'   => 0,
-                'action'     => 'sync_failed',
-                'changes'    => ['error' => $e->getMessage()],
-                'user_id'    => Auth::id(),
-            ]);
-
-            return back()->with('error', 'Sync failed: ' . $e->getMessage());
+        if ($alreadyRunning) {
+            return redirect()->route('admin.identity.sync-logs')
+                ->with('info', 'A sync is already in progress. Check back in a moment.');
         }
+
+        // ── Dispatch as background artisan CLI process ──
+        // Running inline in the HTTP request means PHP-FPM's request_terminate_timeout
+        // (and NGINX fastcgi_read_timeout) can kill the process mid-sync regardless of
+        // ignore_user_abort(). PHP CLI has no such timeouts — it runs until completion.
+        $php     = PHP_BINARY;
+        $artisan = escapeshellarg(base_path('artisan'));
+        exec("nohup {$php} {$artisan} identity:sync > /dev/null 2>&1 &");
+
+        ActivityLog::create([
+            'model_type' => 'Identity',
+            'model_id'   => 0,
+            'action'     => 'synced',
+            'changes'    => ['type' => 'identity_sync_started'],
+            'user_id'    => Auth::id(),
+        ]);
+
+        return redirect()->route('admin.identity.sync-logs')
+            ->with('info', 'Sync started in background — this page will refresh automatically.');
     }
 
     // ─────────────────────────────────────────────────────────────
