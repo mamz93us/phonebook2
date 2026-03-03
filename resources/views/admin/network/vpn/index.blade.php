@@ -195,10 +195,6 @@ function refreshTroubleshoot() {
 
 document.addEventListener('DOMContentLoaded', function() {
     const tunnels = @json($tunnels->pluck('id'));
-    
-    tunnels.forEach(id => {
-        fetchStatus(id);
-    });
 
     window.fetchStatus = function(id) {
         const container = document.getElementById(`status-${id}`);
@@ -228,7 +224,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 clearTimeout(timeoutId);
                 container.innerHTML = `<span class="text-warning small fw-bold">Timeout</span>`;
             });
-    }
+    };
+
+    tunnels.forEach(id => {
+        fetchStatus(id);
+    });
 });
 </script>
 @endpush
