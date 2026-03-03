@@ -40,6 +40,7 @@ class RolePermission extends Model
             'Network' => [
                 'view-network'            => 'View Network (Switches, Clients, Events)',
                 'manage-network-settings' => 'Manage Meraki Network Settings',
+                'manage-vpn-settings'     => 'Manage VPN Settings', // Added based on instruction context
                 'view-network-events'     => 'View Network Change Events',
             ],
             'Assets' => [
@@ -105,8 +106,7 @@ class RolePermission extends Model
         $all         = static::allSlugs();
         $adminPerms  = array_values(array_diff($all, [
             'manage-users', 'manage-permissions',
-            'manage-network-settings', 'manage-credentials',
-            'manage-identity-settings',
+            'manage-credentials', 'manage-identity-settings',
         ]));
         $viewerPerms = [
             'view-branches', 'view-contacts',

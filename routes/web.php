@@ -369,7 +369,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     });
 
     // ─── VPN Hub ──────────────────────────────────────────────
-    Route::middleware(['auth', 'can:manage-network-settings'])->prefix('network/vpn')->name('network.vpn.')->group(function () {
+    Route::middleware(['auth', 'permission:manage-network-settings'])->prefix('network/vpn')->name('network.vpn.')->group(function () {
         Route::get('/',                 [VpnHubController::class, 'index'])->name('index');
         Route::get('/create',           [VpnHubController::class, 'create'])->name('create');
         Route::post('/',                [VpnHubController::class, 'store'])->name('store');
@@ -383,14 +383,14 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     });
 
     // ─── Diagnostics ──────────────────────────────────────────
-    Route::middleware(['auth', 'can:manage-network-settings'])->prefix('network/diagnostics')->name('network.diagnostics.')->group(function () {
+    Route::middleware(['auth', 'permission:manage-network-settings'])->prefix('network/diagnostics')->name('network.diagnostics.')->group(function () {
         Route::get('/',         [DiagnosticsController::class, 'index'])->name('index');
         Route::post('/ping',    [DiagnosticsController::class, 'ping'])->name('ping');
         Route::post('/tcp-check', [DiagnosticsController::class, 'tcpCheck'])->name('tcp-check');
     });
 
     // ─── SNMP Monitoring ──────────────────────────────────────
-    Route::middleware(['auth', 'can:manage-network-settings'])->prefix('network/monitoring')->name('network.monitoring.')->group(function () {
+    Route::middleware(['auth', 'permission:manage-network-settings'])->prefix('network/monitoring')->name('network.monitoring.')->group(function () {
         Route::get('/',             [SnmpMonitoringController::class, 'index'])->name('index');
         Route::get('/hosts/{host}', [SnmpMonitoringController::class, 'show'])->name('show');
         Route::post('/hosts',       [SnmpMonitoringController::class, 'storeHost'])->name('hosts.store');
