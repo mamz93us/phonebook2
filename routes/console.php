@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Setting;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -13,25 +12,28 @@ Artisan::command('inspire', function () {
 // Load intervals from DB (with safe defaults if not yet configured).
 // ──────────────────────────────────────────────────────────────────────
 $settings = \App\Models\Setting::first();
-$gdmsInterval     = $settings?->gdms_sync_interval     ?: 5;     // default 5 min
-$merakiInterval   = $settings?->meraki_polling_interval ?: 5;     // default 5 min
-$identityInterval = $settings?->identity_sync_interval  ?: 720;   // default 12 h (720 min)
+$gdmsInterval     = max(1, (int) ($settings?->gdms_sync_interval     ?: 5));
+$merakiInterval   = max(1, (int) ($settings?->meraki_polling_interval ?: 5));
+$identityInterval = max(1, (int) ($settings?->identity_sync_interval  ?: 720));
+
+// Helper: build cron expression for "every N minutes"
+$everyN = fn(int $n): string => $n === 1 ? '* * * * *' : "*/{$n} * * * *";
 
 // GDMS Contact Sync
 Schedule::command('gdms:sync-contacts')
-    ->everyMinutes($gdmsInterval)
+    ->cron($everyN($gdmsInterval))
     ->withoutOverlapping(15)
     ->runInBackground();
 
 // Meraki Network Sync
 Schedule::command('meraki:sync')
-    ->everyMinutes($merakiInterval)
+    ->cron($everyN($merakiInterval))
     ->withoutOverlapping(10)
     ->runInBackground();
 
 // Azure / Entra ID Identity Sync
 Schedule::command('identity:sync')
-    ->everyMinutes($identityInterval)
+    ->cron($everyN($identityInterval))
     ->withoutOverlapping(30)
     ->runInBackground();
 
