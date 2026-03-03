@@ -373,7 +373,7 @@
 {{-- ─────────────────────────────────────────────────────── --}}
 {{-- Microsoft Graph / Identity Section                     --}}
 {{-- ─────────────────────────────────────────────────────── --}}
-@can('manage-identity-settings')
+{{-- Graph API section visible to all admins --}}
 <div class="card mt-4" id="graph">
     <div class="card-header d-flex align-items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 23 23">
@@ -472,7 +472,7 @@
         </form>
     </div>
 </div>
-@endcan
+{{-- end graph section --}}
 
 {{-- ─────────────────────────────────────────────────────── --}}
 {{-- SMTP Email (Outgoing Mail) Section                     --}}
