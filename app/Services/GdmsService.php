@@ -52,7 +52,7 @@ class GdmsService
     /**
      * List SIP accounts (v1.0.0) with same pattern as your working Postman request.
      */
-    public function listSipAccounts(int $pageNum = 1, int $pageSize = 1000): array
+    public function listSipAccounts(int $pageNum = 1, int $pageSize = 100): array
     {
         $token     = $this->getToken();
         $timestamp = (string) round(microtime(true) * 1000);
@@ -100,8 +100,21 @@ class GdmsService
 
         $data = $response->json();
 
-        // The sip/account/list endpoint returns {result:[...], total:N, pages:N, pageNum:N, pageSize:N}
-        // (no 'retCode' or 'data' wrapper — different from other GDMS endpoints)
+        // Log raw response for debugging (first page only)
+        if ($pageNum === 1) {
+            \Illuminate\Support\Facades\Log::debug('GDMS listSipAccounts raw response', [
+                'status'   => $response->status(),
+                'keys'     => array_keys($data ?? []),
+                'has_result' => isset($data['result']),
+                'result_type' => gettype($data['result'] ?? null),
+                'result_count' => is_array($data['result'] ?? null) ? count($data['result']) : 'N/A',
+                'total'    => $data['total'] ?? 'N/A',
+                'retCode'  => $data['retCode'] ?? 'N/A',
+                'msg'      => $data['msg'] ?? 'N/A',
+            ]);
+        }
+
+        // sip/account/list returns {result:[...], total:N, pages:N}
         if (isset($data['result']) && is_array($data['result'])) {
             return [
                 'list'     => $data['result'],
@@ -112,7 +125,7 @@ class GdmsService
             ];
         }
 
-        // Legacy fallback: some GDMS endpoints wrap in data.list
+        // Legacy fallback: data.list wrapper
         if (isset($data['data']['list'])) {
             return [
                 'list'  => $data['data']['list'],
@@ -120,7 +133,7 @@ class GdmsService
             ];
         }
 
-        // If there's an explicit error code, throw
+        // Explicit GDMS error
         if (isset($data['retCode']) && $data['retCode'] !== 0) {
             throw new \RuntimeException('GDMS error: '.($data['msg'] ?? json_encode($data)));
         }
