@@ -258,6 +258,14 @@ class IppbxApiService
             if (isset($debugPayload['user_password'])) $debugPayload['user_password'] = str_repeat('*', strlen($debugPayload['user_password'])) . ' [len=' . strlen($data['user_password']) . ', alnum=' . (ctype_alnum($data['user_password']) ? 'yes' : 'NO') . ']';
             Log::error('IppbxApiService: createExtension failed', ['status' => $status, 'payload' => $debugPayload, 'response' => $resp]);
 
+            // ALSO log the FULL unmasked request JSON for deep debugging (TEMPORARY)
+            Log::error('IppbxApiService: createExtension RAW DEBUG', [
+                'raw_json_sent' => json_encode(['request' => array_merge([
+                    'action' => 'addSIPAccountAndUser',
+                    'cookie' => '[REDACTED]',
+                ], $data)]),
+            ]);
+
             throw new \RuntimeException('addSIPAccountAndUser failed: ' . json_encode($resp) . $hint);
         }
 
