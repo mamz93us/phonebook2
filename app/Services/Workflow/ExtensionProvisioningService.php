@@ -104,6 +104,8 @@ class ExtensionProvisioningService
             ]);
         }
 
+        // Wait for UCM cooldown — createExtension() already called applyChanges() internally
+        sleep(16);
         $api->applyChanges();
 
         return $result;
