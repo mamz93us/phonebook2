@@ -11,3 +11,8 @@ Artisan::command('inspire', function () {
 Schedule::command('gdms:sync-contacts')->everyFiveMinutes();
 Schedule::job(new \App\Jobs\RunNocAlertsJob)->everyFiveMinutes();
 Schedule::job(new \App\Jobs\CheckLicenseMonitorsJob)->hourly();
+
+// Identity Sync: runs twice daily at 06:00 and 18:00
+Schedule::command('identity:sync')->twiceDaily(6, 18)
+    ->withoutOverlapping(30) // prevent duplicate runs
+    ->runInBackground();     // run in a separate process so scheduler isn't blocked

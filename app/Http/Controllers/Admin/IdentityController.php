@@ -146,7 +146,6 @@ class IdentityController extends Controller
         }
 
         // ── Clean up orphaned "started" logs older than 10 minutes ──
-        // These are left behind when a previous sync was killed mid-run.
         IdentitySyncLog::where('status', 'started')
             ->where('started_at', '<', now()->subMinutes(10))
             ->update([
@@ -173,23 +172,16 @@ class IdentityController extends Controller
             'user_id'    => Auth::id(),
         ]);
 
-        // ── Run sync AFTER the HTTP response is delivered ──
-        // app()->terminating() runs during $kernel->terminate(), which is called
-        // AFTER $response->send() — the browser already received its redirect.
-        // Calling fastcgi_finish_request() inside the callback closes the FastCGI
-        // connection to NGINX so fastcgi_read_timeout stops ticking.
-        // PHP continues freely with set_time_limit(0).
-        app()->terminating(function () {
-            if (function_exists('fastcgi_finish_request')) {
-                fastcgi_finish_request();
-            }
-            set_time_limit(0);
-            ignore_user_abort(true);
-            (new SyncIdentityData())->handle();
-        });
+        // ── Run sync as a background CLI process ──
+        // This is completely independent of the web request, so PHP-FPM
+        // won't kill it due to request_terminate_timeout or memory limits.
+        $phpBin   = PHP_BINARY ?: 'php';
+        $artisan  = base_path('artisan');
+        $command  = sprintf('%s %s identity:sync > /dev/null 2>&1 &', escapeshellarg($phpBin), escapeshellarg($artisan));
+        exec($command);
 
         return redirect()->route('admin.identity.sync-logs')
-            ->with('info', 'Sync started — this page will refresh automatically.');
+            ->with('info', 'Sync started in the background — this page will refresh automatically.');
     }
 
     // ─────────────────────────────────────────────────────────────
