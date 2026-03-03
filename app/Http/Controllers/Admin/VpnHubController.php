@@ -29,7 +29,8 @@ class VpnHubController extends Controller
     public function create()
     {
         $branches = Branch::orderBy('name')->get();
-        return view('admin.network.vpn.create', compact('branches'));
+        $defaultLocalSubnet = config('vpn.local_subnet');
+        return view('admin.network.vpn.create', compact('branches', 'defaultLocalSubnet'));
     }
 
     public function store(Request $request)
@@ -38,8 +39,8 @@ class VpnHubController extends Controller
             'branch_id'        => 'required|exists:branches,id',
             'name'             => 'required|string|max:255|unique:vpn_tunnels,name|regex:/^[a-zA-Z0-9_]+$/',
             'remote_public_ip' => 'required|ip',
-            'remote_subnet'    => 'required|string',
-            'local_subnet'     => 'required|string',
+            'remote_subnet'    => 'required|string', // Comma separated allowed
+            'local_subnet'     => 'required|string',  // Comma separated allowed
             'pre_shared_key'   => 'required|string',
             'ike_version'      => 'required|in:IKEv2,IKEv1',
             'encryption'       => 'required|string',
@@ -100,8 +101,8 @@ class VpnHubController extends Controller
             'branch_id'        => 'required|exists:branches,id',
             'name'             => 'required|string|max:255|unique:vpn_tunnels,name,' . $tunnel->id . '|regex:/^[a-zA-Z0-9_]+$/',
             'remote_public_ip' => 'required|ip',
-            'remote_subnet'    => 'required|string',
-            'local_subnet'     => 'required|string',
+            'remote_subnet'    => 'required|string', // Comma separated allowed
+            'local_subnet'     => 'required|string',  // Comma separated allowed
             'pre_shared_key'   => 'nullable|string',
             'ike_version'      => 'required|in:IKEv2,IKEv1',
             'encryption'       => 'required|string',

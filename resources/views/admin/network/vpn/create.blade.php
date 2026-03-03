@@ -51,13 +51,15 @@
                             <label class="form-label fw-bold">Remote Subnet(s)</label>
                             <input type="text" name="remote_subnet" class="form-control @error('remote_subnet') is-invalid @enderror" 
                                    value="{{ old('remote_subnet') }}" placeholder="e.g. 192.168.2.0/24" required>
+                            <div class="form-text small">Multiple subnets: <code>10.1.0.0/24, 10.2.0.0/24</code></div>
                             @error('remote_subnet') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Local Subnet(s)</label>
                             <input type="text" name="local_subnet" class="form-control @error('local_subnet') is-invalid @enderror" 
-                                   value="{{ old('local_subnet') }}" placeholder="e.g. 192.168.1.0/24" required>
+                                   value="{{ old('local_subnet', $defaultLocalSubnet) }}" placeholder="e.g. 10.0.0.0/16" required>
+                            <div class="form-text small">Multiple subnets: <code>10.0.0.0/16, 172.16.0.0/12</code></div>
                             @error('local_subnet') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
