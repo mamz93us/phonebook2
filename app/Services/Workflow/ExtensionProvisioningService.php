@@ -51,7 +51,9 @@ class ExtensionProvisioningService
         $api->login();
 
         // UCM strictly requires an alphanumeric password WITH special characters
-        $complexSecret = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 6) . 
+        // AND it must contain at least one uppercase and one lowercase letter.
+        $complexSecret = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz'), 0, 3) . 
+                         substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 3) . 
                          substr(str_shuffle('0123456789'), 0, 3) . 
                          substr(str_shuffle('!@#$%^&*_+?'), 0, 3);
         $complexSecret = str_shuffle($complexSecret);
@@ -68,11 +70,11 @@ class ExtensionProvisioningService
 
         // 1. Create with minimal required fields (avoids error -25)
         $result = $api->createExtension([
-            'extension'     => $extension,
-            'secret'        => $complexSecret,
-            'user_password' => $complexSecret, 
+            'extension'     => (string) $extension,
+            'secret'        => (string) $complexSecret,
+            'user_password' => (string) $complexSecret,
             'vmsecret'      => (string) random_int(100000, 999999),
-            'permission'    => $finalPerm,
+            'permission'    => (string) $finalPerm,
         ]);
 
         // 2. Update with user profile data and SIP options
