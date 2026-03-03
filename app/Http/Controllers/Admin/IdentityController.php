@@ -173,15 +173,19 @@ class IdentityController extends Controller
         ]);
 
         // ── Run sync as a background CLI process ──
-        // Using nohup + proc_open so it survives the HTTP request lifecycle
-        // and isn't killed by PHP-FPM's request_terminate_timeout.
-        $phpBin  = PHP_BINARY ?: '/usr/bin/php';
+        // PHP_BINARY in FPM context = php-fpm binary, NOT the CLI php.
+        // We detect the real CLI binary from common install paths.
+        $phpCli = null;
+        foreach (['/usr/bin/php', '/usr/bin/php8.3', '/usr/bin/php8.2', '/usr/bin/php8.1', '/usr/local/bin/php'] as $candidate) {
+            if (is_executable($candidate)) { $phpCli = $candidate; break; }
+        }
+        $phpCli  = $phpCli ?: 'php'; // last resort
         $artisan = base_path('artisan');
         $logFile = storage_path('logs/identity-sync.log');
 
         $cmd = sprintf(
             'nohup %s %s identity:sync >> %s 2>&1 &',
-            escapeshellarg($phpBin),
+            escapeshellarg($phpCli),
             escapeshellarg($artisan),
             escapeshellarg($logFile)
         );

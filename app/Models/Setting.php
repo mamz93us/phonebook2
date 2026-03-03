@@ -46,6 +46,13 @@ class Setting extends Model
         'ext_default_permission',
         'profile_office_template',
         'profile_phone_template',
+        // GDMS API
+        'gdms_base_url',
+        'gdms_client_id',
+        'gdms_client_secret',
+        'gdms_org_id',
+        'gdms_username',
+        'gdms_password_hash',
     ];
 
     protected $casts = [
@@ -132,6 +139,23 @@ class Setting extends Model
     }
 
     public function getSmtpPasswordAttribute(?string $value): ?string
+    {
+        if (!$value) return null;
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    // ─── GDMS client secret — encrypted at rest ───────────────────
+
+    public function setGdmsClientSecretAttribute(?string $value): void
+    {
+        $this->attributes['gdms_client_secret'] = $value ? Crypt::encryptString($value) : null;
+    }
+
+    public function getGdmsClientSecretAttribute(?string $value): ?string
     {
         if (!$value) return null;
         try {

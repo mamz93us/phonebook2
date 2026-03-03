@@ -475,6 +475,80 @@
 {{-- end graph section --}}
 
 {{-- ─────────────────────────────────────────────────────── --}}
+{{-- GDMS API Section                                       --}}
+{{-- ─────────────────────────────────────────────────────── --}}
+<div class="card mt-4" id="gdms">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-router-fill text-primary fs-5"></i>
+        <h5 class="mb-0">GDMS API (UCM Cloud)</h5>
+        @if($settings->gdms_client_id)
+            <span class="badge bg-success ms-auto">Configured</span>
+        @else
+            <span class="badge bg-secondary ms-auto">Not Configured</span>
+        @endif
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            Grandstream Device Management System (GDMS) API credentials for UCM Cloud phone provisioning.
+        </div>
+        <form method="POST" action="{{ route('admin.settings.gdms') }}">
+            @csrf
+            <div class="row g-3 mb-3">
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">Base URL</label>
+                    <input type="text" name="gdms_base_url" class="form-control font-monospace"
+                        value="{{ old('gdms_base_url', $settings->gdms_base_url ?? 'https://www.gdms.cloud/oapi') }}"
+                        placeholder="https://www.gdms.cloud/oapi">
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Organisation ID</label>
+                    <input type="text" name="gdms_org_id" class="form-control font-monospace"
+                        value="{{ old('gdms_org_id', $settings->gdms_org_id) }}"
+                        placeholder="e.g. 139943">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Client ID</label>
+                    <input type="text" name="gdms_client_id" class="form-control font-monospace"
+                        value="{{ old('gdms_client_id', $settings->gdms_client_id) }}"
+                        placeholder="e.g. 104508">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Client Secret</label>
+                    <input type="password" name="gdms_client_secret" class="form-control"
+                        placeholder="{{ $settings->gdms_client_secret ? '•••••• (leave blank to keep current)' : 'Paste client secret here' }}">
+                    <div class="form-text">Stored encrypted.</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Username</label>
+                    <input type="text" name="gdms_username" class="form-control"
+                        value="{{ old('gdms_username', $settings->gdms_username) }}"
+                        placeholder="e.g. mamz93">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Password Hash (MD5)</label>
+                    <input type="text" name="gdms_password_hash" class="form-control font-monospace"
+                        value="{{ old('gdms_password_hash', $settings->gdms_password_hash) }}"
+                        placeholder="MD5 hash of your password">
+                    <div class="form-text">md5 of your GDMS password. Not encrypted (already hashed).</div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i>Save GDMS Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- ─────────────────────────────────────────────────────── --}}
 {{-- SMTP Email (Outgoing Mail) Section                     --}}
 {{-- ─────────────────────────────────────────────────────── --}}
 <div class="card mt-4" id="smtp">

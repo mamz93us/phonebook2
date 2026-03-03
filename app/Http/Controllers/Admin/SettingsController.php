@@ -232,6 +232,48 @@ class SettingsController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
+    // GDMS API Settings
+    // ─────────────────────────────────────────────────────────────
+
+    public function updateGdms(Request $request)
+    {
+        $request->validate([
+            'gdms_base_url'      => 'nullable|string|max:255',
+            'gdms_client_id'     => 'nullable|string|max:100',
+            'gdms_client_secret' => 'nullable|string|max:500',
+            'gdms_org_id'        => 'nullable|string|max:100',
+            'gdms_username'      => 'nullable|string|max:100',
+            'gdms_password_hash' => 'nullable|string|max:255',
+        ]);
+
+        $settings = Setting::get();
+        $settings->gdms_base_url      = $request->gdms_base_url ?: 'https://www.gdms.cloud/oapi';
+        $settings->gdms_client_id     = $request->gdms_client_id;
+        $settings->gdms_org_id        = $request->gdms_org_id;
+        $settings->gdms_username      = $request->gdms_username;
+        $settings->gdms_password_hash = $request->gdms_password_hash;
+
+        if ($request->filled('gdms_client_secret')) {
+            $settings->gdms_client_secret = $request->gdms_client_secret;
+        }
+
+        $settings->save();
+
+        ActivityLog::create([
+            'model_type' => 'Setting',
+            'model_id'   => 1,
+            'action'     => 'updated',
+            'changes'    => ['section' => 'gdms', 'gdms_org_id' => $request->gdms_org_id],
+            'user_id'    => Auth::id(),
+        ]);
+
+        return redirect()
+            ->route('admin.settings.index')
+            ->with('success', 'GDMS API settings updated.')
+            ->withFragment('gdms');
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // SMTP / Outgoing Mail Settings
     // ─────────────────────────────────────────────────────────────
 

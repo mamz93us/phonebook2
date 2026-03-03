@@ -188,6 +188,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             ->name('settings.meraki');
         Route::post('settings/graph', [SettingsController::class, 'updateGraph'])
             ->name('settings.graph');
+        Route::post('settings/gdms', [SettingsController::class, 'updateGdms'])
+            ->name('settings.gdms');
         // Test-connection buttons live on the Settings page — accessible to any settings manager
         Route::post('settings/test-meraki',  [NetworkController::class,  'testConnection'])->name('settings.test-meraki');
         Route::post('settings/test-graph',   [IdentityController::class, 'testConnection'])->name('settings.test-graph');
