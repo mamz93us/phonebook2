@@ -48,11 +48,25 @@ class VpnControlService
      */
     public function generateConfig(VpnTunnel $tunnel): string
     {
+        $encryption = strtolower($tunnel->encryption);
+        $hash = strtolower($tunnel->hash);
+        
+        // Map DH groups to modp names
+        $dhMap = [
+            '14' => 'modp2048',
+            '15' => 'modp3072',
+            '16' => 'modp4096',
+            '19' => 'ecp256',
+        ];
+        $dh = $dhMap[$tunnel->dh_group] ?? "modp{$tunnel->dh_group}";
+
+        $proposal = "{$encryption}-{$hash}-{$dh}";
+
         $config = "connections {\n";
         $config .= "    {$tunnel->name} {\n";
         $config .= "        remote_addrs = {$tunnel->remote_public_ip}\n";
         $config .= "        version = " . ($tunnel->ike_version === 'IKEv2' ? '2' : '1') . "\n";
-        $config .= "        proposals = {$tunnel->encryption}-{$tunnel->hash}-modp" . ($tunnel->dh_group ?? 14) . "\n";
+        $config .= "        proposals = {$proposal}\n";
         $config .= "        rekey_time = {$tunnel->lifetime}\n";
         $config .= "        local {\n";
         $config .= "            auth = psk\n";
@@ -64,7 +78,7 @@ class VpnControlService
         $config .= "            {$tunnel->name} {\n";
         $config .= "                local_ts = {$tunnel->local_subnet}\n";
         $config .= "                remote_ts = {$tunnel->remote_subnet}\n";
-        $config .= "                esp_proposals = {$tunnel->encryption}-{$tunnel->hash}-modp" . ($tunnel->dh_group ?? 14) . "\n";
+        $config .= "                esp_proposals = {$proposal}\n";
         $config .= "                dpd_action = restart\n";
         $config .= "                start_action = start\n";
         $config .= "            }\n";
@@ -152,8 +166,8 @@ class VpnControlService
             return $decoded;
         }
 
-        // Check for raw log delimiters
-        if (preg_match('/RAW_LOGS_START\n(.*)\nRAW_LOGS_END/s', $output, $matches)) {
+        // Check for raw log delimiters - use more flexible whitespace matching
+        if (preg_match('/RAW_LOGS_START\s+(.*)\s+RAW_LOGS_END/s', $output, $matches)) {
             return ['status' => 'success', 'output' => trim($matches[1])];
         }
 

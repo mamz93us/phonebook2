@@ -97,15 +97,15 @@
                             <div class="col-md-4">
                                 <label class="form-label">Encryption</label>
                                 <select name="encryption" class="form-select">
-                                    <option value="AES256" {{ old('encryption', $tunnel->encryption) == 'AES256' ? 'selected' : '' }}>AES-256</option>
-                                    <option value="AES128" {{ old('encryption', $tunnel->encryption) == 'AES128' ? 'selected' : '' }}>AES-128</option>
+                                    <option value="aes256" {{ old('encryption', $tunnel->encryption) == 'aes256' ? 'selected' : '' }}>AES-256</option>
+                                    <option value="aes128" {{ old('encryption', $tunnel->encryption) == 'aes128' ? 'selected' : '' }}>AES-128</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Hash</label>
                                 <select name="hash" class="form-select">
-                                    <option value="SHA256" {{ old('hash', $tunnel->hash) == 'SHA256' ? 'selected' : '' }}>SHA-256</option>
-                                    <option value="SHA512" {{ old('hash', $tunnel->hash) == 'SHA512' ? 'selected' : '' }}>SHA-512</option>
+                                    <option value="sha256" {{ old('hash', $tunnel->hash) == 'sha256' ? 'selected' : '' }}>SHA-256</option>
+                                    <option value="sha512" {{ old('hash', $tunnel->hash) == 'sha512' ? 'selected' : '' }}>SHA-512</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
