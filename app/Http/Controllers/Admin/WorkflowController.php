@@ -238,8 +238,8 @@ class WorkflowController extends Controller
     {
         $workflow = WorkflowRequest::findOrFail($id);
 
-        if ($workflow->status !== 'failed') {
-            return back()->with('error', 'Only failed workflows can be retried.');
+        if (!in_array($workflow->status, ['failed', 'completed'])) {
+            return back()->with('error', 'Only failed or completed workflows can be retried.');
         }
 
         try {

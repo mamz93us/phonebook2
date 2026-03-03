@@ -13,7 +13,7 @@
         <small class="text-muted">Workflow #{{ $workflow->id }} &bull; {{ $workflow->typeLabel() }}</small>
     </div>
     <div class="d-flex gap-2">
-        @if($workflow->status === 'failed')
+        @if(in_array($workflow->status, ['failed', 'completed']))
         @can('approve-workflows')
         <form method="POST" action="{{ route('admin.workflows.retry', $workflow->id) }}" class="d-inline">
             @csrf
