@@ -224,6 +224,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         // ── SMTP / Outgoing Mail ──────────────────────────────────────
         Route::post('settings/smtp',      [SettingsController::class, 'updateSmtp']) ->name('settings.smtp');
         Route::post('settings/test-smtp', [SettingsController::class, 'testSmtp'])   ->name('settings.test-smtp');
+
+        // ── Allowed Domains ──────────────────────────────────────────
+        Route::get('settings/domains',                              [\App\Http\Controllers\Admin\AllowedDomainController::class, 'index'])      ->name('settings.domains');
+        Route::post('settings/domains',                             [\App\Http\Controllers\Admin\AllowedDomainController::class, 'store'])      ->name('settings.domains.store');
+        Route::delete('settings/domains/{allowedDomain}',          [\App\Http\Controllers\Admin\AllowedDomainController::class, 'destroy'])    ->name('settings.domains.destroy');
+        Route::patch('settings/domains/{allowedDomain}/set-primary', [\App\Http\Controllers\Admin\AllowedDomainController::class, 'setPrimary'])->name('settings.domains.set-primary');
     });
 
     // ─── UCM Servers (managed from Settings page) ─────────────
