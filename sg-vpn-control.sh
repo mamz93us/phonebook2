@@ -57,14 +57,26 @@ case $ACTION in
         fi
         ;;
     logs)
-        # Show last 50 lines of relevant IPsec logs from journalctl
-        OUTPUT=$(journalctl -u strongswan -n 50 --no-pager 2>&1)
-        # Fallback to syslog if journalctl fails or Strongswan is named differently
-        if [[ $? -ne 0 ]]; then
-             OUTPUT=$(grep "charon" /var/log/syslog | tail -n 50)
+        # Try to get logs from multiple possible service names or fallback to grep
+        SERVICES=("strongswan" "strongswan-starter" "strongswan-swanctl" "charon")
+        OUTPUT=""
+        for SVC in "${SERVICES[@]}"; do
+            OUTPUT=$(journalctl -u "$SVC" -n 50 --no-pager 2>/dev/null)
+            if [[ $? -eq 0 && -n "$OUTPUT" ]]; then break; fi
+        done
+
+        if [[ -z "$OUTPUT" ]]; then
+             OUTPUT=$(grep -i "charon" /var/log/syslog 2>/dev/null | tail -n 50)
         fi
-        # Escaping quotes in output for JSON
-        CLEAN_OUTPUT=$(echo "$OUTPUT" | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}' | tr -d '\r')
-        echo "{\"status\":\"success\",\"output\":\"$CLEAN_OUTPUT\"}"
+
+        if [[ -z "$OUTPUT" ]]; then
+             OUTPUT="No IPsec logs found in journalctl or syslog."
+        fi
+
+        # Use a more robust way to escape for JSON
+        # We'll just output the raw logs and let the PHP service handle it if it's not valid JSON
+        echo "RAW_LOGS_START"
+        echo "$OUTPUT"
+        echo "RAW_LOGS_END"
         ;;
 esac

@@ -148,6 +148,15 @@ class VpnControlService
         $output = $process->getOutput();
         $decoded = json_decode($output, true);
 
-        return $decoded ?: ['status' => 'success', 'output' => $output];
+        if ($decoded) {
+            return $decoded;
+        }
+
+        // Check for raw log delimiters
+        if (preg_match('/RAW_LOGS_START\n(.*)\nRAW_LOGS_END/s', $output, $matches)) {
+            return ['status' => 'success', 'output' => trim($matches[1])];
+        }
+
+        return ['status' => 'success', 'output' => $output];
     }
 }
