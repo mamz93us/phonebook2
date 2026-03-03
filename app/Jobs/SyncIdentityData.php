@@ -89,6 +89,14 @@ class SyncIdentityData implements ShouldQueue
                 }
             });
             $licenseCount = count($skus);
+
+            // Remove licenses no longer in Azure
+            $activeSkuIds = collect($skus)->pluck('skuId')->filter()->all();
+            if (!empty($activeSkuIds)) {
+                $deletedLicenses = IdentityLicense::whereNotIn('sku_id', $activeSkuIds)->delete();
+                if ($deletedLicenses) Log::info("SyncIdentityData: removed {$deletedLicenses} stale license(s).");
+            }
+
             unset($skus); // free memory
             Log::info('SyncIdentityData: licenses OK (' . $licenseCount . ')');
         } catch (\Throwable $e) {
@@ -114,6 +122,14 @@ class SyncIdentityData implements ShouldQueue
                 }
             });
             $groupCount = count($groups);
+
+            // Remove groups no longer in Azure
+            $activeGroupIds = collect($groups)->pluck('id')->filter()->all();
+            if (!empty($activeGroupIds)) {
+                $deletedGroups = IdentityGroup::whereNotIn('azure_id', $activeGroupIds)->delete();
+                if ($deletedGroups) Log::info("SyncIdentityData: removed {$deletedGroups} stale group(s).");
+            }
+
             unset($groups); // free memory before user sync
             Log::info('SyncIdentityData: groups OK (' . $groupCount . ')');
         } catch (\Throwable $e) {
@@ -155,6 +171,14 @@ class SyncIdentityData implements ShouldQueue
                 }
             });
             $userCount = count($users);
+
+            // Remove users no longer in Azure
+            $activeUserIds = collect($users)->pluck('id')->filter()->all();
+            if (!empty($activeUserIds)) {
+                $deletedUsers = IdentityUser::whereNotIn('azure_id', $activeUserIds)->delete();
+                if ($deletedUsers) Log::info("SyncIdentityData: removed {$deletedUsers} stale user(s).");
+            }
+
             unset($users); // free ~888 full user objects before manager + group passes
             Log::info('SyncIdentityData: users OK (' . $userCount . ')');
         } catch (\Throwable $e) {
