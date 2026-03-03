@@ -68,20 +68,17 @@ class VpnControlService
         $config .= "        version = " . ($tunnel->ike_version === 'IKEv2' ? '2' : '1') . "\n";
         $config .= "        proposals = {$proposal}\n";
         $config .= "        rekey_time = {$tunnel->lifetime}\n";
-        
-        if ($tunnel->local_id) {
-            $config .= "        local_id = {$tunnel->local_id}\n";
-        }
-        
-        if ($tunnel->remote_id) {
-            $config .= "        remote_id = {$tunnel->remote_id}\n";
-        }
-
         $config .= "        local {\n";
         $config .= "            auth = psk\n";
+        if ($tunnel->local_id) {
+            $config .= "            id = {$tunnel->local_id}\n";
+        }
         $config .= "        }\n";
         $config .= "        remote {\n";
         $config .= "            auth = psk\n";
+        if ($tunnel->remote_id) {
+            $config .= "            id = {$tunnel->remote_id}\n";
+        }
         $config .= "        }\n";
         $config .= "        children {\n";
         $config .= "            {$tunnel->name} {\n";
@@ -148,7 +145,7 @@ class VpnControlService
     /**
      * Execute the wrapper script with given arguments.
      */
-    protected function execute(array $args): array
+    public function execute(array $args): array
     {
         // On Windows development environment, we mock the output
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
@@ -177,6 +174,11 @@ class VpnControlService
 
         // Check for raw log delimiters - use more flexible whitespace matching
         if (preg_match('/RAW_LOGS_START\s+(.*)\s+RAW_LOGS_END/s', $output, $matches)) {
+            return ['status' => 'success', 'output' => trim($matches[1])];
+        }
+
+        // Check for raw output delimiters (used by status action)
+        if (preg_match('/RAW_OUTPUT_START\s+(.*)\s+RAW_OUTPUT_END/s', $output, $matches)) {
             return ['status' => 'success', 'output' => trim($matches[1])];
         }
 

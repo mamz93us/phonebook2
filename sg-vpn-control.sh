@@ -21,8 +21,10 @@ fi
 
 case $ACTION in
     status)
-        OUTPUT=$(swanctl --list-sas)
-        echo "{\"status\":\"success\",\"output\":\"$OUTPUT\"}"
+        OUTPUT=$(swanctl --list-sas 2>&1)
+        echo "RAW_OUTPUT_START"
+        echo "$OUTPUT"
+        echo "RAW_OUTPUT_END"
         ;;
     up)
         if [[ -z "$TUNNEL" ]]; then
