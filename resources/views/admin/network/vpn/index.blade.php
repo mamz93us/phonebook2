@@ -202,8 +202,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.fetchStatus = function(id) {
         const container = document.getElementById(`status-${id}`);
-        fetch(`{{ url('admin/network/vpn') }}/${id}/status`)
-            .then(response => response.json())
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        fetch(`{{ url('admin/network/vpn') }}/${id}/status`, { signal: controller.signal })
+            .then(response => {
+                clearTimeout(timeoutId);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
+            })
             .then(data => {
                 if (data.is_up) {
                     container.innerHTML = `
@@ -218,7 +225,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                container.innerHTML = `<span class="text-danger small">Error</span>`;
+                clearTimeout(timeoutId);
+                container.innerHTML = `<span class="text-warning small fw-bold">Timeout</span>`;
             });
     }
 });
