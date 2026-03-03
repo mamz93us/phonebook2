@@ -337,10 +337,12 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">User Portal Password <span class="text-danger">*</span></label>
                             <div class="input-group">
-                                <input type="text" name="user_password" id="add_user_password" class="form-control font-monospace" required
-                                    placeholder="Min 6 characters">
+                                <input type="text" name="user_password" id="add_user_password"
+                                    class="form-control font-monospace" required
+                                    placeholder="Letters &amp; digits only"
+                                    pattern="[a-zA-Z0-9]+" title="Letters and digits only — no special characters">
                                 <button type="button" class="btn btn-outline-secondary" title="Generate"
-                                    onclick="generatePassword('add_user_password')">
+                                    onclick="generateAlphanumericPassword('add_user_password')">
                                     <i class="bi bi-arrow-repeat"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary" title="Copy"
@@ -348,6 +350,7 @@
                                     <i class="bi bi-clipboard"></i>
                                 </button>
                             </div>
+                            <div class="form-text text-warning"><i class="bi bi-exclamation-triangle me-1"></i>UCM requires letters and digits only — no special characters.</div>
                         </div>
 
                         {{-- Permission & Max Contacts --}}
@@ -519,9 +522,30 @@ function generatePassword(fieldId) {
     if (field) { field.value = pwd; field.type = 'text'; }
 }
 
+// Alphanumeric-only generator — required for UCM user_password field
+// (Grandstream UCM rejects special characters in user_password with error -25)
+function generateAlphanumericPassword(fieldId) {
+    const upper  = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower  = 'abcdefghjkmnpqrstuvwxyz';
+    const digits = '23456789';
+    const all    = upper + lower + digits;
+
+    let pwd = [
+        upper [Math.floor(Math.random() * upper.length)],
+        lower [Math.floor(Math.random() * lower.length)],
+        digits[Math.floor(Math.random() * digits.length)],
+    ];
+    for (let i = pwd.length; i < 12; i++) {
+        pwd.push(all[Math.floor(Math.random() * all.length)]);
+    }
+    pwd = pwd.sort(() => Math.random() - 0.5).join('');
+    const field = document.getElementById(fieldId);
+    if (field) { field.value = pwd; field.type = 'text'; }
+}
+
 function generateAllPasswords() {
     generatePassword('add_secret');
-    generatePassword('add_user_password');
+    generateAlphanumericPassword('add_user_password');
 }
 
 function copyToClipboard(fieldId) {

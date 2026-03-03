@@ -62,7 +62,8 @@ class ExtensionController extends Controller
             'ucm_id'           => 'required|exists:ucm_servers,id',
             'extension'        => 'required|string|max:20',
             'secret'           => 'required|string|min:6|max:100',
-            'user_password'    => 'required|string|min:6|max:100',
+            // UCM user_password only accepts letters and digits — special chars cause error -25
+            'user_password'    => ['required', 'string', 'min:6', 'max:32', 'regex:/^[a-zA-Z0-9]+$/'],
             'fullname'         => 'nullable|string|max:100',
             'email'            => 'nullable|email|max:150',
             'permission'       => 'required|in:internal,local,national,international',
@@ -71,6 +72,8 @@ class ExtensionController extends Controller
             'call_waiting'     => 'nullable|in:yes,no',
             'dnd'              => 'nullable|in:yes,no',
             'sync_contact'     => 'nullable|in:yes,no',
+        ], [
+            'user_password.regex' => 'User Portal Password must contain letters and digits only — no special characters (@, #, $, ! etc.).',
         ]);
 
         $ucm = UcmServer::findOrFail($data['ucm_id']);

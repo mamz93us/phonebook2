@@ -181,7 +181,13 @@ class IppbxApiService
         ], $data));
 
         if (($resp['status'] ?? -1) !== 0) {
-            throw new \RuntimeException('addSIPAccountAndUser failed: ' . json_encode($resp));
+            $status = $resp['status'] ?? 'unknown';
+            $hint   = match($status) {
+                -25    => ' — user_password must be letters and digits only (no special characters like @#$!)',
+                -8     => ' — Extension number already exists on this UCM',
+                default => '',
+            };
+            throw new \RuntimeException('addSIPAccountAndUser failed: ' . json_encode($resp) . $hint);
         }
 
         $this->applyChanges();
