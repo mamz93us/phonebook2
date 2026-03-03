@@ -61,7 +61,7 @@ class ExtensionProvisioningService
             // Do NOT strip special characters — they are required, not forbidden.
             'secret'        => $defaultSecret,
             'user_password' => $defaultSecret, // Required by addSIPAccountAndUser
-            'vmsecret'      => $defaultSecret, // Required by addSIPAccountAndUser
+            'vmsecret'      => (string) random_int(100000, 999999), // MUST be numeric only
             // UCM permission values must be the full cumulative strings (per API docs)
             'permission'    => $settings->ext_default_permission ?: 'internal-local',
         ]);

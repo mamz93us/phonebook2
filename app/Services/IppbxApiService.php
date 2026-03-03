@@ -108,6 +108,7 @@ class IppbxApiService
     {
         $this->ensureCookie();
 
+        // 1. Fetch SIP accounts
         $resp = $this->post([
             'action'   => 'listAccount',
             'cookie'   => $this->cookie,
@@ -122,7 +123,47 @@ class IppbxApiService
             throw new \RuntimeException('listAccount failed: ' . json_encode($resp));
         }
 
-        return $resp['response']['account'] ?? [];
+        $accounts = $resp['response']['account'] ?? [];
+
+        // 2. Fetch Users to get email, first_name, last_name
+        $usersResp = $this->post([
+            'action'   => 'listUser',
+            'cookie'   => $this->cookie,
+            'options'  => 'user_name,first_name,last_name,email',
+            'page'     => (string) $page,
+            'item_num' => (string) $itemNum,
+            'sidx'     => 'user_name',
+            'sord'     => 'asc',
+        ]);
+
+        $users = [];
+        if (($usersResp['status'] ?? -1) === 0) {
+            foreach ($usersResp['response']['user_id'] ?? [] as $u) {
+                if (!empty($u['user_name'])) {
+                    $users[$u['user_name']] = $u;
+                }
+            }
+        }
+
+        // 3. Merge User data into SIP accounts
+        foreach ($accounts as &$acc) {
+            $ext = $acc['extension'] ?? '';
+            $acc['email'] = '';
+            
+            if (isset($users[$ext])) {
+                $u = $users[$ext];
+                $acc['email']      = $u['email'] ?? '';
+                $acc['first_name'] = $u['first_name'] ?? '';
+                $acc['last_name']  = $u['last_name'] ?? '';
+                
+                // If fullname is missing, construct from user profile
+                if (empty($acc['fullname'])) {
+                    $acc['fullname'] = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? ''));
+                }
+            }
+        }
+
+        return $accounts;
     }
 
     /**
@@ -132,6 +173,7 @@ class IppbxApiService
     {
         $this->ensureCookie();
 
+        // 1. Get SIP Account
         $resp = $this->post([
             'action'    => 'getSIPAccount',
             'cookie'    => $this->cookie,
@@ -142,7 +184,29 @@ class IppbxApiService
             throw new \RuntimeException('getSIPAccount failed: ' . json_encode($resp));
         }
 
-        return $resp['response']['extension'] ?? [];
+        $sipData = $resp['response']['extension'] ?? [];
+
+        // 2. Get User
+        $userResp = $this->post([
+            'action'    => 'getUser',
+            'cookie'    => $this->cookie,
+            'user_name' => $extension,
+        ]);
+
+        if (($userResp['status'] ?? -1) === 0 && !empty($userResp['response']['user_name'])) {
+            $u = $userResp['response']['user_name'];
+            $sipData['email']      = $u['email'] ?? '';
+            $sipData['first_name'] = $u['first_name'] ?? '';
+            $sipData['last_name']  = $u['last_name'] ?? '';
+            
+            if (empty($sipData['fullname'])) {
+                $sipData['fullname'] = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? ''));
+            }
+        } else {
+            $sipData['email'] = '';
+        }
+
+        return $sipData;
     }
 
     /**
@@ -208,17 +272,71 @@ class IppbxApiService
     {
         $this->ensureCookie();
 
-        $resp = $this->post(array_merge([
-            'action'    => 'updateSIPAccount',
-            'cookie'    => $this->cookie,
-            'extension' => $extension,
-        ], $data));
-
-        if (($resp['status'] ?? -1) !== 0) {
-            throw new \RuntimeException('updateSIPAccount failed: ' . json_encode($resp));
+        // 1. Separate user profile fields from SIP fields
+        $userFields = ['email', 'fullname', 'first_name', 'last_name'];
+        $userData = array_intersect_key($data, array_flip($userFields));
+        
+        $sipData = array_diff_key($data, array_flip($userFields));
+        if (isset($data['fullname'])) {
+            $sipData['fullname'] = $data['fullname']; // UCM SIP caller ID accepts fullname too
         }
 
-        $this->applyChanges();
+        $resp = ['status' => 0];
+
+        // 2. Update SIP Account
+        if (!empty($sipData)) {
+            $resp = $this->post(array_merge([
+                'action'    => 'updateSIPAccount',
+                'cookie'    => $this->cookie,
+                'extension' => $extension,
+            ], $sipData));
+
+            if (($resp['status'] ?? -1) !== 0) {
+                throw new \RuntimeException('updateSIPAccount failed: ' . json_encode($resp));
+            }
+        }
+
+        // 3. Update User Profile (requires getUser to fetch user_id & privilege first)
+        if (!empty($userData)) {
+            $userResp = $this->post([
+                'action'    => 'getUser',
+                'cookie'    => $this->cookie,
+                'user_name' => $extension,
+            ]);
+
+            if (($userResp['status'] ?? -1) === 0 && !empty($userResp['response']['user_name'])) {
+                $compUser = $userResp['response']['user_name'];
+                
+                $firstName = $userData['first_name'] ?? $compUser['first_name'] ?? '';
+                $lastName  = $userData['last_name']  ?? $compUser['last_name']  ?? '';
+                
+                // Fallback: split fullname into first_name and last_name if necessary
+                if (isset($userData['fullname']) && !isset($userData['first_name'])) {
+                    $parts = explode(' ', trim($userData['fullname']), 2);
+                    $firstName = $parts[0] ?? '';
+                    $lastName  = $parts[1] ?? '';
+                }
+
+                $updateUserPayload = [
+                    'action'     => 'updateUser',
+                    'cookie'     => $this->cookie,
+                    'user_id'    => (string) ($compUser['user_id'] ?? ''),
+                    'user_name'  => $extension,
+                    'privilege'  => (string) ($compUser['privilege'] ?? '3'), // default privilege
+                    'first_name' => $firstName,
+                    'last_name'  => $lastName,
+                    'email'      => $userData['email'] ?? $compUser['email'] ?? '',
+                ];
+
+                $uResp = $this->post($updateUserPayload);
+                if (($uResp['status'] ?? -1) !== 0) {
+                    \Illuminate\Support\Facades\Log::warning('updateUser failed', ['payload' => $updateUserPayload, 'response' => $uResp]);
+                }
+            }
+        }
+
+        // Removed $this->applyChanges() to prevent -45 "Operating too frequently" 
+        // when updateExtension is called immediately after createExtension.
         return $resp;
     }
 

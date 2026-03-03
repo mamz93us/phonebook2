@@ -372,14 +372,14 @@
                             <div class="d-flex flex-wrap gap-4">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="voicemail_enable"
-                                        id="add_voicemail" value="yes" checked>
+                                        id="add_voicemail" value="yes">
                                     <label class="form-check-label" for="add_voicemail">
                                         <i class="bi bi-voicemail me-1"></i>Voicemail
                                     </label>
                                 </div>
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="call_waiting"
-                                        id="add_call_waiting" value="yes" checked>
+                                        id="add_call_waiting" value="yes">
                                     <label class="form-check-label" for="add_call_waiting">
                                         <i class="bi bi-telephone-plus me-1"></i>Call Waiting
                                     </label>
