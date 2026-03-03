@@ -79,39 +79,38 @@ class ExtensionController extends Controller
         try {
             $api = new IppbxApiService($ucm);
 
-            // Build payload — only send fields documented for addSIPAccountAndUser.
-            // Un-documented fields (e.g. sync_contact) can cause the UCM to return -25.
-            $payload = [
+            // ── Step 1: Create extension with MINIMUM required fields only ──
+            // Sending extra/undocumented fields to addSIPAccountAndUser can trigger -25.
+            // The API docs only guarantee: extension, secret, user_password, permission.
+            $api->createExtension([
                 'extension'     => $data['extension'],
                 'secret'        => $data['secret'],
                 'user_password' => $data['user_password'],
                 'permission'    => $data['permission'],
-                'max_contacts'  => (string) ($data['max_contacts'] ?? 3),
-                'hasvoicemail'  => $request->has('voicemail_enable') ? 'yes' : 'no',
-                'call_waiting'  => $request->has('call_waiting')     ? 'yes' : 'no',
-                'dnd'           => $request->has('dnd')              ? 'yes' : 'no',
+            ]);
+
+            // ── Step 2: Apply all optional settings via updateSIPAccount ──
+            // updateSIPAccount is more permissive about extra fields.
+            $updatePayload = [
+                'max_contacts' => (string) ($data['max_contacts'] ?? 3),
+                'hasvoicemail' => $request->has('voicemail_enable') ? 'yes' : 'no',
+                'call_waiting' => $request->has('call_waiting')     ? 'yes' : 'no',
+                'dnd'          => $request->has('dnd')              ? 'yes' : 'no',
             ];
+            if (!empty($data['fullname']))    $updatePayload['fullname']     = $data['fullname'];
+            if (!empty($data['email']))       $updatePayload['email']        = $data['email'];
+            if ($request->has('sync_contact')) $updatePayload['sync_contact'] = 'yes';
 
-            // Include fullname only when provided (string fields must not be empty)
-            if (!empty($data['fullname'])) $payload['fullname'] = $data['fullname'];
-
-            $api->createExtension($payload);
-
-            // After successful creation, apply optional fields not supported by addSIPAccountAndUser
-            $updatePayload = [];
-            if ($request->has('sync_contact'))  $updatePayload['sync_contact'] = 'yes';
-            if (!empty($data['email']))         $updatePayload['email']        = $data['email'];
-            if (!empty($updatePayload)) {
-                try {
-                    $api->updateExtension($data['extension'], $updatePayload);
-                } catch (\Exception $e) {
-                    // Non-fatal — extension was created, just couldn't set extra fields
-                    \Illuminate\Support\Facades\Log::warning('ExtensionController: post-create updateSIPAccount failed', [
-                        'extension' => $data['extension'],
-                        'error'     => $e->getMessage(),
-                    ]);
-                }
+            try {
+                $api->updateExtension($data['extension'], $updatePayload);
+            } catch (\Exception $e) {
+                // Non-fatal — extension was created, optional settings just weren't applied
+                \Illuminate\Support\Facades\Log::warning('ExtensionController: post-create update failed', [
+                    'extension' => $data['extension'],
+                    'error'     => $e->getMessage(),
+                ]);
             }
+
 
         } catch (\Exception $e) {
             return back()

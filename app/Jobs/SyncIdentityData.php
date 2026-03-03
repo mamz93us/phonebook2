@@ -219,8 +219,9 @@ class SyncIdentityData implements ShouldQueue
             Log::error('SyncIdentityData: group membership sync failed — ' . $e->getMessage());
         }
 
-        // ── Finalise log ───────────────────────────────────────────
-        $status       = empty($errors) ? 'completed' : (empty($users) && empty($groups) && empty($skus) ? 'failed' : 'completed');
+        // A sync is 'failed' only if ALL three phases produced zero records AND there were errors.
+        // If at least one phase succeeded (users, groups, or licenses), mark as 'completed'.
+        $status       = empty($errors) ? 'completed' : ($userCount === 0 && $groupCount === 0 && $licenseCount === 0 ? 'failed' : 'completed');
         $errorMessage = empty($errors) ? null : implode('; ', $errors);
 
         $log->update([
