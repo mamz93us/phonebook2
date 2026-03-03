@@ -55,12 +55,9 @@ class GdmsService
     public function listSipAccounts(int $pageNum = 1, int $pageSize = 1000): array
     {
         $token     = $this->getToken();
-
-        // Use current time in ms; if you get timestamp errors, you can switch to serverTimestamp
         $timestamp = (string) round(microtime(true) * 1000);
         $orgId     = $this->orgId;
 
-        // Body JSON – must match exactly what we sign and send
         $bodyArray = [
             'pageNum'  => $pageNum,
             'pageSize' => $pageSize,
@@ -68,20 +65,16 @@ class GdmsService
         ];
         $bodyJson = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-        // Signature parameters (query + body fields)
         $sigParams = [
             'access_token'  => $token,
             'orgId'         => $orgId,
             'pageNum'       => $pageNum,
             'pageSize'      => $pageSize,
             'timestamp'     => $timestamp,
+            'client_id'     => $this->clientId,
+            'client_secret' => $this->clientSecret,
         ];
 
-        // Add client_id and client_secret only for signature
-        $sigParams['client_id']     = $this->clientId;
-        $sigParams['client_secret'] = $this->clientSecret;
-
-        // Sort keys ASC
         ksort($sigParams, SORT_STRING);
 
         $pairs = [];
@@ -89,16 +82,10 @@ class GdmsService
             $pairs[] = $key.'='.$value;
         }
         $paramString = implode('&', $pairs);
+        $bodyHash    = hash('sha256', $bodyJson);
+        $toSign      = '&'.$paramString.'&'.$bodyHash.'&';
+        $signature   = hash('sha256', $toSign);
 
-        // sha256(body)
-        $bodyHash = hash('sha256', $bodyJson);
-
-        // Final string: &params&sha256(body)&
-        $toSign = '&'.$paramString.'&'.$bodyHash.'&';
-
-        $signature = hash('sha256', $toSign);
-
-        // Build URL exactly like your working Postman call
         $url = "{$this->baseUrl}/v1.0.0/sip/account/list"
              . "?access_token={$token}"
              . "&timestamp={$timestamp}"
@@ -113,11 +100,32 @@ class GdmsService
 
         $data = $response->json();
 
-        if (($data['retCode'] ?? -1) !== 0) {
-            throw new \RuntimeException('GDMS error: '.($data['msg'] ?? 'unknown'));
+        // The sip/account/list endpoint returns {result:[...], total:N, pages:N, pageNum:N, pageSize:N}
+        // (no 'retCode' or 'data' wrapper — different from other GDMS endpoints)
+        if (isset($data['result']) && is_array($data['result'])) {
+            return [
+                'list'     => $data['result'],
+                'total'    => (int) ($data['total']    ?? count($data['result'])),
+                'pages'    => (int) ($data['pages']    ?? 1),
+                'pageNum'  => (int) ($data['pageNum']  ?? $pageNum),
+                'pageSize' => (int) ($data['pageSize'] ?? $pageSize),
+            ];
         }
 
-        return $data['data'] ?? [];
+        // Legacy fallback: some GDMS endpoints wrap in data.list
+        if (isset($data['data']['list'])) {
+            return [
+                'list'  => $data['data']['list'],
+                'total' => (int) ($data['data']['total'] ?? count($data['data']['list'])),
+            ];
+        }
+
+        // If there's an explicit error code, throw
+        if (isset($data['retCode']) && $data['retCode'] !== 0) {
+            throw new \RuntimeException('GDMS error: '.($data['msg'] ?? json_encode($data)));
+        }
+
+        return ['list' => [], 'total' => 0];
     }
 
     /**
