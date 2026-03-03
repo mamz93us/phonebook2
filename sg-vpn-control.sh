@@ -21,7 +21,7 @@ fi
 
 case $ACTION in
     status)
-        OUTPUT=$(swanctl --list-sas 2>&1)
+        OUTPUT=$(swanctl --list-sas 2>/dev/null)
         echo "RAW_OUTPUT_START"
         echo "$OUTPUT"
         echo "RAW_OUTPUT_END"
