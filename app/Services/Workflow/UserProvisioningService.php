@@ -34,60 +34,71 @@ class UserProvisioningService
         $firstName   = trim($payload['first_name']   ?? '');
         $lastName    = trim($payload['last_name']    ?? '');
         $displayName = trim("{$firstName} {$lastName}");
+        $graph       = new GraphService();
 
-        // ── Step 0: Duplicate name check ─────────────────────────
-        $this->engine->logEvent($workflow, 'info', "Checking for duplicate display name: {$displayName}");
-        $existingUser = IdentityUser::where('display_name', $displayName)->first();
-        if ($existingUser) {
-            throw new \RuntimeException(
-                "User '{$displayName}' already exists in Azure (UPN: {$existingUser->user_principal_name})."
-            );
-        }
-
-        // ── Step 1: Build UPN ─────────────────────────────────────
-        // Use domain chosen on the create-user form (payload['upn_domain']),
-        // then fall back to the global default, then a hard-coded placeholder.
-        $domain = trim($payload['upn_domain'] ?? $settings->upn_domain ?? 'example.com') ?: 'example.com';
-        $upn    = $this->buildUPN($firstName, $lastName, $domain);
-        $this->engine->logEvent($workflow, 'info', "Generated UPN: {$upn}");
-
-        // ── Step 2: Create Azure user ─────────────────────────────
-        $this->engine->logEvent($workflow, 'info', 'Creating Azure AD user...');
-        $graph    = new GraphService();
-        $password = $payload['initial_password'] ?? (Str::random(12) . '!1A');
-
-        try {
-            $azureUser = $graph->createUser([
-                'displayName'       => $displayName,
-                'userPrincipalName' => $upn,
-                'mailNickname'      => explode('@', $upn)[0],
-                'password'          => $password,
-                'usageLocation'     => 'EG',
-                'jobTitle'          => $payload['job_title']   ?? null,
-                'department'        => $payload['department']  ?? null,
-                'accountEnabled'    => true,
-            ]);
-
-            $azureId = $azureUser['id'] ?? null;
-            if (! $azureId) {
-                throw new \RuntimeException('Azure user created but no ID returned.');
+        // ── Steps 0-2: Azure user (idempotent) ───────────────────
+        // If a previous attempt already created the Azure user, payload['azure_id']
+        // and payload['upn'] will be set — skip creation entirely and resume
+        // from where we left off instead of getting a UPN conflict error.
+        if (!empty($payload['azure_id']) && !empty($payload['upn'])) {
+            $azureId = $payload['azure_id'];
+            $upn     = $payload['upn'];
+            $this->engine->logEvent($workflow, 'info', "Resuming — Azure user already created: {$upn} (ID: {$azureId})");
+        } else {
+            // ── Step 0: Duplicate name check ─────────────────────
+            $this->engine->logEvent($workflow, 'info', "Checking for duplicate display name: {$displayName}");
+            $existingUser = IdentityUser::where('display_name', $displayName)->first();
+            if ($existingUser) {
+                throw new \RuntimeException(
+                    "User '{$displayName}' already exists in Azure (UPN: {$existingUser->user_principal_name})."
+                );
             }
 
-            $this->engine->logEvent($workflow, 'success', "Azure user created: {$upn} (ID: {$azureId})");
+            // ── Step 1: Build UPN ─────────────────────────────────
+            // Use domain chosen on the create-user form (payload['upn_domain']),
+            // then fall back to the global default, then a hard-coded placeholder.
+            $domain = trim($payload['upn_domain'] ?? $settings->upn_domain ?? 'example.com') ?: 'example.com';
+            $upn    = $this->buildUPN($firstName, $lastName, $domain);
+            $this->engine->logEvent($workflow, 'info', "Generated UPN: {$upn}");
 
-            $payload = array_merge($payload, [
-                'upn'          => $upn,
-                'azure_id'     => $azureId,
-                'display_name' => $displayName,
-            ]);
-            $workflow->payload = $payload;
-            $workflow->save();
+            // ── Step 2: Create Azure user ─────────────────────────
+            $this->engine->logEvent($workflow, 'info', 'Creating Azure AD user...');
+            $password = $payload['initial_password'] ?? (Str::random(12) . '!1A');
 
-        } catch (\Throwable $e) {
-            throw new \RuntimeException('Failed to create Azure user: ' . $e->getMessage());
+            try {
+                $azureUser = $graph->createUser([
+                    'displayName'       => $displayName,
+                    'userPrincipalName' => $upn,
+                    'mailNickname'      => explode('@', $upn)[0],
+                    'password'          => $password,
+                    'usageLocation'     => 'EG',
+                    'jobTitle'          => $payload['job_title']   ?? null,
+                    'department'        => $payload['department']  ?? null,
+                    'accountEnabled'    => true,
+                ]);
+
+                $azureId = $azureUser['id'] ?? null;
+                if (! $azureId) {
+                    throw new \RuntimeException('Azure user created but no ID returned.');
+                }
+
+                $this->engine->logEvent($workflow, 'success', "Azure user created: {$upn} (ID: {$azureId})");
+
+                $payload = array_merge($payload, [
+                    'upn'          => $upn,
+                    'azure_id'     => $azureId,
+                    'display_name' => $displayName,
+                ]);
+                $workflow->payload = $payload;
+                $workflow->save();
+
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('Failed to create Azure user: ' . $e->getMessage());
+            }
         }
 
         // ── Step 3: Assign default license(s) ────────────────────
+        // If licenses were already assigned in a previous attempt, skip entirely.
         // Priority: multi-sku array → legacy single sku → payload override
         $licenseSkus = $settings->graph_default_license_skus ?? [];
         if (empty($licenseSkus) && $settings->graph_default_license_sku) {
@@ -99,6 +110,12 @@ class UserProvisioningService
         } elseif (!empty($payload['license_sku']) && empty($licenseSkus)) {
             $licenseSkus = [$payload['license_sku']];
         }
+        // Idempotency: skip licenses already recorded as assigned in a previous run
+        $alreadyAssignedSkus = collect($payload['assigned_licenses'] ?? [])->pluck('sku')->toArray();
+        $licenseSkus = array_values(array_filter($licenseSkus, fn($s) => !in_array($s, $alreadyAssignedSkus)));
+        if (!empty($alreadyAssignedSkus) && empty($licenseSkus)) {
+            $this->engine->logEvent($workflow, 'info', 'Licenses already assigned in previous attempt — skipping.');
+        }
 
         if (!empty($licenseSkus)) {
             // Build a name map so we can log/store friendly names
@@ -109,7 +126,8 @@ class UserProvisioningService
                 // Azure name lookup non-fatal
             }
 
-            $assignedLicenses = [];
+            // Start with licenses already assigned in a previous attempt
+            $assignedLicenses = $payload['assigned_licenses'] ?? [];
             $licenseIndex     = 0;
             foreach (array_filter($licenseSkus) as $sku) {
                 $skuName = $skuNameMap[$sku] ?? $sku;
@@ -169,7 +187,11 @@ class UserProvisioningService
             ];
         }
 
-        if ($ucmServer) {
+        // Idempotency: if a previous attempt already created the extension, reuse it
+        if (!empty($payload['extension'])) {
+            $extension = $payload['extension'];
+            $this->engine->logEvent($workflow, 'info', "Resuming — UCM extension already created: {$extension}");
+        } elseif ($ucmServer) {
             try {
                 $rangeStart = $extRange['start'];
                 $rangeEnd   = $extRange['end'];
@@ -190,7 +212,14 @@ class UserProvisioningService
                 $workflow->save();
 
             } catch (\Throwable $e) {
-                $this->engine->logEvent($workflow, 'warning', 'UCM extension creation failed (non-fatal): ' . $e->getMessage());
+                $errMsg = $e->getMessage();
+                // UCM status -25 ("Failed to update data") can mean extension already exists —
+                // treat as a soft failure and continue rather than blocking the whole workflow.
+                if (str_contains($errMsg, '-25') || str_contains($errMsg, 'Failed to update data')) {
+                    $this->engine->logEvent($workflow, 'warning', "UCM extension creation returned conflict error (non-fatal, may already exist): {$errMsg}");
+                } else {
+                    $this->engine->logEvent($workflow, 'warning', "UCM extension creation failed (non-fatal): {$errMsg}");
+                }
             }
         }
 
@@ -233,28 +262,37 @@ class UserProvisioningService
         }
 
         // ── Step 6: Create employee record ────────────────────────
-        $this->engine->logEvent($workflow, 'info', 'Creating employee record...');
-        try {
-            $employee = Employee::create([
-                'azure_id'         => $azureId,
-                'name'             => $displayName,
-                'email'            => $upn,
-                'branch_id'        => $workflow->branch_id,
-                'department_id'    => $payload['department_id'] ?? null,
-                'job_title'        => $payload['job_title']     ?? null,
-                'status'           => 'active',
-                'hired_date'       => now()->toDateString(),
-                'extension_number' => $extension,
-                'ucm_server_id'    => $ucmServer?->id,
-            ]);
-            $this->engine->logEvent($workflow, 'success', 'Employee record created.');
+        // Idempotency: skip if already created in a previous attempt,
+        // or if an employee with the same azure_id already exists.
+        if (!empty($payload['employee_id'])) {
+            $this->engine->logEvent($workflow, 'info', "Resuming — employee record already created (ID: {$payload['employee_id']})");
+        } else {
+            $this->engine->logEvent($workflow, 'info', 'Creating employee record...');
+            try {
+                // Guard against duplicate if a previous attempt created the employee
+                // but failed before saving the ID to the payload
+                $employee = Employee::where('azure_id', $azureId)->first()
+                    ?? Employee::create([
+                        'azure_id'         => $azureId,
+                        'name'             => $displayName,
+                        'email'            => $upn,
+                        'branch_id'        => $workflow->branch_id,
+                        'department_id'    => $payload['department_id'] ?? null,
+                        'job_title'        => $payload['job_title']     ?? null,
+                        'status'           => 'active',
+                        'hired_date'       => now()->toDateString(),
+                        'extension_number' => $extension,
+                        'ucm_server_id'    => $ucmServer?->id,
+                    ]);
+                $this->engine->logEvent($workflow, 'success', 'Employee record created.');
 
-            // Save employee ID to payload so the show page can link to the profile
-            $payload = array_merge($payload, ['employee_id' => $employee->id]);
-            $workflow->payload = $payload;
-            $workflow->save();
-        } catch (\Throwable $e) {
-            $this->engine->logEvent($workflow, 'warning', 'Employee record creation failed (non-fatal): ' . $e->getMessage());
+                // Save employee ID to payload so the show page can link to the profile
+                $payload = array_merge($payload, ['employee_id' => $employee->id]);
+                $workflow->payload = $payload;
+                $workflow->save();
+            } catch (\Throwable $e) {
+                $this->engine->logEvent($workflow, 'warning', 'Employee record creation failed (non-fatal): ' . $e->getMessage());
+            }
         }
 
         // ── Step 7: Notify admins ─────────────────────────────────
