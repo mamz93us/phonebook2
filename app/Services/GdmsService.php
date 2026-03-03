@@ -117,8 +117,9 @@ class GdmsService
             throw new \RuntimeException('GDMS error: '.($data['msg'] ?? 'unknown'));
         }
 
-        // Return the exact field as original
-        return $data['data'] ?? [];
+        // The sip/account/list endpoint returns data at the root level (result, total)
+        // Returning the full response so SyncGdmsContacts can parse it
+        return $data;
     }
 
     /**
