@@ -15,14 +15,16 @@ class GdmsService
 
     public function __construct()
     {
-        $this->baseUrl      = rtrim(config('services.gdms.base_url', 'https://www.gdms.cloud/oapi'), '/');
-        $this->clientId     = (string) config('services.gdms.client_id');
-        $this->clientSecret = (string) config('services.gdms.client_secret');
-        $this->orgId        = (int) config('services.gdms.org_id');
+        // Read from DB settings first (set via Settings → GDMS API section)
+        // Fall back to config/env for backward compat
+        $s = \App\Models\Setting::first();
 
-        // From .env
-        $this->username     = (string) env('GDMS_USERNAME');       // GDMS login username
-        $this->passwordHash = (string) env('GDMS_PASSWORD_HASH');  // sha256(md5(password))
+        $this->baseUrl      = rtrim($s?->gdms_base_url      ?: config('services.gdms.base_url', 'https://www.gdms.cloud/oapi'), '/');
+        $this->clientId     = (string) ($s?->gdms_client_id     ?: config('services.gdms.client_id'));
+        $this->clientSecret = (string) ($s?->gdms_client_secret ?: config('services.gdms.client_secret'));
+        $this->orgId        = (int)    ($s?->gdms_org_id        ?: config('services.gdms.org_id'));
+        $this->username     = (string) ($s?->gdms_username      ?: env('GDMS_USERNAME'));
+        $this->passwordHash = (string) ($s?->gdms_password_hash ?: env('GDMS_PASSWORD_HASH'));
     }
 
     /**
