@@ -25,6 +25,8 @@ class SyncGdmsContacts extends Command
         $pageSize  = 200;
         $processed = 0;
 
+        $failed = 0;
+
         do {
             $pageData = $gdms->listSipAccounts($pageNum, $pageSize);
             $accounts = $pageData['list'] ?? [];
@@ -36,37 +38,51 @@ class SyncGdmsContacts extends Command
             }
 
             foreach ($accounts as $acc) {
-                $sipUserId    = $acc['sipUserId'] ?? null;
-                $displayName  = $acc['displayName'] ?? '';
-                $sipServer    = $acc['sipServer'] ?? '';
+                $sipUserId   = $acc['sipUserId'] ?? null;
+                $displayName = $acc['displayName'] ?? '';
+                $sipServer   = $acc['sipServer'] ?? '';
+                $email       = $acc['extensionEmail'] ?? null;
 
                 if (!$sipUserId) {
                     continue;
                 }
 
-                $branchId = $branchMapper->resolveBranchId($sipServer);
+                // Resolve branch — null if not mapped (avoids FK constraint errors)
+                try {
+                    $branchId = $branchMapper->resolveBranchId($sipServer);
+                    // Verify branch actually exists, otherwise set null
+                    if (!\App\Models\Branch::find($branchId)) {
+                        $branchId = null;
+                    }
+                } catch (\Throwable) {
+                    $branchId = null;
+                }
 
                 $parts     = preg_split('/\s+/', trim($displayName));
                 $firstName = $parts[0] ?? (string) $sipUserId;
                 $lastName  = isset($parts[1]) ? implode(' ', array_slice($parts, 1)) : '';
 
-                Contact::updateOrCreate(
-                    ['phone' => $sipUserId],
-                    [
-                        'first_name' => $firstName,
-                        'last_name'  => $lastName,
-                        'email'      => null,
-                        'branch_id'  => $branchId,
-                    ]
-                );
-
-                $processed++;
+                try {
+                    Contact::updateOrCreate(
+                        ['phone' => (string) $sipUserId],
+                        [
+                            'first_name' => $firstName,
+                            'last_name'  => $lastName,
+                            'email'      => $email ?: null,
+                            'branch_id'  => $branchId,
+                        ]
+                    );
+                    $processed++;
+                } catch (\Throwable $e) {
+                    $failed++;
+                    $this->error("Failed account {$sipUserId}: " . $e->getMessage());
+                }
             }
 
             $pageNum++;
         } while (!empty($accounts) && isset($total) && $processed < $total);
 
-        $this->info("GDMS contacts sync complete. Processed {$processed} accounts.");
+        $this->info("GDMS contacts sync complete. Processed: {$processed}, Failed: {$failed}.");
 
         $log->update([
             'status'         => 'completed',
