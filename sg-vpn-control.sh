@@ -7,7 +7,7 @@ ACTION=$1
 TUNNEL=$2
 
 # Security: Ensure only valid actions are performed
-VALID_ACTIONS=("status" "up" "down" "reload")
+VALID_ACTIONS=("status" "up" "down" "reload" "logs")
 if [[ ! " ${VALID_ACTIONS[@]} " =~ " ${ACTION} " ]]; then
     echo "{\"status\":\"error\",\"message\":\"Invalid action: $ACTION\"}"
     exit 1
@@ -55,5 +55,16 @@ case $ACTION in
         else
             echo "{\"status\":\"error\",\"message\":\"Failed to reload configuration\",\"output\":\"$OUTPUT\"}"
         fi
+        ;;
+    logs)
+        # Show last 50 lines of relevant IPsec logs from journalctl
+        OUTPUT=$(journalctl -u strongswan -n 50 --no-pager 2>&1)
+        # Fallback to syslog if journalctl fails or Strongswan is named differently
+        if [[ $? -ne 0 ]]; then
+             OUTPUT=$(grep "charon" /var/log/syslog | tail -n 50)
+        fi
+        # Escaping quotes in output for JSON
+        CLEAN_OUTPUT=$(echo "$OUTPUT" | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}' | tr -d '\r')
+        echo "{\"status\":\"success\",\"output\":\"$CLEAN_OUTPUT\"}"
         ;;
 esac

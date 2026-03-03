@@ -215,9 +215,25 @@ class VpnHubController extends Controller
             $isEstablished = str_contains($result['output'], $tunnel->name) && str_contains($result['output'], 'ESTABLISHED');
         }
 
+        // Update DB status if it changed
+        $newStatus = $isEstablished ? 'up' : 'down';
+        if ($tunnel->status !== $newStatus) {
+            $tunnel->update(['status' => $newStatus]);
+        }
+
         return response()->json([
             'is_up' => $isEstablished,
             'raw_output' => $result['output'] ?? 'No status output available.'
+        ]);
+    }
+
+    public function showLogs()
+    {
+        $result = $this->vpnService->execute(['logs']);
+        
+        return response()->json([
+            'status' => $result['status'],
+            'logs'   => $result['output'] ?? 'No logs available.'
         ]);
     }
 }

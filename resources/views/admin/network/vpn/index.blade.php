@@ -80,6 +80,9 @@
                                             <i class="bi bi-stop-fill"></i>
                                         </button>
                                     </form>
+                                    <button type="button" class="btn btn-outline-info" title="Troubleshoot" onclick="showTroubleshoot({{ $tunnel->id }})">
+                                        <i class="bi bi-bug"></i>
+                                    </button>
                                     <a href="{{ route('admin.network.vpn.edit', $tunnel) }}" class="btn btn-outline-primary" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </a>
@@ -112,8 +115,70 @@
     </div>
 </div>
 
+<!-- Troubleshooting Modal -->
+<div class="modal fade" id="troubleshootModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">VPN Troubleshooting</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">System IPsec Logs (Last 50 lines)</label>
+                    <pre id="ipsecLogs" class="bg-dark text-light p-3 small overflow-auto" style="max-height: 300px;">Loading logs...</pre>
+                </div>
+                <div id="saDetailsContainer" class="d-none">
+                    <label class="form-label fw-bold">Security Association (SA) Details</label>
+                    <pre id="saDetails" class="bg-light p-3 small border">Checking SA status...</pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="refreshTroubleshoot()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
+let currentTunnelId = null;
+
+function showTroubleshoot(tunnelId) {
+    currentTunnelId = tunnelId;
+    const modal = new bootstrap.Modal(document.getElementById('troubleshootModal'));
+    modal.show();
+    refreshTroubleshoot();
+}
+
+function refreshTroubleshoot() {
+    const logContainer = document.getElementById('ipsecLogs');
+    const saContainer = document.getElementById('saDetails');
+    const saWrapper = document.getElementById('saDetailsContainer');
+    
+    logContainer.textContent = 'Loading system logs...';
+    
+    // Fetch broad system logs
+    fetch(`{{ route('admin.network.vpn.logs') }}`)
+        .then(r => r.json())
+        .then(data => {
+            logContainer.textContent = data.logs || 'No logs returned from server.';
+        });
+
+    if (currentTunnelId) {
+        saWrapper.classList.remove('d-none');
+        saContainer.textContent = 'Checking tunnel-specific SA status...';
+        fetch(`{{ url('admin/network/vpn') }}/${currentTunnelId}/status`)
+            .then(r => r.json())
+            .then(data => {
+                saContainer.textContent = data.raw_output || 'No specific SA info for this tunnel.';
+            });
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const tunnels = @json($tunnels->pluck('id'));
     
@@ -121,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchStatus(id);
     });
 
-    function fetchStatus(id) {
+    window.fetchStatus = function(id) {
         const container = document.getElementById(`status-${id}`);
         fetch(`{{ url('admin/network/vpn') }}/${id}/status`)
             .then(response => response.json())
@@ -129,12 +194,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.is_up) {
                     container.innerHTML = `
                         <span class="badge rounded-circle bg-success p-1 me-2" style="width: 10px; height: 10px;"></span>
-                        <span class="text-success small fw-bold">UP</span>
+                        <span class="text-success small fw-bold" style="cursor:help" title="Click for details" onclick="showTroubleshoot(${id})">UP</span>
                     `;
                 } else {
                     container.innerHTML = `
                         <span class="badge rounded-circle bg-danger p-1 me-2" style="width: 10px; height: 10px;"></span>
-                        <span class="text-danger small fw-bold">DOWN</span>
+                        <span class="text-danger small fw-bold" style="cursor:help" title="Click for details" onclick="showTroubleshoot(${id})">DOWN</span>
                     `;
                 }
             })

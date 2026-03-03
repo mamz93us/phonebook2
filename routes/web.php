@@ -379,6 +379,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/{tunnel}/up',     [VpnHubController::class, 'initiate'])->name('up');
         Route::post('/{tunnel}/down',   [VpnHubController::class, 'terminate'])->name('down');
         Route::post('/reload',          [VpnHubController::class, 'reload'])->name('reload');
+        Route::get('/logs',             [VpnHubController::class, 'showLogs'])->name('logs');
         Route::get('/{tunnel}/status',  [VpnHubController::class, 'checkStatus'])->name('status');
     });
 
