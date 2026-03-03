@@ -174,14 +174,15 @@ class IdentityController extends Controller
         ]);
 
         // ── Run sync AFTER the HTTP response is delivered ──
-        // public/index.php calls fastcgi_finish_request() between $response->send()
-        // and $kernel->terminate(), so by the time this callback runs:
-        //   • NGINX has already forwarded the complete response to the browser
-        //   • The FastCGI connection is closed — no fastcgi_read_timeout pressure
-        //   • The browser has already received its redirect (no visible hang)
-        // PHP-FPM's request_terminate_timeout still applies only if explicitly
-        // configured; the default is 0 (unlimited).
+        // app()->terminating() runs during $kernel->terminate(), which is called
+        // AFTER $response->send() — the browser already received its redirect.
+        // Calling fastcgi_finish_request() inside the callback closes the FastCGI
+        // connection to NGINX so fastcgi_read_timeout stops ticking.
+        // PHP continues freely with set_time_limit(0).
         app()->terminating(function () {
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
             set_time_limit(0);
             ignore_user_abort(true);
             (new SyncIdentityData())->handle();
