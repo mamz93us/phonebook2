@@ -52,32 +52,73 @@ class GdmsService
     /**
      * List SIP accounts (v1.0.0) with same pattern as your working Postman request.
      */
-    public function listSipAccounts(int $pageNum = 1, int $pageSize = 50): array
+    public function listSipAccounts(int $pageNum = 1, int $pageSize = 200): array
     {
-        // Use the proven postSigned method instead of manual string building.
-        // GDMS listSipAccounts endpoint doesn't require any extra body params beyond the pagination ones.
-        $data = $this->postSigned('/v1.0.0/sip/account/list', $pageNum, $pageSize);
+        $token     = $this->getToken();
 
-        // sip/account/list returns {result:[...], total:N, pages:N}
-        if (isset($data['result']) && is_array($data['result'])) {
-            return [
-                'list'     => $data['result'],
-                'total'    => (int) ($data['total']    ?? count($data['result'])),
-                'pages'    => (int) ($data['pages']    ?? 1),
-                'pageNum'  => (int) ($data['pageNum']  ?? $pageNum),
-                'pageSize' => (int) ($data['pageSize'] ?? $pageSize),
-            ];
+        // Use current time in ms
+        $timestamp = (string) round(microtime(true) * 1000);
+        $orgId     = $this->orgId;
+
+        // Body JSON – must match exactly what we sign and send
+        $bodyArray = [
+            'pageNum'  => $pageNum,
+            'pageSize' => $pageSize,
+            'orgId'    => $orgId,
+        ];
+        $bodyJson = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        // Signature parameters (query + body fields)
+        $sigParams = [
+            'access_token'  => $token,
+            'orgId'         => $orgId,
+            'pageNum'       => $pageNum,
+            'pageSize'      => $pageSize,
+            'timestamp'     => $timestamp,
+        ];
+
+        // Add client_id and client_secret only for signature
+        $sigParams['client_id']     = $this->clientId;
+        $sigParams['client_secret'] = $this->clientSecret;
+
+        // Sort keys ASC
+        ksort($sigParams, SORT_STRING);
+
+        $pairs = [];
+        foreach ($sigParams as $key => $value) {
+            $pairs[] = $key.'='.$value;
+        }
+        $paramString = implode('&', $pairs);
+
+        // sha256(body)
+        $bodyHash = hash('sha256', $bodyJson);
+
+        // Final string: &params&sha256(body)&
+        $toSign = '&'.$paramString.'&'.$bodyHash.'&';
+
+        $signature = hash('sha256', $toSign);
+
+        // Build URL exactly like your working Postman call
+        $url = "{$this->baseUrl}/v1.0.0/sip/account/list"
+             . "?access_token={$token}"
+             . "&timestamp={$timestamp}"
+             . "&signature={$signature}"
+             . "&pageSize={$pageSize}"
+             . "&pageNum={$pageNum}"
+             . "&orgId={$orgId}";
+
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/json',
+        ])->post($url, $bodyArray);
+
+        $data = $response->json();
+
+        if (($data['retCode'] ?? -1) !== 0) {
+            throw new \RuntimeException('GDMS error: '.($data['msg'] ?? 'unknown'));
         }
 
-        // Legacy fallback: data.list wrapper
-        if (isset($data['data']['list'])) {
-            return [
-                'list'  => $data['data']['list'],
-                'total' => (int) ($data['data']['total'] ?? count($data['data']['list'])),
-            ];
-        }
-
-        return ['list' => [], 'total' => 0];
+        // Return the exact field as original
+        return $data['data'] ?? [];
     }
 
     /**

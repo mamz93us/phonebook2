@@ -22,7 +22,7 @@ class SyncGdmsContacts extends Command
         $log = ServiceSyncLog::start('gdms');
 
         $pageNum   = 1;
-        $pageSize  = 10;    // GDMS API only works with small page sizes (confirmed: 5 works, 50+ fails)
+        $pageSize  = 200;
         $processed = 0;
 
         $failed = 0;
