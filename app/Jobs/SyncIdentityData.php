@@ -59,9 +59,8 @@ class SyncIdentityData implements ShouldQueue
         set_time_limit(600);
 
         // Increase memory for the sync job — Graph returns 888+ users and 842+
-        // groups. 128 MB (server default) is not enough for two full paginated
-        // result sets in memory simultaneously.
-        ini_set('memory_limit', '256M');
+        // groups. 256 MB is not enough for Guzzle PSR7 buffering + all datasets.
+        ini_set('memory_limit', '512M');
 
         $graph  = new GraphService();
         $errors = [];

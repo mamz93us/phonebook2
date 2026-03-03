@@ -497,20 +497,24 @@ document.getElementById('extSearch')?.addEventListener('keyup', function () {
     });
 });
 
-// ── Password Generator (alphanumeric only) ────────────────
-// Grandstream UCM rejects special characters in BOTH the SIP secret
-// and user_password fields (returns error -25). All generated
-// passwords are strictly alphanumeric.
+// ── Password Generator ────────────────────────────────────
+// Grandstream UCM password complexity policy requires uppercase +
+// lowercase + digit + at least one special character (matching
+// the API docs example "Abc123456!"). Pure alphanumeric passwords
+// trigger error -25 "Failed to update data".
 function generatePassword(fieldId) {
-    const upper  = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-    const lower  = 'abcdefghjkmnpqrstuvwxyz';
-    const digits = '23456789';
-    const all    = upper + lower + digits;
+    const upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower   = 'abcdefghjkmnpqrstuvwxyz';
+    const digits  = '23456789';
+    const special = '@!*#';
+    const all     = upper + lower + digits + special;
 
+    // Guarantee at least one of each required character type
     let pwd = [
-        upper [Math.floor(Math.random() * upper.length)],
-        lower [Math.floor(Math.random() * lower.length)],
-        digits[Math.floor(Math.random() * digits.length)],
+        upper  [Math.floor(Math.random() * upper.length)],
+        lower  [Math.floor(Math.random() * lower.length)],
+        digits [Math.floor(Math.random() * digits.length)],
+        special[Math.floor(Math.random() * special.length)],
     ];
     for (let i = pwd.length; i < 12; i++) {
         pwd.push(all[Math.floor(Math.random() * all.length)]);

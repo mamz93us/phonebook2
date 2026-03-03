@@ -55,12 +55,9 @@ class ExtensionProvisioningService
             'email'        => $email,
             'hasvoicemail' => 'no',
             'call_waiting' => 'no',
-            // UCM rejects special characters (error -25): strip anything non-alphanumeric
-            'secret'       => (function () use ($settings) {
-                $raw       = $settings->ext_default_secret ?? '';
-                $sanitized = preg_replace('/[^a-zA-Z0-9]/', '', $raw);
-                return strlen($sanitized) >= 6 ? $sanitized : 'changeme123';
-            })(),
+            // UCM password complexity policy requires uppercase+lowercase+digit+special char.
+            // Do NOT strip special characters — they are required, not forbidden.
+            'secret'       => ($settings->ext_default_secret ?: 'changeme1@3'),
             // UCM permission values must be the full cumulative strings (per API docs)
             'permission'   => $settings->ext_default_permission ?: 'internal-local',
         ]);
