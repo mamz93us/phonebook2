@@ -52,7 +52,7 @@ class GdmsService
     /**
      * List SIP accounts (v1.0.0) with same pattern as your working Postman request.
      */
-    public function listSipAccounts(int $pageNum = 1, int $pageSize = 100): array
+    public function listSipAccounts(int $pageNum = 1, int $pageSize = 50): array
     {
         $token     = $this->getToken();
         $timestamp = (string) round(microtime(true) * 1000);
