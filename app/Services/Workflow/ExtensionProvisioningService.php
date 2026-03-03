@@ -55,7 +55,12 @@ class ExtensionProvisioningService
             'email'        => $email,
             'hasvoicemail' => 'no',
             'call_waiting' => 'no',
-            'secret'       => $settings->ext_default_secret ?: 'changeme123',
+            // UCM rejects special characters (error -25): strip anything non-alphanumeric
+            'secret'       => (function () use ($settings) {
+                $raw       = $settings->ext_default_secret ?? '';
+                $sanitized = preg_replace('/[^a-zA-Z0-9]/', '', $raw);
+                return strlen($sanitized) >= 6 ? $sanitized : 'changeme123';
+            })(),
             'permission'   => $settings->ext_default_permission ?: 'local',
         ]);
 

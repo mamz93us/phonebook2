@@ -232,7 +232,8 @@
                             <div class="input-group">
                                 <input type="text" name="secret" id="edit_secret"
                                     class="form-control font-monospace"
-                                    placeholder="Leave blank to keep unchanged">
+                                    placeholder="Leave blank to keep unchanged"
+                                    pattern="[a-zA-Z0-9]*" title="Letters and digits only — no special characters">
                                 <button type="button" class="btn btn-outline-secondary" title="Generate"
                                     onclick="generatePassword('edit_secret')">
                                     <i class="bi bi-arrow-repeat"></i>
@@ -242,6 +243,7 @@
                                     <i class="bi bi-clipboard"></i>
                                 </button>
                             </div>
+                            <div class="form-text text-warning"><i class="bi bi-exclamation-triangle me-1"></i>UCM requires letters and digits only — no special characters.</div>
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-semibold d-block mb-2">Features</label>
@@ -321,7 +323,8 @@
                             <label class="form-label fw-semibold">SIP Password <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <input type="text" name="secret" id="add_secret" class="form-control font-monospace" required
-                                    placeholder="Min 6 characters">
+                                    placeholder="Letters &amp; digits only"
+                                    pattern="[a-zA-Z0-9]+" title="Letters and digits only — no special characters">
                                 <button type="button" class="btn btn-outline-secondary" title="Generate"
                                     onclick="generatePassword('add_secret')">
                                     <i class="bi bi-arrow-repeat"></i>
@@ -331,6 +334,7 @@
                                     <i class="bi bi-clipboard"></i>
                                 </button>
                             </div>
+                            <div class="form-text text-warning"><i class="bi bi-exclamation-triangle me-1"></i>UCM requires letters and digits only — no special characters.</div>
                         </div>
 
                         {{-- User Portal Password --}}
