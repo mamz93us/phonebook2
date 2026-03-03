@@ -215,9 +215,9 @@
                             <label class="form-label fw-semibold">Permission <span class="text-danger">*</span></label>
                             <select name="permission" id="edit_permission" class="form-select" required>
                                 <option value="internal">Internal</option>
-                                <option value="local">Local</option>
-                                <option value="national">National</option>
-                                <option value="international">International</option>
+                                <option value="internal-local">Local</option>
+                                <option value="internal-local-national">National</option>
+                                <option value="internal-local-national-international">International</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -232,8 +232,7 @@
                             <div class="input-group">
                                 <input type="text" name="secret" id="edit_secret"
                                     class="form-control font-monospace"
-                                    placeholder="Leave blank to keep unchanged"
-                                    pattern="[a-zA-Z0-9]*" title="Letters and digits only — no special characters">
+                                    placeholder="Leave blank to keep unchanged">
                                 <button type="button" class="btn btn-outline-secondary" title="Generate"
                                     onclick="generatePassword('edit_secret')">
                                     <i class="bi bi-arrow-repeat"></i>
@@ -243,7 +242,6 @@
                                     <i class="bi bi-clipboard"></i>
                                 </button>
                             </div>
-                            <div class="form-text text-warning"><i class="bi bi-exclamation-triangle me-1"></i>UCM requires letters and digits only — no special characters.</div>
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-semibold d-block mb-2">Features</label>
@@ -323,8 +321,7 @@
                             <label class="form-label fw-semibold">SIP Password <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <input type="text" name="secret" id="add_secret" class="form-control font-monospace" required
-                                    placeholder="Letters &amp; digits only"
-                                    pattern="[a-zA-Z0-9]+" title="Letters and digits only — no special characters">
+                                    placeholder="Min 4 characters">
                                 <button type="button" class="btn btn-outline-secondary" title="Generate"
                                     onclick="generatePassword('add_secret')">
                                     <i class="bi bi-arrow-repeat"></i>
@@ -334,7 +331,6 @@
                                     <i class="bi bi-clipboard"></i>
                                 </button>
                             </div>
-                            <div class="form-text text-warning"><i class="bi bi-exclamation-triangle me-1"></i>UCM requires letters and digits only — no special characters.</div>
                         </div>
 
                         {{-- User Portal Password --}}
@@ -343,8 +339,7 @@
                             <div class="input-group">
                                 <input type="text" name="user_password" id="add_user_password"
                                     class="form-control font-monospace" required
-                                    placeholder="Letters &amp; digits only"
-                                    pattern="[a-zA-Z0-9]+" title="Letters and digits only — no special characters">
+                                    placeholder="Min 4 characters">
                                 <button type="button" class="btn btn-outline-secondary" title="Generate"
                                     onclick="generatePassword('add_user_password')">
                                     <i class="bi bi-arrow-repeat"></i>
@@ -354,7 +349,6 @@
                                     <i class="bi bi-clipboard"></i>
                                 </button>
                             </div>
-                            <div class="form-text text-warning"><i class="bi bi-exclamation-triangle me-1"></i>UCM requires letters and digits only — no special characters.</div>
                         </div>
 
                         {{-- Permission & Max Contacts --}}
@@ -362,9 +356,9 @@
                             <label class="form-label fw-semibold">Permission <span class="text-danger">*</span></label>
                             <select name="permission" class="form-select" required>
                                 <option value="internal" selected>Internal</option>
-                                <option value="local">Local</option>
-                                <option value="national">National</option>
-                                <option value="international">International</option>
+                                <option value="internal-local">Local</option>
+                                <option value="internal-local-national">National</option>
+                                <option value="internal-local-national-international">International</option>
                             </select>
                         </div>
                         <div class="col-md-6">

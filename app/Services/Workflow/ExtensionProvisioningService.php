@@ -61,7 +61,8 @@ class ExtensionProvisioningService
                 $sanitized = preg_replace('/[^a-zA-Z0-9]/', '', $raw);
                 return strlen($sanitized) >= 6 ? $sanitized : 'changeme123';
             })(),
-            'permission'   => $settings->ext_default_permission ?: 'local',
+            // UCM permission values must be the full cumulative strings (per API docs)
+            'permission'   => $settings->ext_default_permission ?: 'internal-local',
         ]);
 
         $api->applyChanges();

@@ -183,7 +183,7 @@ class IppbxApiService
         if (($resp['status'] ?? -1) !== 0) {
             $status = $resp['status'] ?? 'unknown';
             $hint   = match($status) {
-                -25    => ' — passwords (secret & user_password) must be letters and digits only (no special characters like @#$!)',
+                -25    => ' — a field value was rejected by the UCM (check permission format: must be internal / internal-local / internal-local-national / internal-local-national-international)',
                 -8     => ' — Extension number already exists on this UCM',
                 default => '',
             };
