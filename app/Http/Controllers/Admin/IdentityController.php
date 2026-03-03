@@ -135,7 +135,10 @@ class IdentityController extends Controller
 
     public function sync()
     {
-        set_time_limit(300);
+        // Keep running even if NGINX closes the HTTP connection (fastcgi_read_timeout).
+        // Without this, the sync silently dies mid-run and the log stays "started" forever.
+        ignore_user_abort(true);
+        set_time_limit(600);
 
         $settings = Setting::get();
 

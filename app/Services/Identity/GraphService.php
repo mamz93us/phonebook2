@@ -63,14 +63,21 @@ class GraphService
         return $this->getAccessToken();
     }
 
+    // Default timeout for Graph API HTTP calls (seconds).
+    // Longer bulk requests (paginate, batch) use GRAPH_TIMEOUT_BULK.
+    private const GRAPH_TIMEOUT      = 60;
+    private const GRAPH_TIMEOUT_BULK = 120;
+
     private function get(string $endpoint, array $query = []): array
     {
         $token    = $this->getAccessToken();
-        $response = Http::withToken($token)->get($this->baseUrl . $endpoint, $query);
+        $response = Http::timeout(self::GRAPH_TIMEOUT)->withToken($token)
+            ->get($this->baseUrl . $endpoint, $query);
 
         if ($response->status() === 401) {
             $token    = $this->refreshToken();
-            $response = Http::withToken($token)->get($this->baseUrl . $endpoint, $query);
+            $response = Http::timeout(self::GRAPH_TIMEOUT)->withToken($token)
+                ->get($this->baseUrl . $endpoint, $query);
         }
 
         if (!$response->successful()) {
@@ -83,14 +90,16 @@ class GraphService
     private function patch(string $endpoint, array $data): void
     {
         $token    = $this->getAccessToken();
-        $response = Http::withToken($token)->patch($this->baseUrl . $endpoint, $data);
+        $response = Http::timeout(self::GRAPH_TIMEOUT)->withToken($token)
+            ->patch($this->baseUrl . $endpoint, $data);
 
         // On 401 or 403 force a token refresh and retry once.
         // 403 is also retried because a newly granted application permission
         // (e.g. User.ReadWrite.All) is only reflected in a fresh access token.
         if ($response->status() === 401 || $response->status() === 403) {
             $token    = $this->refreshToken();
-            $response = Http::withToken($token)->patch($this->baseUrl . $endpoint, $data);
+            $response = Http::timeout(self::GRAPH_TIMEOUT)->withToken($token)
+                ->patch($this->baseUrl . $endpoint, $data);
         }
 
         if (!$response->successful()) {
@@ -101,11 +110,13 @@ class GraphService
     private function post(string $endpoint, array $data): array
     {
         $token    = $this->getAccessToken();
-        $response = Http::withToken($token)->post($this->baseUrl . $endpoint, $data);
+        $response = Http::timeout(self::GRAPH_TIMEOUT)->withToken($token)
+            ->post($this->baseUrl . $endpoint, $data);
 
         if ($response->status() === 401 || $response->status() === 403) {
             $token    = $this->refreshToken();
-            $response = Http::withToken($token)->post($this->baseUrl . $endpoint, $data);
+            $response = Http::timeout(self::GRAPH_TIMEOUT)->withToken($token)
+                ->post($this->baseUrl . $endpoint, $data);
         }
 
         if (!$response->successful()) {
@@ -118,11 +129,13 @@ class GraphService
     private function delete(string $endpoint): void
     {
         $token    = $this->getAccessToken();
-        $response = Http::withToken($token)->delete($this->baseUrl . $endpoint);
+        $response = Http::timeout(self::GRAPH_TIMEOUT)->withToken($token)
+            ->delete($this->baseUrl . $endpoint);
 
         if ($response->status() === 401 || $response->status() === 403) {
             $token    = $this->refreshToken();
-            $response = Http::withToken($token)->delete($this->baseUrl . $endpoint);
+            $response = Http::timeout(self::GRAPH_TIMEOUT)->withToken($token)
+                ->delete($this->baseUrl . $endpoint);
         }
 
         if (!$response->successful()) {
@@ -132,6 +145,7 @@ class GraphService
 
     /**
      * Paginate through @odata.nextLink automatically.
+     * Uses a longer timeout (120s) — bulk queries can return thousands of records.
      */
     private function paginate(string $endpoint, array $query = []): array
     {
@@ -141,7 +155,14 @@ class GraphService
 
         do {
             $token    = $this->getAccessToken();
-            $response = Http::withToken($token)->get($url, $url === $this->baseUrl . $endpoint ? $query : []);
+            $response = Http::timeout(self::GRAPH_TIMEOUT_BULK)->withToken($token)
+                ->get($url, $url === $this->baseUrl . $endpoint ? $query : []);
+
+            if ($response->status() === 401) {
+                $token    = $this->refreshToken();
+                $response = Http::timeout(self::GRAPH_TIMEOUT_BULK)->withToken($token)
+                    ->get($url, $url === $this->baseUrl . $endpoint ? $query : []);
+            }
 
             if (!$response->successful()) {
                 throw new \RuntimeException("Graph paginate {$endpoint} failed: " . $response->body());
@@ -171,6 +192,10 @@ class GraphService
 
     public function listUsers(): array
     {
+        // Fetch core user data without $expand — adding $expand=manager to a
+        // large tenant (hundreds of users) inflates the response significantly
+        // and causes timeouts. Manager IDs are fetched in a separate lightweight
+        // pass via listUserManagers() during sync.
         $users = $this->paginate('/users', [
             '$select' => implode(',', [
                 'id', 'displayName', 'userPrincipalName', 'mail',
@@ -180,14 +205,37 @@ class GraphService
                 'businessPhones', 'mobilePhone',
                 'officeLocation', 'streetAddress', 'city', 'postalCode', 'country',
             ]),
-            '$expand' => 'manager($select=id)',
         ]);
 
-        // Flatten manager relationship into a top-level key for easy access
         return array_map(function (array $user) {
-            $user['manager_id'] = $user['manager']['id'] ?? null;
+            $user['manager_id'] = null; // populated separately by listUserManagers()
             return $user;
         }, $users);
+    }
+
+    /**
+     * Fetch manager relationships for all users in one lightweight paginated call.
+     * Returns [userId => managerId] map. Called separately from listUsers() so
+     * the heavy core-user query stays fast even on large tenants.
+     */
+    public function listUserManagers(): array
+    {
+        try {
+            $users = $this->paginate('/users', [
+                '$select' => 'id',
+                '$expand' => 'manager($select=id)',
+            ]);
+
+            $map = [];
+            foreach ($users as $u) {
+                if (!empty($u['id']) && !empty($u['manager']['id'])) {
+                    $map[$u['id']] = $u['manager']['id'];
+                }
+            }
+            return $map;
+        } catch (\Throwable) {
+            return []; // non-fatal — manager data is supplementary
+        }
     }
 
     /**
@@ -222,13 +270,13 @@ class GraphService
                 ];
             }
 
-            $resp = Http::withToken($token)
+            $resp = Http::timeout(self::GRAPH_TIMEOUT_BULK)->withToken($token)
                 ->post($this->baseUrl . '/$batch', ['requests' => $requests]);
 
             // Retry once on 401 (stale token)
             if ($resp->status() === 401) {
                 $token = $this->refreshToken();
-                $resp  = Http::withToken($token)
+                $resp  = Http::timeout(self::GRAPH_TIMEOUT_BULK)->withToken($token)
                     ->post($this->baseUrl . '/$batch', ['requests' => $requests]);
             }
 

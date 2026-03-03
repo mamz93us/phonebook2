@@ -52,10 +52,21 @@ class SyncIdentityData implements ShouldQueue
             'started_at' => now(),
         ]);
 
-        try {
-            $graph = new GraphService();
+        // Keep running even if the HTTP client (NGINX) closes the connection early.
+        // Without this, a fastcgi_read_timeout would silently kill the process mid-sync,
+        // leaving the log entry permanently in "started" state.
+        ignore_user_abort(true);
+        set_time_limit(600);
 
-            // ── 1. Sync licenses ───────────────────────────────────────
+        $graph  = new GraphService();
+        $errors = [];
+
+        $skus   = [];
+        $groups = [];
+        $users  = [];
+
+        // ── 1. Sync licenses (non-fatal) ───────────────────────────
+        try {
             $skus = $graph->listSubscribedSkus();
             DB::transaction(function () use ($skus) {
                 foreach ($skus as $sku) {
@@ -73,8 +84,14 @@ class SyncIdentityData implements ShouldQueue
                     );
                 }
             });
+            Log::info('SyncIdentityData: licenses OK (' . count($skus) . ')');
+        } catch (\Throwable $e) {
+            $errors[] = 'Licenses: ' . $e->getMessage();
+            Log::error('SyncIdentityData: license sync failed — ' . $e->getMessage());
+        }
 
-            // ── 2. Sync groups ─────────────────────────────────────────
+        // ── 2. Sync groups (non-fatal) ─────────────────────────────
+        try {
             $groups = $graph->listGroups();
             DB::transaction(function () use ($groups) {
                 foreach ($groups as $group) {
@@ -90,8 +107,14 @@ class SyncIdentityData implements ShouldQueue
                     );
                 }
             });
+            Log::info('SyncIdentityData: groups OK (' . count($groups) . ')');
+        } catch (\Throwable $e) {
+            $errors[] = 'Groups: ' . $e->getMessage();
+            Log::error('SyncIdentityData: group sync failed — ' . $e->getMessage());
+        }
 
-            // ── 3. Sync user profile data (no expand — stays fast) ─────
+        // ── 3. Sync users (non-fatal) ──────────────────────────────
+        try {
             $users = $graph->listUsers();
             DB::transaction(function () use ($users) {
                 foreach ($users as $user) {
@@ -123,16 +146,36 @@ class SyncIdentityData implements ShouldQueue
                     );
                 }
             });
+            Log::info('SyncIdentityData: users OK (' . count($users) . ')');
+        } catch (\Throwable $e) {
+            $errors[] = 'Users: ' . $e->getMessage();
+            Log::error('SyncIdentityData: user sync failed — ' . $e->getMessage());
+        }
 
-            // ── 4. Sync group memberships via Graph Batch API ──────────
-            // batchGroupMembers() sends 20 group-member requests per HTTP
-            // call (parallel on Microsoft's side) — much faster than
-            // paginating users with $expand=memberOf.
-            $allGroupIds = IdentityGroup::pluck('azure_id')->all();
+        // ── 3b. Back-fill manager relationships (non-fatal, separate pass) ──
+        // listUserManagers() fetches only id + manager expand — much lighter
+        // than including it in the main users query.
+        try {
+            $managerMap = $graph->listUserManagers();
+            if (!empty($managerMap)) {
+                DB::transaction(function () use ($managerMap) {
+                    foreach ($managerMap as $userId => $managerId) {
+                        IdentityUser::where('azure_id', $userId)
+                            ->update(['manager_azure_id' => $managerId]);
+                    }
+                });
+                Log::info('SyncIdentityData: manager relationships OK (' . count($managerMap) . ')');
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal — manager data is supplementary
+            Log::warning('SyncIdentityData: manager sync skipped — ' . $e->getMessage());
+        }
+
+        // ── 4. Sync group memberships via Graph Batch API (non-fatal) ──
+        try {
+            $allGroupIds  = IdentityGroup::pluck('azure_id')->all();
             $groupMembers = $graph->batchGroupMembers($allGroupIds);
-            // $groupMembers = [groupId => [userId, ...]]
 
-            // Build inverse map: userId → [groupId, ...]
             $userMemberOf      = [];
             $groupMemberCounts = [];
             foreach ($groupMembers as $groupId => $userIds) {
@@ -142,11 +185,10 @@ class SyncIdentityData implements ShouldQueue
                 }
             }
 
-            // Persist user membership data in one transaction
             DB::transaction(function () use ($userMemberOf) {
                 foreach ($userMemberOf as $userId => $groupIds) {
                     IdentityUser::where('azure_id', $userId)->update([
-                        'member_of'    => $groupIds,   // cast: 'array' handles JSON
+                        'member_of'    => $groupIds,
                         'groups_count' => count($groupIds),
                     ]);
                 }
@@ -157,30 +199,28 @@ class SyncIdentityData implements ShouldQueue
                 foreach ($groupMemberCounts as $gid => $count) {
                     IdentityGroup::where('azure_id', $gid)->update(['members_count' => $count]);
                 }
-                // Zero out groups with no members this run
                 IdentityGroup::whereNotIn('azure_id', array_keys($groupMemberCounts))
                     ->update(['members_count' => 0]);
             });
-
-            $log->update([
-                'status'          => 'completed',
-                'users_synced'    => count($users),
-                'licenses_synced' => count($skus),
-                'groups_synced'   => count($groups),
-                'completed_at'    => now(),
-            ]);
-
-            Log::info("SyncIdentityData: completed. Users: " . count($users) . ", Licenses: " . count($skus) . ", Groups: " . count($groups));
-
-        } catch (\Exception $e) {
-            $log->update([
-                'status'        => 'failed',
-                'error_message' => $e->getMessage(),
-                'completed_at'  => now(),
-            ]);
-
-            Log::error('SyncIdentityData failed: ' . $e->getMessage());
-            throw $e;
+            Log::info('SyncIdentityData: group memberships OK');
+        } catch (\Throwable $e) {
+            $errors[] = 'Group memberships: ' . $e->getMessage();
+            Log::error('SyncIdentityData: group membership sync failed — ' . $e->getMessage());
         }
+
+        // ── Finalise log ───────────────────────────────────────────
+        $status       = empty($errors) ? 'completed' : (empty($users) && empty($groups) && empty($skus) ? 'failed' : 'completed');
+        $errorMessage = empty($errors) ? null : implode('; ', $errors);
+
+        $log->update([
+            'status'          => $status,
+            'users_synced'    => count($users),
+            'licenses_synced' => count($skus),
+            'groups_synced'   => count($groups),
+            'error_message'   => $errorMessage,
+            'completed_at'    => now(),
+        ]);
+
+        Log::info("SyncIdentityData: {$status}. Users: " . count($users) . ", Licenses: " . count($skus) . ", Groups: " . count($groups) . ($errorMessage ? " | Errors: {$errorMessage}" : ''));
     }
 }
