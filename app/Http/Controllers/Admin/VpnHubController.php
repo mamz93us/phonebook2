@@ -211,24 +211,31 @@ class VpnHubController extends Controller
 
     public function checkStatus(VpnTunnel $tunnel)
     {
-        $result = $this->vpnService->status();
-        
-        // Simple logic to find if our tunnel is in the output
-        $isEstablished = false;
-        if ($result['status'] === 'success' && isset($result['output'])) {
-            $isEstablished = str_contains($result['output'], $tunnel->name) && str_contains($result['output'], 'ESTABLISHED');
-        }
+        try {
+            $result = $this->vpnService->status();
+            
+            // Simple logic to find if our tunnel is in the output
+            $isEstablished = false;
+            if ($result['status'] === 'success' && isset($result['output'])) {
+                $isEstablished = str_contains($result['output'], $tunnel->name) && str_contains($result['output'], 'ESTABLISHED');
+            }
 
-        // Update DB status if it changed
-        $newStatus = $isEstablished ? 'up' : 'down';
-        if ($tunnel->status !== $newStatus) {
-            $tunnel->update(['status' => $newStatus]);
-        }
+            // Update DB status if it changed
+            $newStatus = $isEstablished ? 'up' : 'down';
+            if ($tunnel->status !== $newStatus) {
+                $tunnel->update(['status' => $newStatus, 'last_checked_at' => now()]);
+            }
 
-        return response()->json([
-            'is_up' => $isEstablished,
-            'raw_output' => $this->sanitizeLog($result['output'] ?? (is_string($result) ? $result : 'No status output available.'))
-        ]);
+            return response()->json([
+                'is_up' => $isEstablished,
+                'raw_output' => $this->sanitizeLog($result['output'] ?? 'No status output available.')
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'is_up' => false,
+                'raw_output' => 'Error checking status: ' . $e->getMessage()
+            ]);
+        }
     }
 
     public function showLogs()

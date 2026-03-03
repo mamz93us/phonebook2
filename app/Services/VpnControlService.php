@@ -154,6 +154,7 @@ class VpnControlService
 
         $command = array_merge(['sudo', $this->wrapperPath], $args);
         $process = new Process($command);
+        $process->setTimeout(10);
         $process->run();
 
         if (!$process->isSuccessful()) {
