@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncIdentityData;
 use App\Models\ActivityLog;
 use App\Models\IdentityGroup;
 use App\Models\IdentityLicense;
@@ -164,14 +165,6 @@ class IdentityController extends Controller
                 ->with('info', 'A sync is already in progress. Check back in a moment.');
         }
 
-        // ── Dispatch as background artisan CLI process ──
-        // Running inline in the HTTP request means PHP-FPM's request_terminate_timeout
-        // (and NGINX fastcgi_read_timeout) can kill the process mid-sync regardless of
-        // ignore_user_abort(). PHP CLI has no such timeouts — it runs until completion.
-        $php     = PHP_BINARY;
-        $artisan = escapeshellarg(base_path('artisan'));
-        exec("nohup {$php} {$artisan} identity:sync > /dev/null 2>&1 &");
-
         ActivityLog::create([
             'model_type' => 'Identity',
             'model_id'   => 0,
@@ -180,8 +173,22 @@ class IdentityController extends Controller
             'user_id'    => Auth::id(),
         ]);
 
+        // ── Run sync AFTER the HTTP response is delivered ──
+        // public/index.php calls fastcgi_finish_request() between $response->send()
+        // and $kernel->terminate(), so by the time this callback runs:
+        //   • NGINX has already forwarded the complete response to the browser
+        //   • The FastCGI connection is closed — no fastcgi_read_timeout pressure
+        //   • The browser has already received its redirect (no visible hang)
+        // PHP-FPM's request_terminate_timeout still applies only if explicitly
+        // configured; the default is 0 (unlimited).
+        app()->terminating(function () {
+            set_time_limit(0);
+            ignore_user_abort(true);
+            (new SyncIdentityData())->handle();
+        });
+
         return redirect()->route('admin.identity.sync-logs')
-            ->with('info', 'Sync started in background — this page will refresh automatically.');
+            ->with('info', 'Sync started — this page will refresh automatically.');
     }
 
     // ─────────────────────────────────────────────────────────────

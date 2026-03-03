@@ -17,4 +17,20 @@ require __DIR__.'/../vendor/autoload.php';
 /** @var Application $app */
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
-$app->handleRequest(Request::capture());
+// Split the request lifecycle so we can close the FastCGI connection BEFORE
+// running app()->terminating() callbacks.  This lets long-running tasks
+// (e.g. identity sync) registered via app()->terminating() execute after
+// the browser has already received its response — no NGINX fastcgi_read_timeout.
+$kernel   = $app->make(Illuminate\Contracts\Http\Kernel::class);
+$request  = Request::capture();
+$response = $kernel->handle($request);
+$response->send();
+
+// Close the FastCGI connection to NGINX.  Once called, NGINX forwards the
+// complete response to the browser and stops waiting — terminating callbacks
+// run freely without any HTTP timeout pressure.
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+}
+
+$kernel->terminate($request, $response);
