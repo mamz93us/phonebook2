@@ -173,12 +173,25 @@ class IdentityController extends Controller
         ]);
 
         // ── Run sync as a background CLI process ──
-        // This is completely independent of the web request, so PHP-FPM
-        // won't kill it due to request_terminate_timeout or memory limits.
-        $phpBin   = PHP_BINARY ?: 'php';
-        $artisan  = base_path('artisan');
-        $command  = sprintf('%s %s identity:sync > /dev/null 2>&1 &', escapeshellarg($phpBin), escapeshellarg($artisan));
-        exec($command);
+        // Using nohup + proc_open so it survives the HTTP request lifecycle
+        // and isn't killed by PHP-FPM's request_terminate_timeout.
+        $phpBin  = PHP_BINARY ?: '/usr/bin/php';
+        $artisan = base_path('artisan');
+        $logFile = storage_path('logs/identity-sync.log');
+
+        $cmd = sprintf(
+            'nohup %s %s identity:sync >> %s 2>&1 &',
+            escapeshellarg($phpBin),
+            escapeshellarg($artisan),
+            escapeshellarg($logFile)
+        );
+
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $proc = proc_open('/bin/bash -c ' . escapeshellarg($cmd), $descriptors, $pipes);
+        if (is_resource($proc)) {
+            foreach ($pipes as $pipe) { @fclose($pipe); }
+            proc_close($proc);
+        }
 
         return redirect()->route('admin.identity.sync-logs')
             ->with('info', 'Sync started in the background — this page will refresh automatically.');
