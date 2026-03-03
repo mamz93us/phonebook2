@@ -81,12 +81,12 @@ class ExtensionController extends Controller
 
             // ── Step 1: Create extension with MINIMUM required fields only ──
             // Sending extra/undocumented fields to addSIPAccountAndUser can trigger -25.
-            // The API docs specifically show: extension, secret, user_password, vmsecret, permission.
+            // Enforcement: set user_password and vmsecret identical to the strong SIP secret.
             $api->createExtension([
                 'extension'     => $data['extension'],
                 'secret'        => $data['secret'],
-                'user_password' => $data['user_password'],
-                'vmsecret'      => $data['secret'], // UCM expects vmsecret too
+                'user_password' => $data['secret'], // ENFORCED identical to secret
+                'vmsecret'      => $data['secret'], // ENFORCED identical to secret
                 'permission'    => $data['permission'],
             ]);
 

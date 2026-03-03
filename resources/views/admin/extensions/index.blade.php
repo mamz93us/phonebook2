@@ -355,9 +355,9 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Permission <span class="text-danger">*</span></label>
                             <select name="permission" class="form-select" required>
-                                <option value="internal" selected>Internal</option>
+                                <option value="internal">Internal</option>
                                 <option value="internal-local">Local</option>
-                                <option value="internal-local-national">National</option>
+                                <option value="internal-local-national" selected>National</option>
                                 <option value="internal-local-national-international">International</option>
                             </select>
                         </div>
