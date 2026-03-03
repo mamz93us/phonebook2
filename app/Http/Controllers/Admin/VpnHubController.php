@@ -223,17 +223,31 @@ class VpnHubController extends Controller
 
         return response()->json([
             'is_up' => $isEstablished,
-            'raw_output' => $result['output'] ?? 'No status output available.'
+            'raw_output' => $this->sanitizeLog($result['output'] ?? 'No status output available.')
         ]);
     }
 
     public function showLogs()
     {
-        $result = $this->vpnService->execute(['logs']);
-        
-        return response()->json([
-            'status' => $result['status'],
-            'logs'   => $result['output'] ?? 'No logs available.'
-        ]);
+        try {
+            $result = $this->vpnService->execute(['logs']);
+            
+            return response()->json([
+                'status' => $result['status'],
+                'logs'   => $this->sanitizeLog($result['output'] ?? 'No logs available.')
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'logs'   => "Error retrieving logs: " . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    protected function sanitizeLog($text)
+    {
+        if (!$text) return '';
+        // Force UTF-8 and remove invalid characters to prevent JSON 500 errors
+        return mb_convert_encoding($text, 'UTF-8', 'UTF-8');
     }
 }
