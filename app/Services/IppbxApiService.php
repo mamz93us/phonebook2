@@ -183,10 +183,17 @@ class IppbxApiService
         if (($resp['status'] ?? -1) !== 0) {
             $status = $resp['status'] ?? 'unknown';
             $hint   = match($status) {
-                -25    => ' — user_password must be letters and digits only (no special characters like @#$!)',
+                -25    => ' — passwords (secret & user_password) must be letters and digits only (no special characters like @#$!)',
                 -8     => ' — Extension number already exists on this UCM',
                 default => '',
             };
+
+            // Log the full payload (masking passwords) so we can debug -25 errors
+            $debugPayload = $data;
+            if (isset($debugPayload['secret']))        $debugPayload['secret']        = str_repeat('*', strlen($debugPayload['secret']))        . ' [len=' . strlen($data['secret']) . ', alnum=' . (ctype_alnum($data['secret']) ? 'yes' : 'NO') . ']';
+            if (isset($debugPayload['user_password'])) $debugPayload['user_password'] = str_repeat('*', strlen($debugPayload['user_password'])) . ' [len=' . strlen($data['user_password']) . ', alnum=' . (ctype_alnum($data['user_password']) ? 'yes' : 'NO') . ']';
+            Log::error('IppbxApiService: createExtension failed', ['status' => $status, 'payload' => $debugPayload, 'response' => $resp]);
+
             throw new \RuntimeException('addSIPAccountAndUser failed: ' . json_encode($resp) . $hint);
         }
 

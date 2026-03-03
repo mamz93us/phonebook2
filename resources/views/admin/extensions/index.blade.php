@@ -342,7 +342,7 @@
                                     placeholder="Letters &amp; digits only"
                                     pattern="[a-zA-Z0-9]+" title="Letters and digits only — no special characters">
                                 <button type="button" class="btn btn-outline-secondary" title="Generate"
-                                    onclick="generateAlphanumericPassword('add_user_password')">
+                                    onclick="generatePassword('add_user_password')">
                                     <i class="bi bi-arrow-repeat"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary" title="Copy"
@@ -499,32 +499,11 @@ document.getElementById('extSearch')?.addEventListener('keyup', function () {
     });
 });
 
-// ── Password Generator ─────────────────────────────────────
+// ── Password Generator (alphanumeric only) ────────────────
+// Grandstream UCM rejects special characters in BOTH the SIP secret
+// and user_password fields (returns error -25). All generated
+// passwords are strictly alphanumeric.
 function generatePassword(fieldId) {
-    const upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-    const lower   = 'abcdefghjkmnpqrstuvwxyz';
-    const digits  = '23456789';
-    const special = '@#$!';
-    const all     = upper + lower + digits + special;
-
-    let pwd = [
-        upper  [Math.floor(Math.random() * upper.length)],
-        lower  [Math.floor(Math.random() * lower.length)],
-        digits [Math.floor(Math.random() * digits.length)],
-        special[Math.floor(Math.random() * special.length)],
-    ];
-    for (let i = pwd.length; i < 12; i++) {
-        pwd.push(all[Math.floor(Math.random() * all.length)]);
-    }
-    pwd = pwd.sort(() => Math.random() - 0.5).join('');
-
-    const field = document.getElementById(fieldId);
-    if (field) { field.value = pwd; field.type = 'text'; }
-}
-
-// Alphanumeric-only generator — required for UCM user_password field
-// (Grandstream UCM rejects special characters in user_password with error -25)
-function generateAlphanumericPassword(fieldId) {
     const upper  = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const lower  = 'abcdefghjkmnpqrstuvwxyz';
     const digits = '23456789';
@@ -539,13 +518,14 @@ function generateAlphanumericPassword(fieldId) {
         pwd.push(all[Math.floor(Math.random() * all.length)]);
     }
     pwd = pwd.sort(() => Math.random() - 0.5).join('');
+
     const field = document.getElementById(fieldId);
     if (field) { field.value = pwd; field.type = 'text'; }
 }
 
 function generateAllPasswords() {
     generatePassword('add_secret');
-    generateAlphanumericPassword('add_user_password');
+    generatePassword('add_user_password');
 }
 
 function copyToClipboard(fieldId) {

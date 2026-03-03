@@ -61,8 +61,8 @@ class ExtensionController extends Controller
         $data = $request->validate([
             'ucm_id'           => 'required|exists:ucm_servers,id',
             'extension'        => 'required|string|max:20',
-            'secret'           => 'required|string|min:6|max:100',
-            // UCM user_password only accepts letters and digits — special chars cause error -25
+            // UCM rejects special characters in BOTH password fields (error -25)
+            'secret'           => ['required', 'string', 'min:6', 'max:100', 'regex:/^[a-zA-Z0-9]+$/'],
             'user_password'    => ['required', 'string', 'min:6', 'max:32', 'regex:/^[a-zA-Z0-9]+$/'],
             'fullname'         => 'nullable|string|max:100',
             'email'            => 'nullable|email|max:150',
@@ -73,7 +73,8 @@ class ExtensionController extends Controller
             'dnd'              => 'nullable|in:yes,no',
             'sync_contact'     => 'nullable|in:yes,no',
         ], [
-            'user_password.regex' => 'User Portal Password must contain letters and digits only — no special characters (@, #, $, ! etc.).',
+            'secret.regex'        => 'SIP Password must contain letters and digits only — no special characters.',
+            'user_password.regex' => 'User Portal Password must contain letters and digits only — no special characters.',
         ]);
 
         $ucm = UcmServer::findOrFail($data['ucm_id']);
@@ -135,7 +136,7 @@ class ExtensionController extends Controller
             'email'            => 'nullable|email|max:150',
             'permission'       => 'required|in:internal,local,national,international',
             'max_contacts'     => 'nullable|integer|min:1|max:10',
-            'secret'           => 'nullable|string|min:6|max:100',
+            'secret'           => ['nullable', 'string', 'min:6', 'max:100', 'regex:/^[a-zA-Z0-9]+$/'],
             'voicemail_enable' => 'nullable|in:yes,no',
             'call_waiting'     => 'nullable|in:yes,no',
             'dnd'              => 'nullable|in:yes,no',
