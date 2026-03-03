@@ -85,9 +85,10 @@ class UserProvisioningService
                 $this->engine->logEvent($workflow, 'success', "Azure user created: {$upn} (ID: {$azureId})");
 
                 $payload = array_merge($payload, [
-                    'upn'          => $upn,
-                    'azure_id'     => $azureId,
-                    'display_name' => $displayName,
+                    'upn'              => $upn,
+                    'azure_id'         => $azureId,
+                    'display_name'     => $displayName,
+                    'initial_password' => $password,
                 ]);
                 $workflow->payload = $payload;
                 $workflow->save();
@@ -201,7 +202,11 @@ class UserProvisioningService
                 $extension = $this->extProvisioning->getFirstAvailable($ucmServer, $rangeStart, $rangeEnd);
                 $this->engine->logEvent($workflow, 'info', "Using extension: {$extension}");
 
-                $this->extProvisioning->createForUser($ucmServer, $extension, $displayName, $upn);
+                $this->extProvisioning->createForUser($ucmServer, $extension, $displayName, $upn, [
+                    'department'   => $payload['department'] ?? '',
+                    'location'     => 'SA', // Requested: location should be SA
+                    'phone_number' => $payload['mobile_phone'] ?? $payload['businessPhones'][0] ?? '',
+                ]);
                 $this->engine->logEvent($workflow, 'success', "UCM extension {$extension} created (voicemail=no, call_waiting=no).");
 
                 $payload = array_merge($payload, [

@@ -273,7 +273,7 @@ class IppbxApiService
         $this->ensureCookie();
 
         // 1. Separate user profile fields from SIP fields
-        $userFields = ['email', 'fullname', 'first_name', 'last_name'];
+        $userFields = ['email', 'fullname', 'first_name', 'last_name', 'department', 'phone_number'];
         $userData = array_intersect_key($data, array_flip($userFields));
         
         $sipData = array_diff_key($data, array_flip($userFields));
@@ -326,6 +326,8 @@ class IppbxApiService
                     'first_name' => $firstName,
                     'last_name'  => $lastName,
                     'email'      => $userData['email'] ?? $compUser['email'] ?? '',
+                    'department' => $userData['department'] ?? $compUser['department'] ?? '',
+                    'phone_number' => $userData['phone_number'] ?? $compUser['phone_number'] ?? '',
                 ];
 
                 $uResp = $this->post($updateUserPayload);

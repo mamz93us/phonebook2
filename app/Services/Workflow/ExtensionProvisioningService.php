@@ -42,7 +42,8 @@ class ExtensionProvisioningService
         UcmServer $server,
         string    $extension,
         string    $displayName,
-        string    $email
+        string    $email,
+        array     $profile = []
     ): array {
         $settings = Setting::get();
 
@@ -55,23 +56,45 @@ class ExtensionProvisioningService
                          substr(str_shuffle('!@#$%^&*_+?'), 0, 3);
         $complexSecret = str_shuffle($complexSecret);
 
+        // Ensure permission string matches UCM cumulative format
+        $rawPerm = $settings->ext_default_permission ?: 'national';
+        $permMap = [
+            'internal'      => 'internal',
+            'local'         => 'internal-local',
+            'national'      => 'internal-local-national',
+            'international' => 'internal-local-national-international',
+        ];
+        $finalPerm = $permMap[$rawPerm] ?? $rawPerm;
+
         // 1. Create with minimal required fields (avoids error -25)
         $result = $api->createExtension([
             'extension'     => $extension,
             'secret'        => $complexSecret,
             'user_password' => $complexSecret, 
             'vmsecret'      => (string) random_int(100000, 999999),
-            'permission'    => $settings->ext_default_permission ?: 'internal-local',
+            'permission'    => $finalPerm,
         ]);
 
         // 2. Update with user profile data and SIP options
         try {
-            $api->updateExtension($extension, [
+            $updatePayload = [
                 'fullname'     => $displayName,
                 'email'        => $email,
                 'hasvoicemail' => 'no',
                 'call_waiting' => 'no',
-            ]);
+            ];
+            
+            if (!empty($profile['department'])) {
+                $updatePayload['department'] = $profile['department'];
+            }
+            if (!empty($profile['phone_number'])) {
+                $updatePayload['phone_number'] = $profile['phone_number'];
+            }
+            if (!empty($profile['location']) && empty($profile['department'])) {
+                $updatePayload['department'] = $profile['location']; // Fallback location to department
+            }
+
+            $api->updateExtension($extension, $updatePayload);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::warning("ExtensionProvisioningService: failed post-create update for {$extension}", [
                 'error' => $e->getMessage()
