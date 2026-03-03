@@ -161,11 +161,22 @@ function refreshTroubleshoot() {
     
     logContainer.textContent = 'Loading system logs...';
     
-    // Fetch broad system logs
-    fetch(`{{ route('admin.network.vpn.logs') }}`)
-        .then(r => r.json())
+    // Fetch broad system logs with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    fetch(`{{ route('admin.network.vpn.logs') }}`, { signal: controller.signal })
+        .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        })
         .then(data => {
+            clearTimeout(timeoutId);
             logContainer.textContent = data.logs || 'No logs returned from server.';
+        })
+        .catch(err => {
+            clearTimeout(timeoutId);
+            logContainer.innerHTML = `<span class="text-danger">Failed to load logs: ${err.message}</span>\n\nPossible causes:\n1. Outdated script in /usr/local/bin\n2. Sudoers permissions missing for 'logs' action\n3. Web server connection error`;
         });
 
     if (currentTunnelId) {
@@ -175,6 +186,9 @@ function refreshTroubleshoot() {
             .then(r => r.json())
             .then(data => {
                 saContainer.textContent = data.raw_output || 'No specific SA info for this tunnel.';
+            })
+            .catch(err => {
+                saContainer.textContent = 'Error checking tunnel status: ' + err.message;
             });
     }
 }

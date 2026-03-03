@@ -6,20 +6,20 @@ To complete the setup of the VPN Hub and Network Monitoring, please follow these
 
 The system uses a secure wrapper script to interact with `swanctl`. 
 
-1. Move the wrapper script to `/usr/local/bin/`:
+1. Link the wrapper script to `/usr/local/bin/` (re-run this if using an old move-based setup):
    ```bash
-   sudo mv sg-vpn-control.sh /usr/local/bin/sg-vpn-control
+   sudo ln -sf /home/azureuser/phonebook2/sg-vpn-control.sh /usr/local/bin/sg-vpn-control
    sudo chmod +x /usr/local/bin/sg-vpn-control
    ```
 
-2. Configure `sudoers` to allow `www-data` to run the script without a password:
+2. Configure `sudoers` to allow `www-data` to run the actions:
    Edit the sudoers file:
    ```bash
-   sudo visudo
+   sudo visudo /etc/sudoers.d/vpn-control
    ```
-   Add the following line at the end:
+   Add/Update the following line:
    ```text
-   www-data ALL=(ALL) NOPASSWD: /usr/local/bin/sg-vpn-control
+   www-data ALL=(ALL) NOPASSWD: /usr/local/bin/sg-vpn-control status, /usr/local/bin/sg-vpn-control up *, /usr/local/bin/sg-vpn-control down *, /usr/local/bin/sg-vpn-control reload, /usr/local/bin/sg-vpn-control logs
    ```
 
 ## 2. strongSwan Config Directory
