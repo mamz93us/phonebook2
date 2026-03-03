@@ -52,67 +52,11 @@ class GdmsService
     /**
      * List SIP accounts (v1.0.0) with same pattern as your working Postman request.
      */
-    public function listSipAccounts(int $pageNum = 1, int $pageSize = 10): array
+    public function listSipAccounts(int $pageNum = 1, int $pageSize = 50): array
     {
-        $token     = $this->getToken();
-        $timestamp = (string) round(microtime(true) * 1000);
-        $orgId     = $this->orgId;
-
-        $bodyArray = [
-            'pageNum'  => $pageNum,
-            'pageSize' => $pageSize,
-            'orgId'    => $orgId,
-        ];
-        $bodyJson = json_encode($bodyArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-        $sigParams = [
-            'access_token'  => $token,
-            'orgId'         => $orgId,
-            'pageNum'       => $pageNum,
-            'pageSize'      => $pageSize,
-            'timestamp'     => $timestamp,
-            'client_id'     => $this->clientId,
-            'client_secret' => $this->clientSecret,
-        ];
-
-        ksort($sigParams, SORT_STRING);
-
-        $pairs = [];
-        foreach ($sigParams as $key => $value) {
-            $pairs[] = $key.'='.$value;
-        }
-        $paramString = implode('&', $pairs);
-        $bodyHash    = hash('sha256', $bodyJson);
-        $toSign      = '&'.$paramString.'&'.$bodyHash.'&';
-        $signature   = hash('sha256', $toSign);
-
-        $url = "{$this->baseUrl}/v1.0.0/sip/account/list"
-             . "?access_token={$token}"
-             . "&timestamp={$timestamp}"
-             . "&signature={$signature}"
-             . "&pageSize={$pageSize}"
-             . "&pageNum={$pageNum}"
-             . "&orgId={$orgId}";
-
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
-        ])->post($url, $bodyArray);
-
-        $data = $response->json();
-
-        // Log raw response for debugging (first page only)
-        if ($pageNum === 1) {
-            \Illuminate\Support\Facades\Log::debug('GDMS listSipAccounts raw response', [
-                'status'   => $response->status(),
-                'keys'     => array_keys($data ?? []),
-                'has_result' => isset($data['result']),
-                'result_type' => gettype($data['result'] ?? null),
-                'result_count' => is_array($data['result'] ?? null) ? count($data['result']) : 'N/A',
-                'total'    => $data['total'] ?? 'N/A',
-                'retCode'  => $data['retCode'] ?? 'N/A',
-                'msg'      => $data['msg'] ?? 'N/A',
-            ]);
-        }
+        // Use the proven postSigned method instead of manual string building.
+        // GDMS listSipAccounts endpoint doesn't require any extra body params beyond the pagination ones.
+        $data = $this->postSigned('/v1.0.0/sip/account/list', $pageNum, $pageSize);
 
         // sip/account/list returns {result:[...], total:N, pages:N}
         if (isset($data['result']) && is_array($data['result'])) {
@@ -131,11 +75,6 @@ class GdmsService
                 'list'  => $data['data']['list'],
                 'total' => (int) ($data['data']['total'] ?? count($data['data']['list'])),
             ];
-        }
-
-        // Explicit GDMS error
-        if (isset($data['retCode']) && $data['retCode'] !== 0) {
-            throw new \RuntimeException('GDMS error: '.($data['msg'] ?? json_encode($data)));
         }
 
         return ['list' => [], 'total' => 0];
