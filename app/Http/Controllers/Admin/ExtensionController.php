@@ -79,7 +79,8 @@ class ExtensionController extends Controller
         try {
             $api = new IppbxApiService($ucm);
 
-            // Build payload
+            // Build payload — only send fields documented for addSIPAccountAndUser.
+            // Un-documented fields (e.g. sync_contact) can cause the UCM to return -25.
             $payload = [
                 'extension'     => $data['extension'],
                 'secret'        => $data['secret'],
@@ -89,14 +90,29 @@ class ExtensionController extends Controller
                 'hasvoicemail'  => $request->has('voicemail_enable') ? 'yes' : 'no',
                 'call_waiting'  => $request->has('call_waiting')     ? 'yes' : 'no',
                 'dnd'           => $request->has('dnd')              ? 'yes' : 'no',
-                'sync_contact'  => $request->has('sync_contact')     ? 'yes' : 'no',
             ];
 
-            // Include optional string fields only when they have a value
+            // Include fullname only when provided (string fields must not be empty)
             if (!empty($data['fullname'])) $payload['fullname'] = $data['fullname'];
-            if (!empty($data['email']))    $payload['email']    = $data['email'];
 
             $api->createExtension($payload);
+
+            // After successful creation, apply optional fields not supported by addSIPAccountAndUser
+            $updatePayload = [];
+            if ($request->has('sync_contact'))  $updatePayload['sync_contact'] = 'yes';
+            if (!empty($data['email']))         $updatePayload['email']        = $data['email'];
+            if (!empty($updatePayload)) {
+                try {
+                    $api->updateExtension($data['extension'], $updatePayload);
+                } catch (\Exception $e) {
+                    // Non-fatal — extension was created, just couldn't set extra fields
+                    \Illuminate\Support\Facades\Log::warning('ExtensionController: post-create updateSIPAccount failed', [
+                        'extension' => $data['extension'],
+                        'error'     => $e->getMessage(),
+                    ]);
+                }
+            }
+
         } catch (\Exception $e) {
             return back()
                 ->withInput()

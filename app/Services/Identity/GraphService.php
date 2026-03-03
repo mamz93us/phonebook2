@@ -168,9 +168,12 @@ class GraphService
                 throw new \RuntimeException("Graph paginate {$endpoint} failed: " . $response->body());
             }
 
-            $body    = $response->json();
-            $results = array_merge($results, $body['value'] ?? []);
-            $url     = $body['@odata.nextLink'] ?? null;
+            $body = $response->json();
+            // array_push with spread avoids the full array copy that array_merge
+            // creates on every iteration — cuts memory from O(n²) to O(n).
+            array_push($results, ...($body['value'] ?? []));
+            $url  = $body['@odata.nextLink'] ?? null;
+            unset($body); // free decoded JSON immediately
         } while ($url);
 
         return $results;

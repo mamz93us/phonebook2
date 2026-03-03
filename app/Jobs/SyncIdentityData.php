@@ -58,12 +58,17 @@ class SyncIdentityData implements ShouldQueue
         ignore_user_abort(true);
         set_time_limit(600);
 
+        // Increase memory for the sync job — Graph returns 888+ users and 842+
+        // groups. 128 MB (server default) is not enough for two full paginated
+        // result sets in memory simultaneously.
+        ini_set('memory_limit', '256M');
+
         $graph  = new GraphService();
         $errors = [];
 
-        $skus   = [];
-        $groups = [];
-        $users  = [];
+        $licenseCount = 0;
+        $groupCount   = 0;
+        $userCount    = 0;
 
         // ── 1. Sync licenses (non-fatal) ───────────────────────────
         try {
@@ -84,7 +89,9 @@ class SyncIdentityData implements ShouldQueue
                     );
                 }
             });
-            Log::info('SyncIdentityData: licenses OK (' . count($skus) . ')');
+            $licenseCount = count($skus);
+            unset($skus); // free memory
+            Log::info('SyncIdentityData: licenses OK (' . $licenseCount . ')');
         } catch (\Throwable $e) {
             $errors[] = 'Licenses: ' . $e->getMessage();
             Log::error('SyncIdentityData: license sync failed — ' . $e->getMessage());
@@ -107,7 +114,9 @@ class SyncIdentityData implements ShouldQueue
                     );
                 }
             });
-            Log::info('SyncIdentityData: groups OK (' . count($groups) . ')');
+            $groupCount = count($groups);
+            unset($groups); // free memory before user sync
+            Log::info('SyncIdentityData: groups OK (' . $groupCount . ')');
         } catch (\Throwable $e) {
             $errors[] = 'Groups: ' . $e->getMessage();
             Log::error('SyncIdentityData: group sync failed — ' . $e->getMessage());
@@ -146,7 +155,9 @@ class SyncIdentityData implements ShouldQueue
                     );
                 }
             });
-            Log::info('SyncIdentityData: users OK (' . count($users) . ')');
+            $userCount = count($users);
+            unset($users); // free ~888 full user objects before manager + group passes
+            Log::info('SyncIdentityData: users OK (' . $userCount . ')');
         } catch (\Throwable $e) {
             $errors[] = 'Users: ' . $e->getMessage();
             Log::error('SyncIdentityData: user sync failed — ' . $e->getMessage());
@@ -214,13 +225,13 @@ class SyncIdentityData implements ShouldQueue
 
         $log->update([
             'status'          => $status,
-            'users_synced'    => count($users),
-            'licenses_synced' => count($skus),
-            'groups_synced'   => count($groups),
+            'users_synced'    => $userCount,
+            'licenses_synced' => $licenseCount,
+            'groups_synced'   => $groupCount,
             'error_message'   => $errorMessage,
             'completed_at'    => now(),
         ]);
 
-        Log::info("SyncIdentityData: {$status}. Users: " . count($users) . ", Licenses: " . count($skus) . ", Groups: " . count($groups) . ($errorMessage ? " | Errors: {$errorMessage}" : ''));
+        Log::info("SyncIdentityData: {$status}. Users: {$userCount}, Licenses: {$licenseCount}, Groups: {$groupCount}" . ($errorMessage ? " | Errors: {$errorMessage}" : ''));
     }
 }
