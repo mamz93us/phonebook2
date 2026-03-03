@@ -46,6 +46,15 @@ class PhonebookController extends Controller
         $xmlString .= "<AddressBook>\n";
         $xmlString .= "    <version>1</version>\n";
 
+        // Add a default "Global" group for contacts without a specific branch
+        $xmlString .= "    <pbgroup>\n";
+        $xmlString .= "        <id>0</id>\n";
+        $xmlString .= "        <name>Global</name>\n";
+        $xmlString .= "        <photos></photos>\n";
+        $xmlString .= "        <ringtones></ringtones>\n";
+        $xmlString .= "        <RingtoneIndex>0</RingtoneIndex>\n";
+        $xmlString .= "    </pbgroup>\n";
+
         foreach (Branch::orderBy('id')->get() as $branch) {
             $xmlString .= "    <pbgroup>\n";
             $xmlString .= "        <id>{$branch->id}</id>\n";
@@ -60,6 +69,7 @@ class PhonebookController extends Controller
             $fname = htmlspecialchars($c->first_name, ENT_XML1);
             $lname = htmlspecialchars($c->last_name ?? '', ENT_XML1);
             $email = htmlspecialchars($c->email ?? '', ENT_XML1);
+            $groupId = $c->branch_id ?? 0;
 
             $xmlString .= "    <Contact>\n";
             $xmlString .= "        <id>{$c->id}</id>\n";
@@ -72,8 +82,10 @@ class PhonebookController extends Controller
             $xmlString .= "            <phonenumber>{$c->phone}</phonenumber>\n";
             $xmlString .= "            <accountindex>1</accountindex>\n";
             $xmlString .= "        </Phone>\n";
-            $xmlString .= "        <Mail type=\"Work\">{$email}</Mail>\n";
-            $xmlString .= "        <Group>{$c->branch_id}</Group>\n";
+            if ($email) {
+                $xmlString .= "        <Mail type=\"Work\">{$email}</Mail>\n";
+            }
+            $xmlString .= "        <Group>{$groupId}</Group>\n";
             $xmlString .= "        <PhotoUrl></PhotoUrl>\n";
             $xmlString .= "        <RingtoneUrl></RingtoneUrl>\n";
             $xmlString .= "        <RingtoneIndex>0</RingtoneIndex>\n";
