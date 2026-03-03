@@ -174,6 +174,9 @@ class ExtensionController extends Controller
         try {
             $api = new IppbxApiService($ucm);
             $api->updateExtension($extension, $updateData);
+            
+            // Explicitly apply changes since updateExtension no longer does it automatically
+            $api->applyChanges();
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to update extension: ' . $e->getMessage());
         }

@@ -51,20 +51,28 @@ class ExtensionProvisioningService
 
         $defaultSecret = $settings->ext_default_secret ?: 'changeme1@3';
 
+        // 1. Create with minimal required fields (avoids error -25)
         $result = $api->createExtension([
             'extension'     => $extension,
-            'fullname'      => $displayName,
-            'email'         => $email,
-            'hasvoicemail'  => 'no',
-            'call_waiting'  => 'no',
-            // UCM password complexity policy requires uppercase+lowercase+digit+special char.
-            // Do NOT strip special characters — they are required, not forbidden.
             'secret'        => $defaultSecret,
-            'user_password' => $defaultSecret, // Required by addSIPAccountAndUser
-            'vmsecret'      => (string) random_int(100000, 999999), // MUST be numeric only
-            // UCM permission values must be the full cumulative strings (per API docs)
+            'user_password' => $defaultSecret, 
+            'vmsecret'      => (string) random_int(100000, 999999),
             'permission'    => $settings->ext_default_permission ?: 'internal-local',
         ]);
+
+        // 2. Update with user profile data and SIP options
+        try {
+            $api->updateExtension($extension, [
+                'fullname'     => $displayName,
+                'email'        => $email,
+                'hasvoicemail' => 'no',
+                'call_waiting' => 'no',
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning("ExtensionProvisioningService: failed post-create update for {$extension}", [
+                'error' => $e->getMessage()
+            ]);
+        }
 
         $api->applyChanges();
 
