@@ -52,10 +52,11 @@ class ExtensionProvisioningService
 
         // UCM strictly requires an alphanumeric password WITH special characters
         // AND it must contain at least one uppercase and one lowercase letter.
-        $complexSecret = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz'), 0, 3) . 
-                         substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 3) . 
-                         substr(str_shuffle('0123456789'), 0, 3) . 
-                         substr(str_shuffle('!@#$%^&*_+?'), 0, 3);
+        // IMPORTANT: UCM only accepts these special chars: @!*#  (same as UI generator)
+        $complexSecret = substr(str_shuffle('abcdefghjkmnpqrstuvwxyz'), 0, 3) . 
+                         substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ'), 0, 3) . 
+                         substr(str_shuffle('23456789'), 0, 3) . 
+                         substr(str_shuffle('@!*#'), 0, 3);
         $complexSecret = str_shuffle($complexSecret);
 
         // Ensure permission string matches UCM cumulative format
