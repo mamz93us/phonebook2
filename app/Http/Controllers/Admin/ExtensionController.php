@@ -81,12 +81,12 @@ class ExtensionController extends Controller
 
             // ── Step 1: Create extension with MINIMUM required fields only ──
             // Sending extra/undocumented fields to addSIPAccountAndUser can trigger -25.
-            // Enforcement: set user_password and vmsecret identical to the strong SIP secret.
+            // Enforcement: user_password matches secret, but vmsecret MUST be purely numeric (for phone dialpad entry).
             $api->createExtension([
                 'extension'     => $data['extension'],
                 'secret'        => $data['secret'],
                 'user_password' => $data['secret'], // ENFORCED identical to secret
-                'vmsecret'      => $data['secret'], // ENFORCED identical to secret
+                'vmsecret'      => (string) random_int(100000, 999999), // MUST be numeric only
                 'permission'    => $data['permission'],
             ]);
 
