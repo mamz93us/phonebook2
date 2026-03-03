@@ -110,9 +110,28 @@
                             <li>
                                 <a class="dropdown-item {{ request()->routeIs('admin.network.overview') ? 'active' : '' }}"
                                    href="{{ route('admin.network.overview') }}">
-                                    <i class="bi bi-speedometer2 me-2"></i>Overview
+                                    <i class="bi bi-speedometer2 me-2"></i>Meraki Overview
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.vpn.*') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.vpn.index') }}">
+                                    <i class="bi bi-shield-lock me-2"></i>VPN Hub
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.diagnostics.*') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.diagnostics.index') }}">
+                                    <i class="bi bi-search me-2"></i>Diagnostics
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.monitoring.*') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.monitoring.index') }}">
+                                    <i class="bi bi-broadcast me-2"></i>SNMP Monitoring
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item {{ request()->routeIs('admin.network.switches') ? 'active' : '' }}"
                                    href="{{ route('admin.network.switches') }}">
