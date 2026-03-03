@@ -40,6 +40,40 @@
                     <x-nav-link :href="route('admin.settings.index')" :active="request()->routeIs('admin.settings.*')">
                         {{ __('Settings') }}
                     </x-nav-link>
+
+                    <x-nav-link :href="route('admin.noc.dashboard')" :active="request()->routeIs('admin.noc.*')">
+                        {{ __('NOC') }}
+                    </x-nav-link>
+
+                    <!-- Network Dropdown -->
+                    <div class="hidden sm:flex sm:items-center sm:ms-6">
+                        <x-dropdown align="left" width="48">
+                            <x-slot name="trigger">
+                                <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none transition ease-in-out duration-150">
+                                    <div>{{ __('Network') }}</div>
+                                    <div class="ms-1">
+                                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </button>
+                            </x-slot>
+                            <x-slot name="content">
+                                <x-dropdown-link :href="route('admin.network.overview')">
+                                    {{ __('Meraki Overview') }}
+                                </x-dropdown-link>
+                                <x-dropdown-link :href="route('admin.network.vpn.index')">
+                                    {{ __('VPN Hub') }}
+                                </x-dropdown-link>
+                                <x-dropdown-link :href="route('admin.network.diagnostics.index')">
+                                    {{ __('Diagnostics') }}
+                                </x-dropdown-link>
+                                <x-dropdown-link :href="route('admin.network.monitoring.index')">
+                                    {{ __('SNMP Monitoring') }}
+                                </x-dropdown-link>
+                            </x-slot>
+                        </x-dropdown>
+                    </div>
                 </div>
             </div>
 
@@ -125,6 +159,25 @@
             <x-responsive-nav-link :href="route('admin.settings.index')" :active="request()->routeIs('admin.settings.*')">
                 {{ __('Settings') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('admin.noc.dashboard')" :active="request()->routeIs('admin.noc.*')">
+                {{ __('NOC') }}
+            </x-responsive-nav-link>
+
+            <div class="pt-4 pb-1 border-t border-gray-200 dark:border-gray-600">
+                <div class="px-4 font-medium text-sm text-gray-500">{{ __('Network') }}</div>
+                <x-responsive-nav-link :href="route('admin.network.overview')" :active="request()->routeIs('admin.network.overview')">
+                    {{ __('Meraki Overview') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('admin.network.vpn.index')" :active="request()->routeIs('admin.network.vpn.*')">
+                    {{ __('VPN Hub') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('admin.network.diagnostics.index')" :active="request()->routeIs('admin.network.diagnostics.*')">
+                    {{ __('Diagnostics') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('admin.network.monitoring.index')" :active="request()->routeIs('admin.network.monitoring.*')">
+                    {{ __('SNMP Monitoring') }}
+                </x-responsive-nav-link>
+            </div>
         </div>
 
         <!-- Responsive Settings Options -->

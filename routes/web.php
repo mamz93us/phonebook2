@@ -29,6 +29,9 @@ use App\Http\Controllers\Admin\NotificationRuleController;
 use App\Http\Controllers\Admin\LicenseMonitorController;
 use App\Http\Controllers\Admin\AllowedDomainController;
 use App\Http\Controllers\Admin\EmployeeItemController;
+use App\Http\Controllers\Admin\VpnHubController;
+use App\Http\Controllers\Admin\DiagnosticsController;
+use App\Http\Controllers\Admin\SnmpMonitoringController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
@@ -363,6 +366,38 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('/racks/{rack}',                    [NetworkController::class, 'destroyRack'])  ->name('racks.destroy');
 
         Route::post('/switches/{serial}/assign-location', [NetworkController::class, 'assignLocation'])->name('switches.assign-location');
+    });
+
+    // ─── VPN Hub ──────────────────────────────────────────────
+    Route::middleware(['auth', 'can:manage-network-settings'])->prefix('network/vpn')->name('network.vpn.')->group(function () {
+        Route::get('/',                 [VpnHubController::class, 'index'])->name('index');
+        Route::get('/create',           [VpnHubController::class, 'create'])->name('create');
+        Route::post('/',                [VpnHubController::class, 'store'])->name('store');
+        Route::get('/{tunnel}/edit',    [VpnHubController::class, 'edit'])->name('edit');
+        Route::put('/{tunnel}',         [VpnHubController::class, 'update'])->name('update');
+        Route::delete('/{tunnel}',      [VpnHubController::class, 'destroy'])->name('destroy');
+        Route::post('/{tunnel}/up',     [VpnHubController::class, 'initiate'])->name('up');
+        Route::post('/{tunnel}/down',   [VpnHubController::class, 'terminate'])->name('down');
+        Route::post('/reload',          [VpnHubController::class, 'reload'])->name('reload');
+        Route::get('/{tunnel}/status',  [VpnHubController::class, 'checkStatus'])->name('status');
+    });
+
+    // ─── Diagnostics ──────────────────────────────────────────
+    Route::middleware(['auth', 'can:manage-network-settings'])->prefix('network/diagnostics')->name('network.diagnostics.')->group(function () {
+        Route::get('/',         [DiagnosticsController::class, 'index'])->name('index');
+        Route::post('/ping',    [DiagnosticsController::class, 'ping'])->name('ping');
+        Route::post('/tcp-check', [DiagnosticsController::class, 'tcpCheck'])->name('tcp-check');
+    });
+
+    // ─── SNMP Monitoring ──────────────────────────────────────
+    Route::middleware(['auth', 'can:manage-network-settings'])->prefix('network/monitoring')->name('network.monitoring.')->group(function () {
+        Route::get('/',             [SnmpMonitoringController::class, 'index'])->name('index');
+        Route::get('/hosts/{host}', [SnmpMonitoringController::class, 'show'])->name('show');
+        Route::post('/hosts',       [SnmpMonitoringController::class, 'storeHost'])->name('hosts.store');
+        Route::put('/hosts/{host}', [SnmpMonitoringController::class, 'updateHost'])->name('hosts.update');
+        Route::delete('/hosts/{host}', [SnmpMonitoringController::class, 'destroyHost'])->name('hosts.destroy');
+        Route::get('/mibs',         [SnmpMonitoringController::class, 'mibs'])->name('mibs');
+        Route::post('/mibs',        [SnmpMonitoringController::class, 'storeMib'])->name('mibs.store');
     });
 
     // ─── Notifications (all authenticated users) ──────────────
