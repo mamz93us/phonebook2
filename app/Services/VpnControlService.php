@@ -68,6 +68,15 @@ class VpnControlService
         $config .= "        version = " . ($tunnel->ike_version === 'IKEv2' ? '2' : '1') . "\n";
         $config .= "        proposals = {$proposal}\n";
         $config .= "        rekey_time = {$tunnel->lifetime}\n";
+        
+        if ($tunnel->local_id) {
+            $config .= "        local_id = {$tunnel->local_id}\n";
+        }
+        
+        if ($tunnel->remote_id) {
+            $config .= "        remote_id = {$tunnel->remote_id}\n";
+        }
+
         $config .= "        local {\n";
         $config .= "            auth = psk\n";
         $config .= "        }\n";

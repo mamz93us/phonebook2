@@ -11,6 +11,8 @@ class VpnTunnel extends Model
     protected $fillable = [
         'branch_id',
         'name',
+        'local_id',
+        'remote_id',
         'remote_public_ip',
         'remote_subnet',
         'local_subnet',

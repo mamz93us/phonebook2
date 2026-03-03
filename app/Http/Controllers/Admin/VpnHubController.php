@@ -39,6 +39,8 @@ class VpnHubController extends Controller
             'branch_id'        => 'required|exists:branches,id',
             'name'             => 'required|string|max:255|unique:vpn_tunnels,name|regex:/^[a-zA-Z0-9_]+$/',
             'remote_public_ip' => 'required|ip',
+            'local_id'         => 'nullable|string|max:255',
+            'remote_id'        => 'nullable|string|max:255',
             'remote_subnet'    => 'required|string', // Comma separated allowed
             'local_subnet'     => 'required|string',  // Comma separated allowed
             'pre_shared_key'   => 'required|string',
@@ -101,6 +103,8 @@ class VpnHubController extends Controller
             'branch_id'        => 'required|exists:branches,id',
             'name'             => 'required|string|max:255|unique:vpn_tunnels,name,' . $tunnel->id . '|regex:/^[a-zA-Z0-9_]+$/',
             'remote_public_ip' => 'required|ip',
+            'local_id'         => 'nullable|string|max:255',
+            'remote_id'        => 'nullable|string|max:255',
             'remote_subnet'    => 'required|string', // Comma separated allowed
             'local_subnet'     => 'required|string',  // Comma separated allowed
             'pre_shared_key'   => 'nullable|string',

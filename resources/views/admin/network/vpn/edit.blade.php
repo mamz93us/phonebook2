@@ -40,6 +40,20 @@
                             @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Local Identity (Optional)</label>
+                            <input type="text" name="local_id" class="form-control @error('local_id') is-invalid @enderror" 
+                                   value="{{ old('local_id', $tunnel->local_id) }}" placeholder="e.g. vpn.example.com">
+                            <div class="form-text small">Use if your side needs a specific FQDN/ID.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Remote Identity (Optional)</label>
+                            <input type="text" name="remote_id" class="form-control @error('remote_id') is-invalid @enderror" 
+                                   value="{{ old('remote_id', $tunnel->remote_id) }}" placeholder="e.g. remote.example.com">
+                            <div class="form-text small">Matches Sophos/Firewall "Local ID".</div>
+                        </div>
+
                         <div class="col-md-12">
                             <label class="form-label fw-bold">Remote Public IP</label>
                             <input type="text" name="remote_public_ip" class="form-control @error('remote_public_ip') is-invalid @enderror" 
