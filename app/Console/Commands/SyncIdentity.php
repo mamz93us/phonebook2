@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Jobs\SyncIdentityData;
+use App\Models\ServiceSyncLog;
 use App\Models\Setting;
 use Illuminate\Console\Command;
 
@@ -31,11 +32,24 @@ class SyncIdentity extends Command
 
         $this->info('Starting identity sync…');
 
+        $log = ServiceSyncLog::start('identity');
+
         try {
             (new SyncIdentityData())->handle();
+            $lastSync = \App\Models\IdentitySyncLog::where('status','completed')->latest()->first();
+            $log->update([
+                'status'         => 'completed',
+                'records_synced' => $lastSync?->users_synced ?? 0,
+                'completed_at'   => now(),
+            ]);
             $this->info('Identity sync completed successfully.');
             return self::SUCCESS;
         } catch (\Throwable $e) {
+            $log->update([
+                'status'        => 'failed',
+                'error_message' => $e->getMessage(),
+                'completed_at'  => now(),
+            ]);
             $this->error('Identity sync failed: ' . $e->getMessage());
             return self::FAILURE;
         }

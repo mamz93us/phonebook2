@@ -3,11 +3,12 @@
 namespace App\Console\Commands;
 
 use App\Models\Contact;
-use App\Models\ActivityLog; // your existing activity log model
+use App\Models\ActivityLog;
+use App\Models\ServiceSyncLog;
 use App\Services\GdmsService;
 use App\Services\GdmsBranchMapper;
 use Illuminate\Console\Command;
-       use App\Models\User; // at top if you want to link to a user
+       use App\Models\User;
 
 class SyncGdmsContacts extends Command
 {
@@ -17,6 +18,8 @@ class SyncGdmsContacts extends Command
     public function handle(GdmsService $gdms, GdmsBranchMapper $branchMapper): int
     {
         $this->info('Fetching SIP accounts from GDMS...');
+
+        $log = ServiceSyncLog::start('gdms');
 
         $pageNum   = 1;
         $pageSize  = 200;
@@ -65,9 +68,11 @@ class SyncGdmsContacts extends Command
 
         $this->info("GDMS contacts sync complete. Processed {$processed} accounts.");
 
-        // Activity log entry – adjust fields to match your table
-
-// ...
+        $log->update([
+            'status'         => 'completed',
+            'records_synced' => $processed,
+            'completed_at'   => now(),
+        ]);
 
 if (class_exists(\App\Models\ActivityLog::class)) {
     \App\Models\ActivityLog::create([

@@ -29,6 +29,7 @@ class Setting extends Model
         'graph_default_license_skus',
         'identity_sync_enabled',
         'identity_sync_interval',
+        'gdms_sync_interval',
         // SMTP / Notifications
         'smtp_host',
         'smtp_port',
@@ -61,6 +62,7 @@ class Setting extends Model
         'meraki_polling_interval' => 'integer',
         'identity_sync_enabled'   => 'boolean',
         'identity_sync_interval'  => 'integer',
+        'gdms_sync_interval'      => 'integer',
         'default_ucm_id'          => 'integer',
         'ext_range_start'              => 'integer',
         'ext_range_end'                => 'integer',

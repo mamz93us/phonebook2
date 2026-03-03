@@ -385,6 +385,12 @@
                                 </a>
                             </li>
                             @endcan
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.sync-status') ? 'active' : '' }}"
+                                   href="{{ route('admin.sync-status') }}">
+                                    <i class="bi bi-arrow-repeat me-2"></i>Sync Status
+                                </a>
+                            </li>
                             @can('view-email-logs')
                             <li>
                                 <a class="dropdown-item {{ request()->routeIs('admin.email-log.index') ? 'active' : '' }}"

@@ -194,6 +194,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('settings/test-meraki',  [NetworkController::class,  'testConnection'])->name('settings.test-meraki');
         Route::post('settings/test-graph',   [IdentityController::class, 'testConnection'])->name('settings.test-graph');
 
+        // ── Sync Status Dashboard ────────────────────────────────────
+        Route::get('sync-status',                    [\App\Http\Controllers\Admin\SyncStatusController::class, 'index'])          ->name('sync-status');
+        Route::post('sync-status/intervals',         [\App\Http\Controllers\Admin\SyncStatusController::class, 'updateIntervals'])->name('sync-status.intervals');
+        Route::post('sync-status/trigger',           [\App\Http\Controllers\Admin\SyncStatusController::class, 'triggerSync'])    ->name('sync-status.trigger');
+
         // ── Locations (all 4 tiers: branches, floors, racks, offices) ──
         Route::get('settings/locations',                          [SettingsController::class, 'locations'])       ->name('settings.locations');
 
