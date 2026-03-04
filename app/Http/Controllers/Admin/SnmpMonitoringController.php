@@ -8,6 +8,8 @@ use App\Models\Mib;
 use App\Models\MonitoredHost;
 use App\Models\VpnTunnel;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class SnmpMonitoringController extends Controller
 {
@@ -175,16 +177,11 @@ class SnmpMonitoringController extends Controller
 
     public function viewMib(Mib $mib)
     {
-        $path = storage_path('app/' . $mib->file_path);
-        if (!file_exists($path)) {
-            $path = storage_path('app/public/' . $mib->file_path);
+        if (!Storage::disk('local')->exists($mib->file_path)) {
+            return back()->with('error', 'MIB file not found on disk. Tried path: ' . $mib->file_path);
         }
 
-        if (!file_exists($path)) {
-            return back()->with('error', 'MIB file not found on disk.');
-        }
-
-        $content = file_get_contents($path);
+        $content = Storage::disk('local')->get($mib->file_path);
         return view('admin.network.monitoring.mib_view', compact('mib', 'content'));
     }
 

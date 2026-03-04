@@ -10,6 +10,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class DiscoverSnmpDeviceJob implements ShouldQueue
 {
@@ -31,12 +32,9 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
 
         // Load specific MIB if associated
         if ($this->host->mib_id && $this->host->mib) {
-            $mibPath = storage_path('app/public/' . $this->host->mib->file_path);
-            if (!file_exists($mibPath)) {
-                 $mibPath = storage_path('app/' . $this->host->mib->file_path);
-            }
-            if (file_exists($mibPath)) {
-                @snmp_read_mib($mibPath);
+            $path = $this->host->mib->file_path;
+            if (Storage::disk('local')->exists($path)) {
+                @snmp_read_mib(Storage::disk('local')->path($path));
             }
         }
 
