@@ -12,6 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class CollectSnmpMetricsJob implements ShouldQueue
 {
@@ -20,7 +21,7 @@ class CollectSnmpMetricsJob implements ShouldQueue
     public function handle(): void
     {
         // Fetch hosts with SNMP enabled and not hard-down
-        $hosts = MonitoredHost::with('snmpSensors')
+        $hosts = MonitoredHost::with(['snmpSensors', 'mib'])
             ->where('snmp_enabled', true)
             ->where('status', '!=', 'down')
             ->get();
@@ -45,6 +46,14 @@ class CollectSnmpMetricsJob implements ShouldQueue
                 $session = new \SNMP($version, $host->ip, $host->snmp_community, 1000000, 2);
                 $session->exceptions_enabled = \SNMP::ERRNO_ANY;
                 
+                // Load specific MIB if associated
+                if ($host->mib_id && $host->mib) {
+                    $path = $host->mib->file_path;
+                    if (Storage::disk('local')->exists($path)) {
+                        @snmp_read_mib(Storage::disk('local')->path($path));
+                    }
+                }
+
                 // Track if we successfully polled at least one sensor
                 $snmpSuccess = false;
 
