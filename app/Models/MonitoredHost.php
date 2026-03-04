@@ -23,6 +23,7 @@ class MonitoredHost extends Model
         'snmp_community',
         'snmp_port',
         'mib_id',
+        'alert_enabled',
         'status',
         'last_ping_at',
         'last_snmp_at',
@@ -37,6 +38,7 @@ class MonitoredHost extends Model
     protected $casts = [
         'ping_enabled' => 'boolean',
         'snmp_enabled' => 'boolean',
+        'alert_enabled' => 'boolean',
         'snmp_community' => 'encrypted',
         'last_ping_at' => 'datetime',
         'last_snmp_at' => 'datetime',

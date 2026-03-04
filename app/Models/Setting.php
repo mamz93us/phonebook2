@@ -38,6 +38,7 @@ class Setting extends Model
         'smtp_password',
         'smtp_from_address',
         'smtp_from_name',
+        'snmp_alert_email',
         // Provisioning / UCM
         'upn_domain',
         'default_ucm_id',

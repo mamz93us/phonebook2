@@ -622,6 +622,15 @@
                         placeholder="SG NOC">
                 </div>
 
+                <div class="col-md-12">
+                    <hr class="my-3">
+                    <label class="form-label fw-semibold"><i class="bi bi-bell-fill me-1 text-warning"></i>SNMP Global Alert Email</label>
+                    <input type="email" name="snmp_alert_email" class="form-control"
+                        value="{{ old('snmp_alert_email', $settings->snmp_alert_email) }}"
+                        placeholder="noc-alerts@yourdomain.com">
+                    <div class="form-text">Universal recipient for SNMP host offline alerts and sensor threshold violations.</div>
+                </div>
+
                 {{-- Test Email --}}
                 <div class="col-12">
                     <label class="form-label fw-semibold">Send Test Email</label>

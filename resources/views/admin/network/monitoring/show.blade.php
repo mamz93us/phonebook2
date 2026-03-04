@@ -145,6 +145,66 @@
                 <div class="list-group list-group-flush small">
                     <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-3">
                         <div>
+                            <span class="text-muted small d-block">Assigned MIB</span>
+                            <span class="fw-bold">{{ $host->mib->name ?? 'None' }}</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#assignMibModal">
+                            {{ $host->mib_id ? 'Change' : 'Link MIB' }}
+                        </button>
+                    </div>
+
+                    @if(!empty($discoveredObjects))
+                    <div class="list-group-item bg-transparent border-0 px-3 pb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small fw-bold text-uppercase">MIB Object Explorer</span>
+                            <span class="badge bg-info-subtle text-info">{{ count($discoveredObjects) }} Objects</span>
+                        </div>
+                        <div class="alert alert-warning py-1 small mb-2 border-0" style="background:rgba(255,193,7,0.1)">
+                            <i class="bi bi-info-circle me-1"></i> Select objects to add them as monitored sensors.
+                        </div>
+                        <div class="overflow-auto border rounded bg-white" style="max-height: 250px;">
+                            <form action="{{ route('admin.network.monitoring.hosts.mib-sensors.store', $host) }}" method="POST" id="mibSensorsForm">
+                                @csrf
+                                <table class="table table-sm table-hover mb-0 small">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th width="30"></th>
+                                            <th>Object Name</th>
+                                            <th>ID</th>
+                                            <th width="80">Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($discoveredObjects as $index => $obj)
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" name="sensors[{{ $index }}][enabled]" value="1" class="form-check-input ms-1">
+                                                <input type="hidden" name="sensors[{{ $index }}][oid]" value="{{ $obj['oid_suffix'] }}">
+                                                <input type="hidden" name="sensors[{{ $index }}][name]" value="{{ $obj['name'] }}">
+                                            </td>
+                                            <td><span class="fw-bold text-dark">{{ $obj['name'] }}</span></td>
+                                            <td class="text-muted font-monospace">{{ $obj['oid_suffix'] }}</td>
+                                            <td>
+                                                <select name="sensors[{{ $index }}][data_type]" class="form-select form-select-sm py-0 x-small" style="height:22px">
+                                                    <option value="gauge">Gauge</option>
+                                                    <option value="counter">Counter</option>
+                                                    <option value="uptime">Uptime</option>
+                                                    <option value="boolean">Boolean</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </form>
+                        </div>
+                        <button type="submit" form="mibSensorsForm" class="btn btn-primary btn-sm w-100 mt-2 shadow-sm">
+                            <i class="bi bi-plus-circle me-1"></i> Add Selected Sensors
+                        </button>
+                    </div>
+                    @endif
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-3">
+                        <div>
                             <span class="fw-bold d-block">System Uptime</span>
                             <span class="text-muted x-small">RFC1213-MIB (.1.3.1.2.1.1.3.0)</span>
                         </div>

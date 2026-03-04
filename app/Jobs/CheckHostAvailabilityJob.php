@@ -84,8 +84,9 @@ class CheckHostAvailabilityJob implements ShouldQueue
                     );
 
                     // Send Watchdog Email Alert if configured ONLY when first detected
-                    if ($event->wasRecentlyCreated && $host->alert_email) {
-                        Notification::route('mail', $host->alert_email)
+                    $globalAlertEmail = \App\Models\Setting::get()->snmp_alert_email;
+                    if ($event->wasRecentlyCreated && $host->alert_enabled && $globalAlertEmail) {
+                        Notification::route('mail', $globalAlertEmail)
                                     ->notify(new HostOfflineNotification($host));
                     }
                 }

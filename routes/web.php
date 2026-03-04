@@ -421,6 +421,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/mibs',        [SnmpMonitoringController::class, 'storeMib'])->name('mibs.store');
         Route::get('/mibs/{mib}',   [SnmpMonitoringController::class, 'viewMib'])->name('mibs.view');
         Route::post('/hosts/{host}/mib-assign', [SnmpMonitoringController::class, 'updateMibAssignment'])->name('hosts.mib-assign');
+        Route::post('/hosts/{host}/mib-sensors', [SnmpMonitoringController::class, 'storeMibSensors'])->name('hosts.mib-sensors.store');
     });
 
     // ─── Workers Dashboard ─────────────────────────────────────────

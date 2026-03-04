@@ -165,9 +165,11 @@
                                         <div class="form-text">Number of packets to send per interval.</div>
                                     </div>
                                     <div class="mb-3" id="pingAlertDiv">
-                                        <label class="form-label fw-bold small">Watchdog Alert Email (Optional)</label>
-                                        <input type="email" name="alert_email" class="form-control" placeholder="noc-alerts@domain.com">
-                                        <div class="form-text">If host goes offline, send an immediate alert here.</div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="alert_enabled" value="1" id="alertEnabled">
+                                            <label class="form-check-label fw-bold small" for="alertEnabled">Enable Watchdog Email Alerts</label>
+                                        </div>
+                                        <div class="form-text">Send alerts to global NOC email if host goes offline.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -276,8 +278,11 @@
                                         <input type="number" name="ping_packet_count" id="edit-pingPacket" class="form-control" min="1" max="20">
                                     </div>
                                     <div class="mb-3" id="edit-pingAlertDiv">
-                                        <label class="form-label fw-bold small">Watchdog Alert Email</label>
-                                        <input type="email" name="alert_email" id="edit-pingAlert" class="form-control" placeholder="Leave blank for no alerts">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="alert_enabled" value="1" id="edit-alertEnabled">
+                                            <label class="form-check-label fw-bold small" for="edit-alertEnabled">Enable Watchdog Email Alerts</label>
+                                        </div>
+                                        <div class="form-text">Send alerts to global NOC email if host goes offline.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -353,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             document.getElementById('edit-pingInterval').value = host.ping_interval_seconds || 60;
             document.getElementById('edit-pingPacket').value = host.ping_packet_count || 3;
-            document.getElementById('edit-pingAlert').value = host.alert_email || '';
+            document.getElementById('edit-alertEnabled').checked = host.alert_enabled;
 
             const pingVisible = host.ping_enabled ? 'block' : 'none';
             document.getElementById('edit-pingIntervalDiv').style.display = pingVisible;

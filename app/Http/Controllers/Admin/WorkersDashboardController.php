@@ -81,7 +81,7 @@ class WorkersDashboardController extends Controller
             }
         }
 
-        return redirect()->route('admin.network.workers')
+        return redirect()->route('admin.network.workers.index')
             ->with('success', 'Ping sweep completed for ' . count($hosts) . ' hosts.');
     }
 
@@ -92,7 +92,7 @@ class WorkersDashboardController extends Controller
             dispatch_sync(new CollectSnmpMetricsJob($host));
         }
 
-        return redirect()->route('admin.network.workers')
+        return redirect()->route('admin.network.workers.index')
             ->with('success', 'SNMP metrics collection triggered synchronously for ' . count($hosts) . ' hosts.');
     }
 
@@ -100,7 +100,7 @@ class WorkersDashboardController extends Controller
     {
         dispatch_sync(new DiscoverSnmpDeviceJob($host));
 
-        return redirect()->route('admin.network.workers')
+        return redirect()->route('admin.network.workers.index')
             ->with('success', "Device discovery completed for {$host->name}.");
     }
 
@@ -108,14 +108,14 @@ class WorkersDashboardController extends Controller
     {
         dispatch_sync(new DiscoverSnmpInterfacesJob($host));
 
-        return redirect()->route('admin.network.workers')
+        return redirect()->route('admin.network.workers.index')
             ->with('success', "Interface discovery completed for {$host->name}.");
     }
 
     public function clearFailedJobs()
     {
         DB::table('failed_jobs')->truncate();
-        return redirect()->route('admin.network.workers')
+        return redirect()->route('admin.network.workers.index')
             ->with('success', 'Failed jobs queue cleared.');
     }
 

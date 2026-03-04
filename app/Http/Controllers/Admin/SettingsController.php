@@ -287,6 +287,7 @@ class SettingsController extends Controller
             'smtp_password'     => 'nullable|string|max:500',
             'smtp_from_address' => 'nullable|email|max:255',
             'smtp_from_name'    => 'nullable|string|max:255',
+            'snmp_alert_email'  => 'nullable|email|max:255',
         ]);
 
         $settings = Setting::get();
@@ -296,6 +297,7 @@ class SettingsController extends Controller
         $settings->smtp_username     = $request->smtp_username;
         $settings->smtp_from_address = $request->smtp_from_address;
         $settings->smtp_from_name    = $request->smtp_from_name;
+        $settings->snmp_alert_email  = $request->snmp_alert_email;
 
         if ($request->filled('smtp_password')) {
             $settings->smtp_password = $request->smtp_password;

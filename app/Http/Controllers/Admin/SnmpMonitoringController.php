@@ -23,7 +23,7 @@ class SnmpMonitoringController extends Controller
         return view('admin.network.monitoring.index', compact('hosts', 'branches', 'tunnels', 'mibs'));
     }
 
-    public function show(MonitoredHost $host)
+    public function show(MonitoredHost $host, \App\Services\Snmp\MibParser $parser)
     {
         $host->load([
             'branch', 
@@ -32,8 +32,42 @@ class SnmpMonitoringController extends Controller
             'hostChecks' => fn($q) => $q->latest('checked_at')->limit(144),
             'snmpSensors.sensorMetrics' => fn($q) => $q->where('recorded_at', '>=', now()->subHours(24))->orderBy('recorded_at')
         ]);
+
+        $discoveredObjects = [];
+        if ($host->mib) {
+            $discoveredObjects = $parser->parseObjects($host->mib->file_path);
+        }
+
         $mibs = Mib::orderBy('name')->get();
-        return view('admin.network.monitoring.show', compact('host', 'mibs'));
+        return view('admin.network.monitoring.show', compact('host', 'mibs', 'discoveredObjects'));
+    }
+
+    public function storeMibSensors(Request $request, MonitoredHost $host)
+    {
+        $request->validate([
+            'sensors' => 'required|array',
+        ]);
+
+        $selectedSensors = collect($request->sensors)->where('enabled', '1');
+
+        if ($selectedSensors->isEmpty()) {
+            return back()->with('error', 'No sensors selected.');
+        }
+
+        foreach ($selectedSensors as $s) {
+            $host->snmpSensors()->firstOrCreate(
+                ['oid' => $s['oid']],
+                [
+                    'name' => $s['name'],
+                    'data_type' => $s['data_type'] ?? 'gauge',
+                    'unit' => $s['unit'] ?? null,
+                    'poll_interval' => 60,
+                    'graph_enabled' => true,
+                ]
+            );
+        }
+
+        return back()->with('success', $selectedSensors->count() . ' sensors added from MIB.');
     }
 
     public function storeHost(Request $request)
@@ -47,7 +81,7 @@ class SnmpMonitoringController extends Controller
             'ping_enabled'   => 'boolean',
             'ping_interval_seconds' => 'nullable|integer|min:10',
             'ping_packet_count' => 'nullable|integer|min:1|max:20',
-            'alert_email'    => 'nullable|email',
+            'alert_enabled'  => 'boolean',
             'snmp_enabled'   => 'boolean',
             'snmp_port'      => 'nullable|integer',
             'snmp_version'   => 'required_if:snmp_enabled,1|in:v1,v2c,v3',
@@ -56,6 +90,7 @@ class SnmpMonitoringController extends Controller
         ]);
 
         $data = $request->except(['_token', '_method']);
+        $data['alert_enabled'] = $request->boolean('alert_enabled', false);
         if (empty($data['ping_interval_seconds'])) {
             $data['ping_interval_seconds'] = 60;
         }
@@ -80,7 +115,7 @@ class SnmpMonitoringController extends Controller
             'ping_enabled'   => 'boolean',
             'ping_interval_seconds' => 'nullable|integer|min:10',
             'ping_packet_count' => 'nullable|integer|min:1|max:20',
-            'alert_email'    => 'nullable|email',
+            'alert_enabled'  => 'boolean',
             'snmp_enabled'   => 'boolean',
             'snmp_port'      => 'nullable|integer',
             'snmp_version'   => 'required_if:snmp_enabled,1|in:v1,v2c,v3',
@@ -91,6 +126,7 @@ class SnmpMonitoringController extends Controller
         $data = $request->except(['_token', '_method']);
         $data['ping_enabled'] = $request->boolean('ping_enabled', false);
         $data['snmp_enabled'] = $request->boolean('snmp_enabled', false);
+        $data['alert_enabled'] = $request->boolean('alert_enabled', false);
         
         if (empty($data['ping_interval_seconds'])) {
             $data['ping_interval_seconds'] = 60;
