@@ -20,9 +20,20 @@ class NocController extends Controller
     public function dashboard()
     {
         // Global Identity summary
-        $totalUsers       = IdentityUser::count();
-        $licensedUsers    = IdentityUser::where(fn ($q) => $q->whereNotNull('assigned_licenses')->where('assigned_licenses', '!=', '[]')->where('assigned_licenses', '!=', 'null'))->count();
-        $disabledUsers    = IdentityUser::where('account_enabled', false)->count();
+        $identityQuery = IdentityUser::query();
+        
+        $allowedDomains = \App\Models\AllowedDomain::getList();
+        if (!empty($allowedDomains)) {
+            $identityQuery->where(function ($q) use ($allowedDomains) {
+                foreach ($allowedDomains as $domain) {
+                    $q->orWhere('user_principal_name', 'like', "%@{$domain}");
+                }
+            });
+        }
+
+        $totalUsers       = (clone $identityQuery)->count();
+        $licensedUsers    = (clone $identityQuery)->whereNotNull('assigned_licenses')->where('assigned_licenses', '!=', '[]')->where('assigned_licenses', '!=', 'null')->count();
+        $disabledUsers    = (clone $identityQuery)->where('account_enabled', false)->count();
         $licensedPercent  = $totalUsers > 0 ? (int) round($licensedUsers / $totalUsers * 100) : 0;
 
         // Global Network summary
@@ -70,7 +81,7 @@ class NocController extends Controller
 
         // VPN Status
         $vpnTunnels = \App\Models\VpnTunnel::all();
-        $vpnOnline = $vpnTunnels->where('status', 'installed')->count();
+        $vpnOnline = $vpnTunnels->where('status', 'up')->count();
 
         // Monitored Hosts
         $monitoredHosts = \App\Models\MonitoredHost::all();
