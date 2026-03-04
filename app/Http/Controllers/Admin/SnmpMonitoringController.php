@@ -25,7 +25,7 @@ class SnmpMonitoringController extends Controller
         $host->load([
             'branch', 
             'vpnTunnel', 
-            'hostChecks' => fn($q) => $q->latest('checked_at')->take(50),
+            'hostChecks' => fn($q) => $q->latest('checked_at')->limit(144),
             'snmpSensors.sensorMetrics' => fn($q) => $q->where('recorded_at', '>=', now()->subHours(24))->orderBy('recorded_at')
         ]);
         return view('admin.network.monitoring.show', compact('host'));
@@ -40,13 +40,19 @@ class SnmpMonitoringController extends Controller
             'branch_id'      => 'nullable|exists:branches,id',
             'vpn_id'         => 'nullable|exists:vpn_tunnels,id',
             'ping_enabled'   => 'boolean',
+            'ping_interval_seconds' => 'nullable|integer|min:10',
             'snmp_enabled'   => 'boolean',
             'snmp_port'      => 'nullable|integer',
             'snmp_version'   => 'required_if:snmp_enabled,1|in:v1,v2c,v3',
             'snmp_community' => 'required_if:snmp_enabled,1|string',
         ]);
 
-        MonitoredHost::create($request->all());
+        $data = $request->except(['_token', '_method']);
+        if (empty($data['ping_interval_seconds'])) {
+            $data['ping_interval_seconds'] = 60;
+        }
+
+        MonitoredHost::create($data);
 
         return redirect()->route('admin.network.monitoring.index')
             ->with('success', 'Monitored host added successfully.');
@@ -61,6 +67,7 @@ class SnmpMonitoringController extends Controller
             'branch_id'      => 'nullable|exists:branches,id',
             'vpn_id'         => 'nullable|exists:vpn_tunnels,id',
             'ping_enabled'   => 'boolean',
+            'ping_interval_seconds' => 'nullable|integer|min:10',
             'snmp_enabled'   => 'boolean',
             'snmp_port'      => 'nullable|integer',
             'snmp_version'   => 'required_if:snmp_enabled,1|in:v1,v2c,v3',
@@ -70,6 +77,11 @@ class SnmpMonitoringController extends Controller
         $data = $request->except(['_token', '_method']);
         $data['ping_enabled'] = $request->boolean('ping_enabled', false);
         $data['snmp_enabled'] = $request->boolean('snmp_enabled', false);
+        
+        if (empty($data['ping_interval_seconds'])) {
+            $data['ping_interval_seconds'] = 60;
+        }
+
         if (empty($data['snmp_community'])) {
             unset($data['snmp_community']);
         }

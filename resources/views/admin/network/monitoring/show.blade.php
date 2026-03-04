@@ -193,7 +193,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Latency Chart
     const latencyCtx = document.getElementById('latencyChart').getContext('2d');
-    const latencyData = @json($host->hostChecks ? $host->hostChecks->take(50)->sortBy('checked_at')->values() : []);
+    const latencyData = @json($host->hostChecks ? $host->hostChecks->take(144)->sortBy('checked_at')->values() : []);
     
     new Chart(latencyCtx, {
         type: 'line',

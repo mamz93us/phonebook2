@@ -155,6 +155,10 @@
                                         <input class="form-check-input" type="checkbox" name="ping_enabled" value="1" id="pingSwitch" checked>
                                         <label class="form-check-label fw-bold" for="pingSwitch">Enable Ping Monitor</label>
                                     </div>
+                                    <div class="mb-3" id="pingIntervalDiv">
+                                        <label class="form-label fw-bold small">Ping Interval (Seconds)</label>
+                                        <input type="number" name="ping_interval_seconds" class="form-control" value="60" min="10" required>
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-check form-switch mb-3">
@@ -243,6 +247,10 @@
                                         <input class="form-check-input" type="checkbox" name="ping_enabled" value="1" id="edit-pingSwitch">
                                         <label class="form-check-label fw-bold" for="edit-pingSwitch">Enable Ping Monitor</label>
                                     </div>
+                                    <div class="mb-3" id="edit-pingIntervalDiv">
+                                        <label class="form-label fw-bold small">Ping Interval (Seconds)</label>
+                                        <input type="number" name="ping_interval_seconds" id="edit-pingInterval" class="form-control" min="10">
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-check form-switch mb-3">
@@ -305,10 +313,15 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('edit-branch').value = host.branch_id || '';
             document.getElementById('edit-pingSwitch').checked = host.ping_enabled;
             document.getElementById('edit-snmpSwitch').checked = host.snmp_enabled;
-            document.getElementById('edit-snmpVersion').value = host.snmp_version;
+            
+            document.getElementById('edit-pingInterval').value = host.ping_interval_seconds || 60;
+            document.getElementById('edit-pingIntervalDiv').style.display = host.ping_enabled ? 'block' : 'none';
+
+            document.getElementById('edit-snmpVersion').value = host.snmp_version || 'v2c';
             document.getElementById('edit-snmpPort').value = host.snmp_port;
             
-            document.getElementById('edit-snmpFields').style.display = host.snmp_enabled ? 'flex' : 'none';
+            const snmpFields = document.getElementById('edit-snmpFields');
+            snmpFields.style.display = host.snmp_enabled ? 'flex' : 'none';
         });
     });
 
@@ -316,6 +329,43 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('edit-snmpFields').style.display = this.checked ? 'flex' : 'none';
     });
 });
-</script>
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle Snmp Fields Create
+    const snmpSwitch = document.getElementById('snmpSwitch');
+    const snmpFields = document.getElementById('snmpFields');
+    if (snmpSwitch) {
+        snmpSwitch.addEventListener('change', function() {
+            snmpFields.style.display = this.checked ? 'flex' : 'none';
+        });
+    }
+
+    // Toggle Snmp Fields Edit
+    const editSnmpSwitch = document.getElementById('edit-snmpSwitch');
+    const editSnmpFields = document.getElementById('edit-snmpFields');
+    if(editSnmpSwitch) {
+        editSnmpSwitch.addEventListener('change', function() {
+            editSnmpFields.style.display = this.checked ? 'flex' : 'none';
+        });
+    }
+    
+    // Toggle Ping Interval Create
+    const pingSwitch = document.getElementById('pingSwitch');
+    const pingIntervalDiv = document.getElementById('pingIntervalDiv');
+    if (pingSwitch) {
+        pingSwitch.addEventListener('change', function() {
+            pingIntervalDiv.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+    
+    // Toggle Ping Interval Edit
+    const editPingSwitch = document.getElementById('edit-pingSwitch');
+    const editPingIntervalDiv = document.getElementById('edit-pingIntervalDiv');
+    if (editPingSwitch) {
+        editPingSwitch.addEventListener('change', function() {
+            editPingIntervalDiv.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+});</script>
 @endpush
 @endsection
