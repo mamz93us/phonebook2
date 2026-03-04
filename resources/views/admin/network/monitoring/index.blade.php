@@ -23,7 +23,16 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <span class="badge bg-{{ $host->status == 'up' ? 'success' : 'danger' }}-subtle text-{{ $host->status == 'up' ? 'success' : 'danger' }} border border-{{ $host->status == 'up' ? 'success' : 'danger' }}-subtle mb-2">
+                            @php
+                                $statusColors = [
+                                    'up' => 'success',
+                                    'down' => 'danger',
+                                    'degraded' => 'warning',
+                                    'unknown' => 'secondary'
+                                ];
+                                $color = $statusColors[$host->status] ?? 'secondary';
+                            @endphp
+                            <span class="badge bg-{{ $color }}-subtle text-{{ $color }} border border-{{ $color }}-subtle mb-2">
                                 <i class="bi bi-record-fill me-1"></i> {{ strtoupper($host->status) }}
                             </span>
                             <h5 class="card-title mb-0 fw-bold text-dark">{{ $host->name }}</h5>
@@ -56,9 +65,15 @@
                             <span class="fw-bold">{{ strtoupper($host->type) }}</span>
                         </div>
                         <div class="border-start ps-3">
+                            <span class="text-muted d-block opacity-75">Ping</span>
+                            <span class="fw-bold {{ $host->ping_enabled ? 'text-success' : 'text-muted' }}">
+                                {{ $host->ping_enabled ? 'ON' : 'OFF' }}
+                            </span>
+                        </div>
+                        <div class="border-start ps-3">
                             <span class="text-muted d-block opacity-75">SNMP</span>
                             <span class="fw-bold {{ $host->snmp_enabled ? 'text-success' : 'text-muted' }}">
-                                {{ $host->snmp_enabled ? 'Enabled' : 'Disabled' }}
+                                {{ $host->snmp_enabled ? 'ON' : 'OFF' }}
                             </span>
                         </div>
                     </div>
@@ -134,22 +149,36 @@
                         
                         <div class="col-12">
                             <hr class="my-4">
-                            <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" name="snmp_enabled" value="1" id="snmpSwitch" checked>
-                                <label class="form-check-label fw-bold" for="snmpSwitch">Enable SNMP Polling</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" name="ping_enabled" value="1" id="pingSwitch" checked>
+                                        <label class="form-check-label fw-bold" for="pingSwitch">Enable Ping Monitor</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" name="snmp_enabled" value="1" id="snmpSwitch" checked>
+                                        <label class="form-check-label fw-bold" for="snmpSwitch">Enable SNMP Polling</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <div id="snmpFields" class="row col-12 g-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label fw-bold small">SNMP Version</label>
                                 <select name="snmp_version" class="form-select">
-                                    <option value="v2c">v2c (Shared Secret)</option>
-                                    <option value="v1">v1 (Legacy)</option>
-                                    <option value="v3">v3 (Secure / Auth)</option>
+                                    <option value="v2c">v2c</option>
+                                    <option value="v1">v1</option>
+                                    <option value="v3">v3</option>
                                 </select>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">Port</label>
+                                <input type="number" name="snmp_port" class="form-control" value="161">
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label fw-bold small">Read Community</label>
                                 <input type="password" name="snmp_community" class="form-control" value="public">
                             </div>
@@ -208,14 +237,24 @@
                         
                         <div class="col-12">
                             <hr class="my-4">
-                            <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" name="snmp_enabled" value="1" id="edit-snmpSwitch">
-                                <label class="form-check-label fw-bold" for="edit-snmpSwitch">Enable SNMP Polling</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" name="ping_enabled" value="1" id="edit-pingSwitch">
+                                        <label class="form-check-label fw-bold" for="edit-pingSwitch">Enable Ping Monitor</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" name="snmp_enabled" value="1" id="edit-snmpSwitch">
+                                        <label class="form-check-label fw-bold" for="edit-snmpSwitch">Enable SNMP Polling</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <div id="edit-snmpFields" class="row col-12 g-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label fw-bold small">SNMP Version</label>
                                 <select name="snmp_version" id="edit-snmpVersion" class="form-select">
                                     <option value="v2c">v2c</option>
@@ -223,9 +262,13 @@
                                     <option value="v3">v3</option>
                                 </select>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">Port</label>
+                                <input type="number" name="snmp_port" id="edit-snmpPort" class="form-control">
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label fw-bold small">Read Community</label>
-                                <input type="password" name="snmp_community" class="form-control" placeholder="Leave blank to keep current">
+                                <input type="password" name="snmp_community" class="form-control" placeholder="Leave blank to keep">
                             </div>
                         </div>
                     </div>
@@ -260,8 +303,10 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('edit-type').value = host.type;
             document.getElementById('edit-ip').value = host.ip;
             document.getElementById('edit-branch').value = host.branch_id || '';
+            document.getElementById('edit-pingSwitch').checked = host.ping_enabled;
             document.getElementById('edit-snmpSwitch').checked = host.snmp_enabled;
             document.getElementById('edit-snmpVersion').value = host.snmp_version;
+            document.getElementById('edit-snmpPort').value = host.snmp_port;
             
             document.getElementById('edit-snmpFields').style.display = host.snmp_enabled ? 'flex' : 'none';
         });

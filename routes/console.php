@@ -41,4 +41,5 @@ Schedule::command('identity:sync')
 Schedule::job(new \App\Jobs\RunNocAlertsJob)->everyFiveMinutes();
 Schedule::job(new \App\Jobs\CheckLicenseMonitorsJob)->hourly();
 Schedule::job(new \App\Jobs\CheckVpnStatusJob)->everyMinute()->withoutOverlapping(5);
-Schedule::job(new \App\Jobs\CollectMetricsJob)->everyFiveMinutes()->withoutOverlapping(10);
+Schedule::job(new \App\Jobs\CheckHostAvailabilityJob)->everyMinute()->withoutOverlapping(2);
+Schedule::job(new \App\Jobs\CollectSnmpMetricsJob)->everyMinute()->withoutOverlapping(2);

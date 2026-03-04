@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MonitoredHost;
-use App\Models\NetworkCheck;
+use App\Models\HostCheck;
 use App\Services\PingService;
 use Illuminate\Http\Request;
 
@@ -34,9 +34,10 @@ class DiagnosticsController extends Controller
         // If it's a known host, save the check
         $hostModel = MonitoredHost::where('ip', $request->host)->first();
         if ($hostModel) {
-            NetworkCheck::create([
+            HostCheck::create([
                 'host_id' => $hostModel->id,
-                'latency' => $result['latency'],
+                'check_type' => 'ping',
+                'latency_ms' => $result['latency'],
                 'packet_loss' => $result['packet_loss'],
                 'success' => $result['success'],
             ]);

@@ -5,11 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Metric extends Model
+class SensorMetric extends Model
 {
     protected $fillable = [
-        'host_id',
-        'metric_name',
+        'sensor_id',
         'value',
         'recorded_at',
     ];
@@ -19,8 +18,8 @@ class Metric extends Model
         'recorded_at' => 'datetime',
     ];
 
-    public function host(): BelongsTo
+    public function sensor(): BelongsTo
     {
-        return $this->belongsTo(MonitoredHost::class, 'host_id');
+        return $this->belongsTo(SnmpSensor::class, 'sensor_id');
     }
 }

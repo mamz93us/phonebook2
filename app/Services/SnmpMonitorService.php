@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Metric;
 use App\Models\MonitoredHost;
 use App\Models\SnmpSensor;
 use Illuminate\Support\Facades\Log;
@@ -79,12 +78,15 @@ class SnmpMonitorService
 
     protected function saveMetric(MonitoredHost $host, string $name, float $value): void
     {
+        // Disable legacy Metric creation until SensorMetric rewrite in Phase 6
+        /*
         Metric::create([
             'host_id' => $host->id,
             'metric_name' => $name,
             'value' => $value,
             'recorded_at' => now(),
         ]);
+        */
     }
 
     protected function parseValue($value): float

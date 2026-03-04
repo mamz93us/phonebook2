@@ -14,16 +14,24 @@ class MonitoredHost extends Model
         'name',
         'ip',
         'type',
+        'ping_enabled',
+        'ping_interval_seconds',
         'snmp_enabled',
         'snmp_version',
         'snmp_community',
+        'snmp_port',
         'status',
+        'last_ping_at',
+        'last_snmp_at',
         'last_checked_at',
     ];
 
     protected $casts = [
+        'ping_enabled' => 'boolean',
         'snmp_enabled' => 'boolean',
         'snmp_community' => 'encrypted',
+        'last_ping_at' => 'datetime',
+        'last_snmp_at' => 'datetime',
         'last_checked_at' => 'datetime',
     ];
 
@@ -37,18 +45,13 @@ class MonitoredHost extends Model
         return $this->belongsTo(VpnTunnel::class, 'vpn_id');
     }
 
-    public function networkChecks(): HasMany
+    public function hostChecks(): HasMany
     {
-        return $this->hasMany(NetworkCheck::class, 'host_id');
+        return $this->hasMany(HostCheck::class, 'host_id');
     }
 
     public function snmpSensors(): HasMany
     {
         return $this->hasMany(SnmpSensor::class, 'host_id');
-    }
-
-    public function metrics(): HasMany
-    {
-        return $this->hasMany(Metric::class, 'host_id');
     }
 }

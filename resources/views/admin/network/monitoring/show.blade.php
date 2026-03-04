@@ -8,19 +8,39 @@
         </a>
         <h2 class="h3 mt-2 mb-0">{{ $host->name }}</h2>
         <div class="d-flex align-items-center mt-2">
-            <span class="badge bg-{{ $host->status == 'up' ? 'success' : 'danger' }} me-2">
+            @php
+                $statusColors = [
+                    'up' => 'success',
+                    'down' => 'danger',
+                    'degraded' => 'warning',
+                    'unknown' => 'secondary'
+                ];
+                $color = $statusColors[$host->status] ?? 'secondary';
+            @endphp
+            <span class="badge bg-{{ $color }} me-3">
                 {{ strtoupper($host->status) }}
             </span>
             <code class="text-muted pe-3 border-end me-3">{{ $host->ip }}</code>
             <span class="text-muted small">Type: <span class="fw-bold text-dark">{{ strtoupper($host->type) }}</span></span>
         </div>
     </div>
-    <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary btn-sm" onclick="window.location.reload()">
-            <i class="bi bi-arrow-clockwise"></i> Refresh Data
-        </button>
+    <div class="d-flex gap-2 align-items-center">
+        @if($host->snmp_enabled)
+        <form action="{{ route('admin.network.monitoring.hosts.discover-device', $host) }}" method="POST" class="m-0">
+            @csrf
+            <button type="submit" class="btn btn-outline-info btn-sm">
+                <i class="bi bi-search me-1"></i> Discover Device
+            </button>
+        </form>
+        <form action="{{ route('admin.network.monitoring.hosts.discover-interfaces', $host) }}" method="POST" class="m-0">
+            @csrf
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-hdd-network me-1"></i> Interfaces
+            </button>
+        </form>
+        @endif
         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSensorModal">
-            <i class="bi bi-plus-lg"></i> Add Custom Sensor (OID)
+            <i class="bi bi-plus-lg me-1"></i> Add Custom Sensor
         </button>
     </div>
 </div>
@@ -72,8 +92,8 @@
                     @foreach($host->snmpSensors as $sensor)
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
-                                <span class="fw-bold d-block">{{ $sensor->description ?: 'Unnamed Sensor' }}</span>
-                                <span class="text-muted small">{{ $sensor->oid }}</span>
+                                <span class="fw-bold d-block">{{ $sensor->name ?: 'Unnamed Sensor' }}</span>
+                                <span class="text-muted small">{{ $sensor->oid }} <span class="badge bg-light text-secondary ms-1">{{ $sensor->data_type }}</span></span>
                             </div>
                             <div class="btn-group btn-group-sm">
                                 <form action="{{ route('admin.network.monitoring.hosts.sensors.destroy', [$host, $sensor]) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove this sensor?');">
@@ -90,20 +110,17 @@
     </div>
 </div>
 
-<!-- Dynamic Metric Graphs -->
-<div class="row g-4">
-    @php
-        $uniqueMetrics = $host->metrics->pluck('metric_name')->unique();
-    @endphp
-    
-    @foreach($uniqueMetrics as $metric)
+<!-- Dynamic Metric Graphs for Clean Architecture -->
+<div class="row g-4 mb-4">
+    @foreach($host->snmpSensors->where('graph_enabled', true) as $sensor)
         <div class="col-md-6">
             <div class="card shadow-sm border-0">
-                <div class="card-header bg-white py-3 border-0">
-                    <h5 class="card-title mb-0 text-capitalize">{{ str_replace('_', ' ', $metric) }}</h5>
+                <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0 text-capitalize">{{ $sensor->name ?: $sensor->oid }}</h5>
+                    <span class="badge bg-light text-muted border">{{ $sensor->data_type }} @if($sensor->unit) ({{ $sensor->unit }}) @endif</span>
                 </div>
                 <div class="card-body">
-                    <canvas id="chart-{{ Str::slug($metric) }}" style="max-height: 200px;"></canvas>
+                    <canvas id="chart-sensor-{{ $sensor->id }}" style="max-height: 200px;"></canvas>
                 </div>
             </div>
         </div>
@@ -115,23 +132,42 @@
     <div class="modal-dialog">
         <form action="{{ route('admin.network.monitoring.hosts.sensors.store', $host) }}" method="POST">
             @csrf
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add SNMP Sensor</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title">Add Custom SNMP Sensor</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Sensor OID</label>
-                        <input type="text" name="oid" class="form-control" placeholder=".1.3.6.1.4.1..." required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description / Label</label>
-                        <input type="text" name="description" class="form-control" placeholder="e.g. CPU Temperature">
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="graph_enabled" value="1" id="graphEnabled" checked>
-                        <label class="form-check-label" for="graphEnabled">Show in graph dashboard</label>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold small">Sensor Name</label>
+                            <input type="text" name="name" class="form-control" placeholder="e.g. Core CPU Usage" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold small">OID (Object Identifier)</label>
+                            <input type="text" name="oid" class="form-control" placeholder="1.3.6.1.4.1.9.2.1.57" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Data Type</label>
+                            <select name="data_type" class="form-select" required>
+                                <option value="gauge">Gauge (CPU, RAM)</option>
+                                <option value="counter">Counter (Traffic)</option>
+                                <option value="rate">Rate (Packets/sec)</option>
+                                <option value="temperature">Temperature</option>
+                                <option value="uptime">Uptime</option>
+                                <option value="boolean">Boolean (Status)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Unit</label>
+                            <input type="text" name="unit" class="form-control" placeholder="e.g. %, bytes, °C">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" name="graph_enabled" value="1" id="graphSwitch" checked>
+                                <label class="form-check-label fw-bold ms-2" for="graphSwitch">Enable Graphing</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -176,33 +212,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 2. Dynamic Metric Charts
-    @foreach($uniqueMetrics as $metric)
+    // 2. Sensor Metric Charts
+    @foreach($host->snmpSensors->where('graph_enabled', true) as $sensor)
         (function() {
-            const ctx = document.getElementById('chart-{{ Str::slug($metric) }}').getContext('2d');
-            const data = @json($host->metrics->where('metric_name', $metric)->take(30)->sortBy('recorded_at')->values());
+            const ctx = document.getElementById('chart-sensor-{{ $sensor->id }}');
+            if (!ctx) return;
             
-            new Chart(ctx, {
+            const data = @json($sensor->sensorMetrics->map(fn($m) => ['t' => $m->recorded_at->toIso8601String(), 'y' => $m->value])->values());
+            
+            new Chart(ctx.getContext('2d'), {
                 type: 'line',
                 data: {
-                    labels: data.map(d => new Date(d.recorded_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})),
                     datasets: [{
-                        label: '{{ $metric }}',
-                        data: data.map(d => d.value),
-                        borderColor: '#198754',
-                        backgroundColor: 'rgba(25, 135, 84, 0.05)',
+                        label: '{{ $sensor->name ?: $sensor->oid }} @if($sensor->unit)({{ $sensor->unit }})@endif',
+                        data: data.map(d => ({x: new Date(d.t), y: d.y})),
+                        borderColor: '#2196f3',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
                         fill: true,
+                        borderWidth: 2,
                         tension: 0.3,
-                        pointRadius: 0
+                        pointRadius: 0,
+                        pointHoverRadius: 4
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + ' {{ $sensor->unit }}';
+                                }
+                            }
+                        }
+                    },
                     scales: {
-                        y: { grid: { color: 'rgba(0,0,0,0.03)' } },
-                        x: { display: false }
+                        y: { 
+                            grid: { color: 'rgba(0,0,0,0.05)' },
+                            beginAtZero: true
+                        },
+                        x: { 
+                            type: 'time', // Requires chartjs-adapter-date-fns or similar
+                            display: false 
+                        }
                     }
                 }
             });
