@@ -29,6 +29,17 @@ class DiscoverSnmpInterfacesJob implements ShouldQueue
             return;
         }
 
+        // Load specific MIB if associated
+        if ($this->host->mib_id && $this->host->mib) {
+            $mibPath = storage_path('app/public/' . $this->host->mib->file_path);
+            if (!file_exists($mibPath)) {
+                 $mibPath = storage_path('app/' . $this->host->mib->file_path);
+            }
+            if (file_exists($mibPath)) {
+                @snmp_read_mib($mibPath);
+            }
+        }
+
         try {
             $version = match($this->host->snmp_version) {
                 'v1' => \SNMP::VERSION_1,
