@@ -185,7 +185,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Latency Chart
     const latencyCtx = document.getElementById('latencyChart').getContext('2d');
-    const latencyData = @json($host->networkChecks->take(50)->sortBy('checked_at')->values());
+    const latencyData = @json($host->hostChecks ? $host->hostChecks->take(50)->sortBy('checked_at')->values() : []);
     
     new Chart(latencyCtx, {
         type: 'line',
@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: latencyData.map(d => new Date(d.checked_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})),
             datasets: [{
                 label: 'Latency (ms)',
-                data: latencyData.map(d => d.latency),
+                data: latencyData.map(d => d.latency_ms),
                 borderColor: '#0d6efd',
                 backgroundColor: 'rgba(13, 110, 253, 0.1)',
                 fill: true,
