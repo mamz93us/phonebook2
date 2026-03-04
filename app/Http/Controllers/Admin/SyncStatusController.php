@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ServiceSyncLog;
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Symfony\Component\Process\PhpExecutableFinder;
 
 class SyncStatusController extends Controller
 {
@@ -71,12 +72,8 @@ class SyncStatusController extends Controller
             'meraki'   => 'meraki:sync',
         ];
 
-        // Find CLI php binary (not FPM)
-        $phpCli = null;
-        foreach (['/usr/bin/php', '/usr/bin/php8.3', '/usr/bin/php8.2', '/usr/bin/php8.1', '/usr/local/bin/php'] as $c) {
-            if (is_executable($c)) { $phpCli = $c; break; }
-        }
-        $phpCli  = $phpCli ?: 'php';
+        // Find CLI php binary (not FPM) using Symfony
+        $phpCli = (new PhpExecutableFinder)->find() ?: 'php';
         $artisan = base_path('artisan');
         $logFile = storage_path("logs/{$service}-sync.log");
 

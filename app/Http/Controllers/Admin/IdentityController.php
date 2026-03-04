@@ -13,6 +13,7 @@ use App\Models\Setting;
 use App\Services\Identity\GraphService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Symfony\Component\Process\PhpExecutableFinder;
 
 class IdentityController extends Controller
 {
@@ -174,12 +175,8 @@ class IdentityController extends Controller
 
         // ── Run sync as a background CLI process ──
         // PHP_BINARY in FPM context = php-fpm binary, NOT the CLI php.
-        // We detect the real CLI binary from common install paths.
-        $phpCli = null;
-        foreach (['/usr/bin/php', '/usr/bin/php8.3', '/usr/bin/php8.2', '/usr/bin/php8.1', '/usr/local/bin/php'] as $candidate) {
-            if (is_executable($candidate)) { $phpCli = $candidate; break; }
-        }
-        $phpCli  = $phpCli ?: 'php'; // last resort
+        // We detect the real CLI binary safely using Symfony.
+        $phpCli = (new PhpExecutableFinder)->find() ?: 'php';
         $artisan = base_path('artisan');
         $logFile = storage_path('logs/identity-sync.log');
 
