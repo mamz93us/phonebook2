@@ -159,6 +159,16 @@
                                         <label class="form-label fw-bold small">Ping Interval (Seconds)</label>
                                         <input type="number" name="ping_interval_seconds" class="form-control" value="60" min="10" required>
                                     </div>
+                                    <div class="mb-3" id="pingPacketDiv">
+                                        <label class="form-label fw-bold small">Ping Packets Count</label>
+                                        <input type="number" name="ping_packet_count" class="form-control" value="3" min="1" max="20" required>
+                                        <div class="form-text">Number of packets to send per interval.</div>
+                                    </div>
+                                    <div class="mb-3" id="pingAlertDiv">
+                                        <label class="form-label fw-bold small">Watchdog Alert Email (Optional)</label>
+                                        <input type="email" name="alert_email" class="form-control" placeholder="noc-alerts@domain.com">
+                                        <div class="form-text">If host goes offline, send an immediate alert here.</div>
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-check form-switch mb-3">
@@ -251,6 +261,14 @@
                                         <label class="form-label fw-bold small">Ping Interval (Seconds)</label>
                                         <input type="number" name="ping_interval_seconds" id="edit-pingInterval" class="form-control" min="10">
                                     </div>
+                                    <div class="mb-3" id="edit-pingPacketDiv">
+                                        <label class="form-label fw-bold small">Ping Packets Count</label>
+                                        <input type="number" name="ping_packet_count" id="edit-pingPacket" class="form-control" min="1" max="20">
+                                    </div>
+                                    <div class="mb-3" id="edit-pingAlertDiv">
+                                        <label class="form-label fw-bold small">Watchdog Alert Email</label>
+                                        <input type="email" name="alert_email" id="edit-pingAlert" class="form-control" placeholder="Leave blank for no alerts">
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-check form-switch mb-3">
@@ -315,7 +333,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('edit-snmpSwitch').checked = host.snmp_enabled;
             
             document.getElementById('edit-pingInterval').value = host.ping_interval_seconds || 60;
-            document.getElementById('edit-pingIntervalDiv').style.display = host.ping_enabled ? 'block' : 'none';
+            document.getElementById('edit-pingPacket').value = host.ping_packet_count || 3;
+            document.getElementById('edit-pingAlert').value = host.alert_email || '';
+
+            const pingVisible = host.ping_enabled ? 'block' : 'none';
+            document.getElementById('edit-pingIntervalDiv').style.display = pingVisible;
+            document.getElementById('edit-pingPacketDiv').style.display = pingVisible;
+            document.getElementById('edit-pingAlertDiv').style.display = pingVisible;
 
             document.getElementById('edit-snmpVersion').value = host.snmp_version || 'v2c';
             document.getElementById('edit-snmpPort').value = host.snmp_port;
@@ -352,18 +376,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // Toggle Ping Interval Create
     const pingSwitch = document.getElementById('pingSwitch');
     const pingIntervalDiv = document.getElementById('pingIntervalDiv');
+    const pingPacketDiv = document.getElementById('pingPacketDiv');
+    const pingAlertDiv = document.getElementById('pingAlertDiv');
     if (pingSwitch) {
         pingSwitch.addEventListener('change', function() {
-            pingIntervalDiv.style.display = this.checked ? 'block' : 'none';
+            const display = this.checked ? 'block' : 'none';
+            pingIntervalDiv.style.display = display;
+            pingPacketDiv.style.display = display;
+            pingAlertDiv.style.display = display;
         });
     }
     
     // Toggle Ping Interval Edit
     const editPingSwitch = document.getElementById('edit-pingSwitch');
     const editPingIntervalDiv = document.getElementById('edit-pingIntervalDiv');
+    const editPingPacketDiv = document.getElementById('edit-pingPacketDiv');
+    const editPingAlertDiv = document.getElementById('edit-pingAlertDiv');
     if (editPingSwitch) {
         editPingSwitch.addEventListener('change', function() {
-            editPingIntervalDiv.style.display = this.checked ? 'block' : 'none';
+            const display = this.checked ? 'block' : 'none';
+            editPingIntervalDiv.style.display = display;
+            editPingPacketDiv.style.display = display;
+            editPingAlertDiv.style.display = display;
         });
     }
 });</script>

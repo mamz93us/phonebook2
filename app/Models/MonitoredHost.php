@@ -16,6 +16,8 @@ class MonitoredHost extends Model
         'type',
         'ping_enabled',
         'ping_interval_seconds',
+        'ping_packet_count',
+        'alert_email',
         'snmp_enabled',
         'snmp_version',
         'snmp_community',

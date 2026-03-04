@@ -12,6 +12,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
+use App\Notifications\HostOfflineNotification;
 
 class CheckHostAvailabilityJob implements ShouldQueue
 {
@@ -31,7 +33,8 @@ class CheckHostAvailabilityJob implements ShouldQueue
             }
 
             try {
-                $pingResult = $pingService->ping($host->ip, 3);
+                $pingCount = $host->ping_packet_count ?? 3;
+                $pingResult = $pingService->ping($host->ip, $pingCount);
 
                 // Store check result
                 HostCheck::create([
@@ -66,7 +69,7 @@ class CheckHostAvailabilityJob implements ShouldQueue
                     $host->status = 'down';
                     
                     // Create NOC alert
-                    NocEvent::firstOrCreate(
+                    $event = NocEvent::firstOrCreate(
                         [
                             'source_id' => $host->id,
                             'event_type' => 'host_down',
@@ -79,6 +82,12 @@ class CheckHostAvailabilityJob implements ShouldQueue
                             'detected_at' => now(),
                         ]
                     );
+
+                    // Send Watchdog Email Alert if configured ONLY when first detected
+                    if ($event->wasRecentlyCreated && $host->alert_email) {
+                        Notification::route('mail', $host->alert_email)
+                                    ->notify(new HostOfflineNotification($host));
+                    }
                 }
 
                 $host->last_checked_at = now();

@@ -41,6 +41,8 @@ class SnmpMonitoringController extends Controller
             'vpn_id'         => 'nullable|exists:vpn_tunnels,id',
             'ping_enabled'   => 'boolean',
             'ping_interval_seconds' => 'nullable|integer|min:10',
+            'ping_packet_count' => 'nullable|integer|min:1|max:20',
+            'alert_email'    => 'nullable|email',
             'snmp_enabled'   => 'boolean',
             'snmp_port'      => 'nullable|integer',
             'snmp_version'   => 'required_if:snmp_enabled,1|in:v1,v2c,v3',
@@ -50,6 +52,9 @@ class SnmpMonitoringController extends Controller
         $data = $request->except(['_token', '_method']);
         if (empty($data['ping_interval_seconds'])) {
             $data['ping_interval_seconds'] = 60;
+        }
+        if (empty($data['ping_packet_count'])) {
+            $data['ping_packet_count'] = 3;
         }
 
         MonitoredHost::create($data);
@@ -68,6 +73,8 @@ class SnmpMonitoringController extends Controller
             'vpn_id'         => 'nullable|exists:vpn_tunnels,id',
             'ping_enabled'   => 'boolean',
             'ping_interval_seconds' => 'nullable|integer|min:10',
+            'ping_packet_count' => 'nullable|integer|min:1|max:20',
+            'alert_email'    => 'nullable|email',
             'snmp_enabled'   => 'boolean',
             'snmp_port'      => 'nullable|integer',
             'snmp_version'   => 'required_if:snmp_enabled,1|in:v1,v2c,v3',
@@ -80,6 +87,10 @@ class SnmpMonitoringController extends Controller
         
         if (empty($data['ping_interval_seconds'])) {
             $data['ping_interval_seconds'] = 60;
+        }
+
+        if (empty($data['ping_packet_count'])) {
+            $data['ping_packet_count'] = 3;
         }
 
         if (empty($data['snmp_community'])) {
@@ -172,7 +183,8 @@ class SnmpMonitoringController extends Controller
     public function pingHost(MonitoredHost $host, \App\Services\PingService $pingService)
     {
         try {
-            $pingResult = $pingService->ping($host->ip, 3); // 3 packets
+            $pingCount = $host->ping_packet_count ?? 3;
+            $pingResult = $pingService->ping($host->ip, $pingCount);
 
             \App\Models\HostCheck::create([
                 'host_id' => $host->id,
