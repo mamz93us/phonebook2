@@ -29,12 +29,6 @@
     </div>
 </div>
 
-@if(session('success'))
-<div class="alert alert-success alert-dismissible fade show py-2" role="alert">
-    <i class="bi bi-check-circle me-1"></i>{{ session('success') }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-@endif
 
 {{-- ── Filters ── --}}
 <form method="GET" class="row g-2 mb-3 align-items-end">

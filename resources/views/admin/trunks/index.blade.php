@@ -7,20 +7,6 @@
     <h1 class="h3 mb-0"><i class="bi bi-diagram-3-fill me-2"></i>VoIP Trunks</h1>
 </div>
 
-{{-- ─── Flash Messages ───────────────────────────────────────── --}}
-@if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="bi bi-check-circle me-2"></i>{{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-@endif
-
-@if(session('error') || $error)
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="bi bi-exclamation-triangle me-2"></i>{{ session('error') ?? $error }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-@endif
 
 {{-- ─── UCM Server Selector ──────────────────────────────────── --}}
 <div class="card mb-4">
