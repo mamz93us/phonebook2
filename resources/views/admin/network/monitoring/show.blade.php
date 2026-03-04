@@ -65,12 +65,12 @@
                 <h6 class="text-white-50 small text-uppercase mb-3">Host Connectivity</h6>
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <span>Average Latency</span>
-                    <span class="h4 mb-0 fw-bold">{{ round($host->networkChecks->avg('latency'), 2) }}ms</span>
+                    <span class="h4 mb-0 fw-bold">{{ round($host->hostChecks->avg('latency_ms') ?? 0, 2) }}ms</span>
                 </div>
                 <div class="d-flex justify-content-between align-items-center">
                     <span>Packet Loss</span>
-                    <span class="h4 mb-0 fw-bold text-{{ $host->networkChecks->avg('packet_loss') > 5 ? 'danger' : 'success' }}">
-                        {{ round($host->networkChecks->avg('packet_loss'), 1) }}%
+                    <span class="h4 mb-0 fw-bold text-{{ $host->hostChecks->avg('packet_loss') > 5 ? 'danger' : 'success' }}">
+                        {{ round($host->hostChecks->avg('packet_loss') ?? 0, 1) }}%
                     </span>
                 </div>
             </div>
