@@ -40,29 +40,27 @@
 
                 @if($settings->company_logo)
                     <div class="mb-3">
-                        <img 
-                            src="{{ asset('storage/' . $settings->company_logo) }}" 
-                            alt="Company Logo" 
+                        <img
+                            src="{{ asset('storage/' . $settings->company_logo) }}"
+                            alt="Company Logo"
                             class="img-thumbnail"
                             style="max-width: 300px;"
                         >
-                        <form method="POST" action="{{ route('admin.settings.delete-logo') }}" class="mt-2 d-inline">
-                            @csrf
-                            @method('DELETE')
-                            <button 
-                                type="submit" 
+                        <div class="mt-2">
+                            <button
+                                type="button"
                                 class="btn btn-sm btn-outline-danger"
-                                onclick="return confirm('Delete the logo?')"
+                                onclick="if(confirm('Delete the logo?')) document.getElementById('delete-logo-form').submit();"
                             >
                                 Delete Logo
                             </button>
-                        </form>
+                        </div>
                     </div>
                 @endif
 
-                <input 
-                    type="file" 
-                    name="company_logo" 
+                <input
+                    type="file"
+                    name="company_logo"
                     id="company_logo"
                     accept="image/*"
                     class="form-control @error('company_logo') is-invalid @enderror"
@@ -82,6 +80,14 @@
         </form>
     </div>
 </div>
+
+{{-- Delete Logo: standalone form OUTSIDE the main form (nested forms are invalid HTML) --}}
+@if($settings->company_logo)
+<form id="delete-logo-form" method="POST" action="{{ route('admin.settings.delete-logo') }}" class="d-none">
+    @csrf
+    @method('DELETE')
+</form>
+@endif
 
 {{-- ─────────────────────────────────────────────────────── --}}
 {{-- Microsoft SSO Section                                  --}}
