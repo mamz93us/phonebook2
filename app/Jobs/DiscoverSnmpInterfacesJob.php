@@ -20,7 +20,12 @@ class DiscoverSnmpInterfacesJob implements ShouldQueue
 
     public function handle(): void
     {
-        if (!$this->host->snmp_enabled || !extension_loaded('snmp')) {
+        if (!$this->host->snmp_enabled) {
+            return;
+        }
+
+        if (!extension_loaded('snmp')) {
+            Log::error("SNMP Interface Discovery failed for {$this->host->ip}: PHP SNMP extension is not installed/enabled on this server.");
             return;
         }
 

@@ -22,11 +22,17 @@ class MonitoredHost extends Model
         'snmp_version',
         'snmp_community',
         'snmp_port',
+        'mib_id',
         'status',
         'last_ping_at',
         'last_snmp_at',
         'last_checked_at',
     ];
+
+    public function mib(): BelongsTo
+    {
+        return $this->belongsTo(Mib::class);
+    }
 
     protected $casts = [
         'ping_enabled' => 'boolean',

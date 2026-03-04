@@ -13,11 +13,12 @@ class SnmpMonitoringController extends Controller
 {
     public function index()
     {
-        $hosts = MonitoredHost::with(['branch', 'vpnTunnel'])->orderBy('name')->get();
+        $hosts = MonitoredHost::with(['branch', 'vpnTunnel', 'mib'])->orderBy('name')->get();
         $branches = Branch::orderBy('name')->get();
         $tunnels = VpnTunnel::orderBy('name')->get();
+        $mibs = Mib::orderBy('name')->get();
         
-        return view('admin.network.monitoring.index', compact('hosts', 'branches', 'tunnels'));
+        return view('admin.network.monitoring.index', compact('hosts', 'branches', 'tunnels', 'mibs'));
     }
 
     public function show(MonitoredHost $host)
@@ -47,6 +48,7 @@ class SnmpMonitoringController extends Controller
             'snmp_port'      => 'nullable|integer',
             'snmp_version'   => 'required_if:snmp_enabled,1|in:v1,v2c,v3',
             'snmp_community' => 'required_if:snmp_enabled,1|string',
+            'mib_id'         => 'nullable|exists:mibs,id',
         ]);
 
         $data = $request->except(['_token', '_method']);
@@ -79,6 +81,7 @@ class SnmpMonitoringController extends Controller
             'snmp_port'      => 'nullable|integer',
             'snmp_version'   => 'required_if:snmp_enabled,1|in:v1,v2c,v3',
             'snmp_community' => 'nullable|string',
+            'mib_id'         => 'nullable|exists:mibs,id',
         ]);
 
         $data = $request->except(['_token', '_method']);
@@ -170,14 +173,14 @@ class SnmpMonitoringController extends Controller
 
     public function discoverDevice(MonitoredHost $host)
     {
-        \App\Jobs\DiscoverSnmpDeviceJob::dispatch($host);
-        return back()->with('success', 'Device discovery job dispatched in the background.');
+        dispatch_sync(new \App\Jobs\DiscoverSnmpDeviceJob($host));
+        return back()->with('success', 'Device discovery completed synchronously.');
     }
 
     public function discoverInterfaces(MonitoredHost $host)
     {
-        \App\Jobs\DiscoverSnmpInterfacesJob::dispatch($host);
-        return back()->with('success', 'Interface discovery job dispatched in the background.');
+        dispatch_sync(new \App\Jobs\DiscoverSnmpInterfacesJob($host));
+        return back()->with('success', 'Interface discovery completed synchronously.');
     }
 
     public function pingHost(MonitoredHost $host, \App\Services\PingService $pingService)

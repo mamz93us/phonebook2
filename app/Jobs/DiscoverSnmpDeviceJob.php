@@ -18,10 +18,14 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
     public function __construct(public MonitoredHost $host)
     {
     }
-
     public function handle(): void
     {
-        if (!$this->host->snmp_enabled || !extension_loaded('snmp')) {
+        if (!$this->host->snmp_enabled) {
+            return;
+        }
+
+        if (!extension_loaded('snmp')) {
+            Log::error("SNMP Discovery failed for {$this->host->ip}: PHP SNMP extension is not installed/enabled on this server.");
             return;
         }
 
@@ -71,7 +75,8 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
             $this->host->save();
 
             // Fire Interface Discovery automatically
-            DiscoverSnmpInterfacesJob::dispatch($this->host);
+            // Fire Interface Discovery automatically (Synchronously)
+            DiscoverSnmpInterfacesJob::dispatchSync($this->host);
 
         } catch (\Exception $e) {
             Log::error("DiscoverSnmpDeviceJob failed for {$this->host->ip}: " . $e->getMessage());
