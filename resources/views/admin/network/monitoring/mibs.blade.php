@@ -33,8 +33,10 @@
                         <td><code class="text-muted">{{ basename($mib->file_path) }}</code></td>
                         <td>{{ $mib->created_at->format('Y-m-d H:i') }}</td>
                         <td class="text-end pe-4">
-                            <!-- Currently just visual placeholder for actions -->
-                            <button class="btn btn-sm btn-link text-danger" disabled><i class="bi bi-trash"></i></button>
+                            <a href="{{ route('admin.network.monitoring.mibs.view', $mib) }}" class="btn btn-sm btn-link text-info" title="Preview MIB Content">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <button class="btn btn-sm btn-link text-danger" disabled title="Delete Protected"><i class="bi bi-trash"></i></button>
                         </td>
                     </tr>
                     @empty

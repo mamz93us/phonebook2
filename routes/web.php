@@ -419,6 +419,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('/hosts/{host}', [SnmpMonitoringController::class, 'destroyHost'])->name('hosts.destroy');
         Route::get('/mibs',         [SnmpMonitoringController::class, 'mibs'])->name('mibs');
         Route::post('/mibs',        [SnmpMonitoringController::class, 'storeMib'])->name('mibs.store');
+        Route::get('/mibs/{mib}',   [SnmpMonitoringController::class, 'viewMib'])->name('mibs.view');
+        Route::post('/hosts/{host}/mib-assign', [SnmpMonitoringController::class, 'updateMibAssignment'])->name('hosts.mib-assign');
     });
 
     // ─── Workers Dashboard ─────────────────────────────────────────

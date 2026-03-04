@@ -109,6 +109,34 @@
             </div>
         </div>
 
+        <div class="card shadow-sm border-0 mb-4 bg-light-subtle">
+            <div class="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0 fw-bold text-muted text-uppercase small">Assigned MIB</h6>
+                <button class="btn btn-link btn-sm p-0 text-primary" data-bs-toggle="modal" data-bs-target="#assignMibModal">
+                    <i class="bi bi-pencil-square"></i>
+                </button>
+            </div>
+            <div class="card-body pt-0">
+                @if($host->mib)
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-file-earmark-code fs-4 text-primary me-2"></i>
+                        <div>
+                            <div class="fw-bold">{{ $host->mib->name }}</div>
+                            <div class="x-small text-muted">{{ basename($host->mib->file_path) }}</div>
+                        </div>
+                    </div>
+                    <a href="{{ route('admin.network.monitoring.mibs.view', $host->mib) }}" class="btn btn-outline-info btn-xs w-100 mt-2">
+                        <i class="bi bi-eye me-1"></i> Preview OIDs
+                    </a>
+                @else
+                    <div class="text-center py-3">
+                        <i class="bi bi-file-earmark-x fs-2 text-muted opacity-25 d-block mb-1"></i>
+                        <span class="x-small text-muted">No custom MIB linked</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+
         <div class="card shadow-sm border-0 bg-light-subtle">
             <div class="card-header bg-transparent py-3 border-0">
                 <h6 class="card-title mb-0 fw-bold text-muted text-uppercase small">Inventory Assets</h6>
@@ -241,6 +269,39 @@
     @endforeach
 </div>
 @endif
+
+<!-- Assign MIB Modal -->
+<div class="modal fade" id="assignMibModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form action="{{ route('admin.network.monitoring.hosts.mib-assign', $host) }}" method="POST">
+            @csrf
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white py-3">
+                    <h5 class="modal-title">Link Vendor MIB</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-4">Select a MIB file that matches this device's manufacturer. This helps the discovery engine identify system sensors and interface descriptions properly.</p>
+                    <div class="col-12">
+                        <label class="form-label fw-bold small">Available MIBs</label>
+                        <select name="mib_id" class="form-select" required>
+                            <option value="">-- No MIB --</option>
+                            @foreach($mibs as $mib)
+                                <option value="{{ $mib->id }}" {{ $host->mib_id == $mib->id ? 'selected' : '' }}>
+                                    {{ $mib->name }} ({{ basename($mib->file_path) }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer px-4 py-3 bg-light rounded-bottom">
+                    <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4">Save Assignment</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- Modals & Scripts remain similar but with improved logic -->
 <div class="modal fade" id="addSensorModal" tabindex="-1">

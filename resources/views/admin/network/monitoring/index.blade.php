@@ -196,6 +196,16 @@
                                 <label class="form-label fw-bold small">Read Community</label>
                                 <input type="password" name="snmp_community" class="form-control" value="public">
                             </div>
+                            <div class="col-md-12 mt-3">
+                                <label class="form-label fw-bold small">Vendor MIB (Optional)</label>
+                                <select name="mib_id" class="form-select">
+                                    <option value="">No Custom MIB (Generic)</option>
+                                    @foreach($mibs as $mib)
+                                        <option value="{{ $mib->id }}">{{ $mib->name }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="form-text">Associate a vendor MIB to improve OID discovery.</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -296,6 +306,15 @@
                                 <label class="form-label fw-bold small">Read Community</label>
                                 <input type="password" name="snmp_community" class="form-control" placeholder="Leave blank to keep">
                             </div>
+                            <div class="col-md-12 mt-3">
+                                <label class="form-label fw-bold small">Vendor MIB</label>
+                                <select name="mib_id" id="edit-mib" class="form-select">
+                                    <option value="">No Custom MIB (Generic)</option>
+                                    @foreach($mibs as $mib)
+                                        <option value="{{ $mib->id }}">{{ $mib->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -343,6 +362,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             document.getElementById('edit-snmpVersion').value = host.snmp_version || 'v2c';
             document.getElementById('edit-snmpPort').value = host.snmp_port;
+            document.getElementById('edit-mib').value = host.mib_id || '';
             
             const snmpFields = document.getElementById('edit-snmpFields');
             snmpFields.style.display = host.snmp_enabled ? 'flex' : 'none';

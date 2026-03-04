@@ -26,10 +26,12 @@ class SnmpMonitoringController extends Controller
         $host->load([
             'branch', 
             'vpnTunnel', 
+            'mib',
             'hostChecks' => fn($q) => $q->latest('checked_at')->limit(144),
             'snmpSensors.sensorMetrics' => fn($q) => $q->where('recorded_at', '>=', now()->subHours(24))->orderBy('recorded_at')
         ]);
-        return view('admin.network.monitoring.show', compact('host'));
+        $mibs = Mib::orderBy('name')->get();
+        return view('admin.network.monitoring.show', compact('host', 'mibs'));
     }
 
     public function storeHost(Request $request)
@@ -169,6 +171,29 @@ class SnmpMonitoringController extends Controller
 
         return redirect()->route('admin.network.monitoring.mibs')
             ->with('success', 'MIB file uploaded successfully.');
+    }
+
+    public function viewMib(Mib $mib)
+    {
+        $path = storage_path('app/' . $mib->file_path);
+        if (!file_exists($path)) {
+            $path = storage_path('app/public/' . $mib->file_path);
+        }
+
+        if (!file_exists($path)) {
+            return back()->with('error', 'MIB file not found on disk.');
+        }
+
+        $content = file_get_contents($path);
+        return view('admin.network.monitoring.mib_view', compact('mib', 'content'));
+    }
+
+    public function updateMibAssignment(Request $request, MonitoredHost $host)
+    {
+        $request->validate(['mib_id' => 'nullable|exists:mibs,id']);
+        $host->update(['mib_id' => $request->mib_id]);
+
+        return back()->with('success', 'MIB assigned to host successfully.');
     }
 
     public function discoverDevice(MonitoredHost $host)
