@@ -214,7 +214,12 @@ document.addEventListener('DOMContentLoaded', function() {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                y: { 
+                    beginAtZero: true, 
+                    suggestedMin: 0,
+                    suggestedMax: 100, // Provides some headroom when there's only 1 point
+                    grid: { color: 'rgba(0,0,0,0.05)' } 
+                },
                 x: { grid: { display: false } }
             }
         }
