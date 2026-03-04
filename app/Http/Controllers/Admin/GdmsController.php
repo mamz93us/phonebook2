@@ -32,48 +32,22 @@ class GdmsController extends Controller
                 'trunk_summary' => ['total' => 0, 'reachable' => 0, 'unreachable' => 0],
             ];
 
-            try {
-                $api = new IppbxApiService($server);
-                $api->login();
+            $stats = IppbxApiService::getCachedStats($server);
 
-                $item['online']     = true;
-                $item['system']     = $api->getSystemStatus();
-                $item['general']    = $api->getSystemGeneralStatus();
-
-                // Format the uptime with days
-                if (!empty($item['system']['up-time'])) {
-                    $item['system']['up-time-formatted'] = IppbxApiService::formatUptime($item['system']['up-time']);
+            if (!$stats['online']) {
+                $item['error'] = $stats['error'] ?? 'Offline';
+            } else {
+                $item['online']        = true;
+                $item['system']        = $stats['system'] ?? [];
+                $item['general']       = $stats['general'] ?? [];
+                if (!empty($stats['uptime'])) {
+                     $item['system']['up-time-formatted'] = $stats['uptime'];
                 }
-
-                // MAC address
-                $network = $api->getNetworkStatus();
-                $item['mac'] = IppbxApiService::extractMac($network);
-
-                // Extensions
-                $item['extensions'] = $api->listExtensions(1, 1000);
-                foreach ($item['extensions'] as $ext) {
-                    $item['summary']['total']++;
-                    $status = strtolower($ext['status'] ?? '');
-                    if ($status === 'idle')                                        $item['summary']['idle']++;
-                    elseif (in_array($status, ['inuse', 'busy', 'ringing']))       $item['summary']['inuse']++;
-                    elseif ($status === 'unavailable')                             $item['summary']['unavailable']++;
-                    else                                                           $item['summary']['other']++;
-                }
-
-                // Trunks
-                $item['trunks'] = $api->listVoIPTrunks();
-                foreach ($item['trunks'] as $trunk) {
-                    $item['trunk_summary']['total']++;
-                    $ts = strtolower($trunk['status'] ?? '');
-                    if (str_contains($ts, 'unreachable')) {
-                        $item['trunk_summary']['unreachable']++;
-                    } else {
-                        $item['trunk_summary']['reachable']++;
-                    }
-                }
-
-            } catch (\Exception $e) {
-                $item['error'] = $e->getMessage();
+                $item['mac']           = $stats['mac'] ?? '';
+                $item['extensions']    = $stats['extensions_list'] ?? [];
+                $item['trunks']        = $stats['trunks_list'] ?? [];
+                $item['summary']       = $stats['extensions'] ?? ['total' => 0, 'idle' => 0, 'inuse' => 0, 'unavailable' => 0, 'other' => 0];
+                $item['trunk_summary'] = $stats['trunk_counts'] ?? ['total' => 0, 'reachable' => 0, 'unreachable' => 0];
             }
 
             $results[] = $item;

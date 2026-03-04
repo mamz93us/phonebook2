@@ -44,11 +44,48 @@ class NocController extends Controller
         // Open NOC events
         $openEvents = NocEvent::open()->orderByDesc('severity')->orderByDesc('last_seen')->limit(10)->get();
 
+        // ── Main Dashboard Metrics Merged ────────────────────────────────
+
+        // Phones & Contacts
+        $contactCount      = \App\Models\Contact::count();
+        $phoneRequestCount = \App\Models\PhoneRequestLog::distinct('mac')->whereNotNull('mac')->count();
+        $totalXmlRequests  = \App\Models\PhoneRequestLog::count();
+
+        // UCM Stats (Cached)
+        $ucmServers = \App\Models\UcmServer::orderBy('name')->get();
+        $ucmStats   = [];
+        foreach ($ucmServers as $server) {
+            $stats = \App\Services\IppbxApiService::getCachedStats($server);
+            $ucmStats[] = ['server' => $server, 'stats' => $stats];
+        }
+
+        $ucmOnline         = collect($ucmStats)->where('stats.online', true)->count();
+        $totalExt          = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['total']        ?? 0);
+        $totalIdle         = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['idle']         ?? 0);
+        $totalInUse        = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['inuse']        ?? 0);
+        $totalUnavail      = collect($ucmStats)->sum(fn ($u) => $u['stats']['extensions']['unavailable']  ?? 0);
+        $totalTrunks       = collect($ucmStats)->sum(fn ($u) => $u['stats']['trunk_counts']['total']      ?? 0);
+        $totalReachable    = collect($ucmStats)->sum(fn ($u) => $u['stats']['trunk_counts']['reachable']  ?? 0);
+        $totalUnreachable  = collect($ucmStats)->sum(fn ($u) => $u['stats']['trunk_counts']['unreachable']?? 0);
+
+        // VPN Status
+        $vpnTunnels = \App\Models\VpnTunnel::all();
+        $vpnOnline = $vpnTunnels->where('status', 'installed')->count();
+
+        // Monitored Hosts
+        $monitoredHosts = \App\Models\MonitoredHost::all();
+        $hostsUp = $monitoredHosts->where('status', 'up')->count();
+        $hostsDown = $monitoredHosts->where('status', 'down')->count();
+
         return view('admin.noc.dashboard', compact(
             'totalUsers', 'licensedUsers', 'disabledUsers', 'licensedPercent',
             'totalSwitches', 'onlineSwitches', 'onlinePercent',
             'totalDevices', 'assignedDevices', 'missingCreds', 'printersOverdue',
-            'branches', 'openEvents'
+            'branches', 'openEvents',
+            'contactCount', 'phoneRequestCount', 'totalXmlRequests',
+            'ucmStats', 'ucmOnline', 'totalExt', 'totalIdle', 'totalInUse', 'totalUnavail', 'totalTrunks', 'totalReachable', 'totalUnreachable',
+            'vpnTunnels', 'vpnOnline',
+            'monitoredHosts', 'hostsUp', 'hostsDown'
         ));
     }
 

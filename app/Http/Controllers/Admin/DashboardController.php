@@ -36,62 +36,7 @@ class DashboardController extends Controller
                 continue;
             }
 
-            $stats = Cache::remember($cacheKey, 300, function () use ($server) {
-                try {
-                    $api = new IppbxApiService($server);
-                    $api->login();
-
-                    $system     = $api->getSystemStatus();
-                    $general    = $api->getSystemGeneralStatus();
-                    $network    = $api->getNetworkStatus();
-                    $extensions = $api->listExtensions(1, 2000);
-                    $trunks     = $api->listVoIPTrunks();
-
-                    // ── Extension counts ──────────────────────────────────
-                    $extCounts = [
-                        'total'       => count($extensions),
-                        'idle'        => 0,
-                        'inuse'       => 0,
-                        'unavailable' => 0,
-                    ];
-                    foreach ($extensions as $ext) {
-                        $s = strtolower($ext['status'] ?? '');
-                        if ($s === 'idle')                                  $extCounts['idle']++;
-                        elseif (in_array($s, ['inuse', 'busy', 'ringing'])) $extCounts['inuse']++;
-                        elseif ($s === 'unavailable')                       $extCounts['unavailable']++;
-                    }
-
-                    // ── Trunk counts (reachable vs unreachable) ───────────
-                    $trunkCounts = [
-                        'total'       => count($trunks),
-                        'reachable'   => 0,
-                        'unreachable' => 0,
-                    ];
-                    foreach ($trunks as $trunk) {
-                        $ts = strtolower($trunk['status'] ?? '');
-                        if (str_contains($ts, 'unreachable')) {
-                            $trunkCounts['unreachable']++;
-                        } else {
-                            $trunkCounts['reachable']++;
-                        }
-                    }
-
-                    return [
-                        'online'      => true,
-                        'model'       => $general['product-model'] ?? 'UCM',
-                        'firmware'    => $general['prog-version']  ?? '-',
-                        'serial'      => $system['serial-number']  ?? '-',
-                        'uptime_raw'  => $system['up-time']        ?? '',
-                        'uptime'      => IppbxApiService::formatUptime($system['up-time'] ?? ''),
-                        'mac'         => IppbxApiService::extractMac($network),
-                        'extensions'  => $extCounts,
-                        'trunk_counts'=> $trunkCounts,
-                        'trunks'      => count($trunks),
-                    ];
-                } catch (\Exception $e) {
-                    return ['online' => false, 'error' => $e->getMessage()];
-                }
-            });
+            $stats = IppbxApiService::getCachedStats($server);
 
             $ucmStats[] = ['server' => $server, 'stats' => $stats];
         }

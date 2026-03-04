@@ -24,6 +24,91 @@ class IppbxApiService
         $this->cloudDomain = $server->cloud_domain ?: null;
     }
 
+    /**
+     * Retrieve and cache full UCM stats for 60 seconds.
+     */
+    public static function getCachedStats(UcmServer $server): array
+    {
+        if (!$server->is_active) {
+            return [
+                'online' => false,
+                'error'  => 'Server is disabled',
+            ];
+        }
+
+        $cacheKey = "ucm_stats_{$server->id}_" . md5($server->url . $server->api_username);
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use ($server) {
+            try {
+                $api = new self($server);
+                $api->login();
+
+                $system     = $api->getSystemStatus();
+                $general    = $api->getSystemGeneralStatus();
+                $network    = $api->getNetworkStatus();
+                $extensions = $api->listExtensions(1, 2000);
+                $trunks     = $api->listVoIPTrunks();
+
+                // Format the uptime with days
+                if (!empty($system['up-time'])) {
+                    $system['up-time-formatted'] = self::formatUptime($system['up-time']);
+                }
+
+                // Extension counts
+                $extCounts = [
+                    'total'       => count($extensions),
+                    'idle'        => 0,
+                    'inuse'       => 0,
+                    'unavailable' => 0,
+                    'other'       => 0,
+                ];
+                foreach ($extensions as $ext) {
+                    $s = strtolower($ext['status'] ?? '');
+                    if ($s === 'idle')                                  $extCounts['idle']++;
+                    elseif (in_array($s, ['inuse', 'busy', 'ringing'])) $extCounts['inuse']++;
+                    elseif ($s === 'unavailable')                       $extCounts['unavailable']++;
+                    else                                                $extCounts['other']++;
+                }
+
+                // Trunk counts
+                $trunkCounts = [
+                    'total'       => count($trunks),
+                    'reachable'   => 0,
+                    'unreachable' => 0,
+                ];
+                foreach ($trunks as $trunk) {
+                    $ts = strtolower($trunk['status'] ?? '');
+                    if (str_contains($ts, 'unreachable')) {
+                        $trunkCounts['unreachable']++;
+                    } else {
+                        $trunkCounts['reachable']++;
+                    }
+                }
+
+                return [
+                    'online'      => true,
+                    'model'       => $general['product-model'] ?? 'UCM',
+                    'firmware'    => $general['prog-version']  ?? '-',
+                    'serial'      => $system['serial-number']  ?? '-',
+                    'uptime_raw'  => $system['up-time']        ?? '',
+                    'uptime'      => $system['up-time-formatted'] ?? '',
+                    'mac'         => self::extractMac($network),
+                    'system'      => $system,
+                    'general'     => $general,
+                    'extensions'  => $extCounts,
+                    'trunk_counts'=> $trunkCounts,
+                    'extensions_list' => $extensions,
+                    'trunks_list' => $trunks,
+                ];
+            } catch (\Exception $e) {
+                return [
+                    'online' => false,
+                    'error'  => $e->getMessage(),
+                ];
+            }
+        });
+    }
+
     // ─────────────────────────────────────────────
     // Authentication
     // ─────────────────────────────────────────────
