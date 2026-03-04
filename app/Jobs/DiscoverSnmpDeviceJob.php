@@ -33,8 +33,17 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
         // Load specific MIB if associated
         if ($this->host->mib_id && $this->host->mib) {
             $path = $this->host->mib->file_path;
+            $fullPath = Storage::disk('local')->path($path);
+            Log::debug("SNMP Discovery: Attempting to load MIB for host {$this->host->ip}", [
+                'mib_name' => $this->host->mib->name,
+                'rel_path' => $path,
+                'abs_path' => $fullPath,
+                'exists' => Storage::disk('local')->exists($path)
+            ]);
+            
             if (Storage::disk('local')->exists($path)) {
-                @snmp_read_mib(Storage::disk('local')->path($path));
+                $status = @snmp_read_mib($fullPath);
+                Log::debug("SNMP Discovery: snmp_read_mib status", ['success' => $status]);
             }
         }
 
@@ -48,8 +57,16 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
             $session = new \SNMP($version, $this->host->ip, $this->host->snmp_community);
             $session->exceptions_enabled = \SNMP::ERRNO_ANY;
 
-            $sysName = $this->cleanString(@$session->get('1.3.6.1.2.1.1.5.0'));
-            $sysDescr = $this->cleanString(@$session->get('1.3.6.1.2.1.1.1.0'));
+            $sysNameRaw = @$session->get('1.3.6.1.2.1.1.5.0');
+            $sysDescrRaw = @$session->get('1.3.6.1.2.1.1.1.0');
+            
+            Log::debug("SNMP Discovery: Raw responses from {$this->host->ip}", [
+                'sysName' => $sysNameRaw,
+                'sysDescr' => $sysDescrRaw
+            ]);
+
+            $sysName = $this->cleanString($sysNameRaw);
+            $sysDescr = $this->cleanString($sysDescrRaw);
             
             if ($sysName) {
                 $this->host->name = $sysName;
