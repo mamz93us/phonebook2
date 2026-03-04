@@ -407,6 +407,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::middleware(['auth', 'permission:manage-network-settings'])->prefix('network/monitoring')->name('network.monitoring.')->group(function () {
         Route::get('/',             [SnmpMonitoringController::class, 'index'])->name('index');
         Route::get('/hosts/{host}', [SnmpMonitoringController::class, 'show'])->name('show');
+        Route::post('/hosts/{host}/sensors', [SnmpMonitoringController::class, 'storeSensor'])->name('hosts.sensors.store');
+        Route::delete('/hosts/{host}/sensors/{sensor}', [SnmpMonitoringController::class, 'destroySensor'])->name('hosts.sensors.destroy');
         Route::post('/hosts',       [SnmpMonitoringController::class, 'storeHost'])->name('hosts.store');
         Route::put('/hosts/{host}', [SnmpMonitoringController::class, 'updateHost'])->name('hosts.update');
         Route::delete('/hosts/{host}', [SnmpMonitoringController::class, 'destroyHost'])->name('hosts.destroy');

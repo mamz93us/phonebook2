@@ -76,6 +76,33 @@ class SnmpMonitoringController extends Controller
             ->with('success', 'Host removed from monitoring.');
     }
 
+    public function storeSensor(Request $request, MonitoredHost $host)
+    {
+        $request->validate([
+            'oid'           => 'required|string|max:255',
+            'description'   => 'nullable|string|max:255',
+            'graph_enabled' => 'boolean',
+        ]);
+
+        $host->snmpSensors()->create([
+            'oid'           => $request->oid,
+            'description'   => $request->description,
+            'graph_enabled' => $request->boolean('graph_enabled', false),
+        ]);
+
+        return redirect()->route('admin.network.monitoring.show', $host)
+            ->with('success', 'SNMP Sensor added successfully.');
+    }
+
+    public function destroySensor(MonitoredHost $host, $sensorId)
+    {
+        $sensor = $host->snmpSensors()->findOrFail($sensorId);
+        $sensor->delete();
+
+        return redirect()->route('admin.network.monitoring.show', $host)
+            ->with('success', 'SNMP Sensor removed.');
+    }
+
     public function mibs()
     {
         $mibs = Mib::orderBy('name')->get();

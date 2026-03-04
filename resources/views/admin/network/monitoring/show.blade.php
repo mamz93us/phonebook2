@@ -76,7 +76,11 @@
                                 <span class="text-muted small">{{ $sensor->oid }}</span>
                             </div>
                             <div class="btn-group btn-group-sm">
-                                <button class="btn btn-link text-danger p-0 ms-2"><i class="bi bi-trash"></i></button>
+                                <form action="{{ route('admin.network.monitoring.hosts.sensors.destroy', [$host, $sensor]) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove this sensor?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-link text-danger p-0 ms-2"><i class="bi bi-trash"></i></button>
+                                </form>
                             </div>
                         </li>
                     @endforeach
@@ -109,7 +113,7 @@
 <!-- Add Sensor Modal -->
 <div class="modal fade" id="addSensorModal" tabindex="-1">
     <div class="modal-dialog">
-        <form action="{{ route('admin.network.monitoring.show', $host) }}" method="POST">
+        <form action="{{ route('admin.network.monitoring.hosts.sensors.store', $host) }}" method="POST">
             @csrf
             <div class="modal-content border-0 shadow">
                 <div class="modal-header">
