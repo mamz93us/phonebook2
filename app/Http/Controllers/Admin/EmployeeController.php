@@ -221,9 +221,15 @@ class EmployeeController extends Controller
             $identityUser = IdentityUser::where('azure_id', $azureId)->first();
             if (! $identityUser) continue;
 
-            // Skip if already linked
+            // Skip if already linked by azure_id
             if (Employee::where('azure_id', $azureId)->exists()) continue;
 
+            // Also deduplicate by email — link if a manual employee already exists
+            $email = $identityUser->mail ?? $identityUser->user_principal_name;
+            if ($email && ($existing = Employee::where('email', $email)->whereNull('azure_id')->first())) {
+                $existing->update(['azure_id' => $azureId]);
+                continue;
+            }
             // ── Auto-match Department (create if not found) ───────
             $department = null;
             if (! empty($identityUser->department)) {
@@ -251,7 +257,7 @@ class EmployeeController extends Controller
             Employee::create([
                 'azure_id'      => $azureId,
                 'name'          => $identityUser->display_name,
-                'email'         => $identityUser->mail ?? $identityUser->user_principal_name,
+                'email'         => $email,
                 'branch_id'     => $branchId,
                 'department_id' => $department?->id,
                 'manager_id'    => $manager?->id,
