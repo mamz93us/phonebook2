@@ -32,6 +32,8 @@ use App\Http\Controllers\Admin\EmployeeItemController;
 use App\Http\Controllers\Admin\VpnHubController;
 use App\Http\Controllers\Admin\DiagnosticsController;
 use App\Http\Controllers\Admin\SnmpMonitoringController;
+use App\Http\Controllers\Admin\WorkersDashboardController;
+use App\Http\Controllers\Admin\IpScannerController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\PhonebookController;
 use App\Http\Controllers\PublicContactController;
@@ -417,6 +419,22 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('/hosts/{host}', [SnmpMonitoringController::class, 'destroyHost'])->name('hosts.destroy');
         Route::get('/mibs',         [SnmpMonitoringController::class, 'mibs'])->name('mibs');
         Route::post('/mibs',        [SnmpMonitoringController::class, 'storeMib'])->name('mibs.store');
+    });
+
+    // ─── Workers Dashboard ─────────────────────────────────────────
+    Route::middleware(['auth', 'permission:manage-network-settings'])->prefix('network/workers')->name('network.workers.')->group(function () {
+        Route::get('/',                                   [WorkersDashboardController::class, 'index'])               ->name('index');
+        Route::post('/run-ping-all',                      [WorkersDashboardController::class, 'runPingAll'])           ->name('run-ping');
+        Route::post('/run-snmp-all',                      [WorkersDashboardController::class, 'runSnmpAll'])           ->name('run-snmp');
+        Route::post('/discover-host/{host}',              [WorkersDashboardController::class, 'runDiscoverHost'])      ->name('discover-host');
+        Route::post('/discover-interfaces/{host}',        [WorkersDashboardController::class, 'runDiscoverInterfaces'])->name('discover-interfaces');
+        Route::post('/clear-failed',                      [WorkersDashboardController::class, 'clearFailedJobs'])      ->name('clear-failed');
+    });
+
+    // ─── IP Scanner ───────────────────────────────────────────────
+    Route::middleware(['auth', 'permission:manage-network-settings'])->prefix('network/scanner')->name('network.scanner.')->group(function () {
+        Route::get('/',       [IpScannerController::class, 'index'])->name('index');
+        Route::post('/scan',  [IpScannerController::class, 'scan']) ->name('scan');
     });
 
     // ─── Notifications (all authenticated users) ──────────────

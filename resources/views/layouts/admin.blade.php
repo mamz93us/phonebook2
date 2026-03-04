@@ -131,6 +131,18 @@
                                     <i class="bi bi-broadcast me-2"></i>SNMP Monitoring
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.workers.*') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.workers.index') }}">
+                                    <i class="bi bi-cpu-fill me-2"></i>Workers & Tasks
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.network.scanner.*') ? 'active' : '' }}"
+                                   href="{{ route('admin.network.scanner.index') }}">
+                                    <i class="bi bi-radar me-2"></i>IP Scanner
+                                </a>
+                            </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item {{ request()->routeIs('admin.network.switches') ? 'active' : '' }}"
