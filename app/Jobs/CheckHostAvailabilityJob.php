@@ -25,6 +25,11 @@ class CheckHostAvailabilityJob implements ShouldQueue
         $hosts = MonitoredHost::where('ping_enabled', true)->get();
 
         foreach ($hosts as $host) {
+            // Respect the user-defined ping interval (default 60 seconds)
+            if ($host->last_ping_at && $host->last_ping_at->diffInSeconds(now()) < ($host->ping_interval_seconds ?? 60)) {
+                continue;
+            }
+
             try {
                 $pingResult = $pingService->ping($host->ip, 3);
 

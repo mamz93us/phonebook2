@@ -413,6 +413,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('/hosts/{host}/sensors/{sensor}', [SnmpMonitoringController::class, 'destroySensor'])->name('hosts.sensors.destroy');
         Route::post('/hosts',       [SnmpMonitoringController::class, 'storeHost'])->name('hosts.store');
         Route::put('/hosts/{host}', [SnmpMonitoringController::class, 'updateHost'])->name('hosts.update');
+        Route::post('/hosts/{host}/ping', [SnmpMonitoringController::class, 'pingHost'])->name('hosts.ping');
         Route::delete('/hosts/{host}', [SnmpMonitoringController::class, 'destroyHost'])->name('hosts.destroy');
         Route::get('/mibs',         [SnmpMonitoringController::class, 'mibs'])->name('mibs');
         Route::post('/mibs',        [SnmpMonitoringController::class, 'storeMib'])->name('mibs.store');

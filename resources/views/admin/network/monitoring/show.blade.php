@@ -39,6 +39,14 @@
             </button>
         </form>
         @endif
+        @if($host->ping_enabled)
+        <form action="{{ route('admin.network.monitoring.hosts.ping', $host) }}" method="POST" class="m-0">
+            @csrf
+            <button type="submit" class="btn btn-outline-success btn-sm" title="Manually ping this host now">
+                <i class="bi bi-activity me-1"></i> Ping Now
+            </button>
+        </form>
+        @endif
         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSensorModal">
             <i class="bi bi-plus-lg me-1"></i> Add Custom Sensor
         </button>

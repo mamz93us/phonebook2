@@ -156,4 +156,38 @@ class SnmpMonitoringController extends Controller
         \App\Jobs\DiscoverSnmpInterfacesJob::dispatch($host);
         return back()->with('success', 'Interface discovery job dispatched in the background.');
     }
+
+    public function pingHost(MonitoredHost $host, \App\Services\PingService $pingService)
+    {
+        try {
+            $pingResult = $pingService->ping($host->ip, 3); // 3 packets
+
+            \App\Models\HostCheck::create([
+                'host_id' => $host->id,
+                'check_type' => 'ping',
+                'latency_ms' => $pingResult['latency'],
+                'packet_loss' => $pingResult['packet_loss'],
+                'success' => $pingResult['success'],
+            ]);
+
+            if ($pingResult['success']) {
+                $host->last_ping_at = now();
+                if ($host->snmp_enabled && $host->last_snmp_at && $host->last_snmp_at->diffInMinutes(now()) > 3) {
+                    $host->status = 'degraded';
+                } else {
+                    $host->status = 'up';
+                }
+            } else {
+                $host->status = 'down';
+            }
+            $host->last_checked_at = now();
+            $host->save();
+
+            $statusText = $pingResult['success'] ? "Host is Up ({$pingResult['latency']}ms)" : "Host is Down";
+            return back()->with('success', "Manual Ping Completed: $statusText");
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Ping failed: ' . $e->getMessage());
+        }
+    }
 }
