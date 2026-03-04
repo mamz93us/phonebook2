@@ -210,7 +210,7 @@
                         </div>
                         <div class="col-4">
                             <div class="p-2 rounded bg-light">
-                                <div class="fs-4 fw-bold text-secondary">{{ $s['trunks'] }}</div>
+                                <div class="fs-4 fw-bold text-secondary">{{ $s['trunk_counts']['total'] ?? 0 }}</div>
                                 <div class="text-muted" style="font-size:.72rem;">Trunks</div>
                             </div>
                         </div>
