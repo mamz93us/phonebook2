@@ -44,7 +44,7 @@ Schedule::job(new \App\Jobs\CheckLicenseMonitorsJob)->hourly();
 // Monitoring jobs run directly (not via queue) — shared hosting has no queue worker
 Schedule::call(function () {
     try { (new \App\Jobs\CheckVpnStatusJob)->handle(); } catch (\Throwable $e) {}
-})->everyMinute()->withoutOverlapping(5)->name('check-vpn-status');
+})->name('check-vpn-status')->withoutOverlapping(5)->everyMinute();
 
 Schedule::call(function () {
     $service = app(\App\Services\PingService::class);
@@ -81,11 +81,11 @@ Schedule::call(function () {
             }
         } catch (\Throwable $e) {}
     }
-})->everyMinute()->withoutOverlapping(2)->name('check-host-ping');
+})->name('check-host-ping')->withoutOverlapping(2)->everyMinute();
 
 Schedule::call(function () {
     $hosts = \App\Models\MonitoredHost::where('snmp_enabled', true)->get();
     foreach ($hosts as $host) {
         try { dispatch_sync(new \App\Jobs\CollectSnmpMetricsJob($host)); } catch (\Throwable $e) {}
     }
-})->everyMinute()->withoutOverlapping(2)->name('collect-snmp-metrics');
+})->name('collect-snmp-metrics')->withoutOverlapping(2)->everyMinute();
