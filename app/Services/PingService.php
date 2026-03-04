@@ -56,9 +56,10 @@ class PingService
     protected function getPingCommand(string $host, int $count): array
     {
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            return ['ping', '-n', (string)$count, $host];
+            return ['ping', '-n', (string)$count, '-w', '1000', $host]; // -w 1000ms per reply
         }
-        return ['ping', '-c', (string)$count, $host];
+        // -W 1 = 1 second wait per packet, -q = quiet mode for faster parsing
+        return ['ping', '-c', (string)$count, '-W', '1', '-q', $host];
     }
 
     protected function parsePingOutput(string $output, string $host): array

@@ -25,48 +25,60 @@ class IpScannerController extends Controller
      */
     public function scan(Request $request)
     {
-        $request->validate([
-            'subnet' => 'required|string|max:50',
-        ]);
+        try {
+            $request->validate([
+                'subnet' => 'required|string|max:50',
+            ]);
 
-        $subnet = trim($request->input('subnet'));
-        $ips = $this->expandSubnet($subnet);
+            $subnet = trim($request->input('subnet'));
+            $ips = $this->expandSubnet($subnet);
 
-        if (empty($ips)) {
-            return response()->json(['error' => 'Invalid subnet or range. Use CIDR (192.168.1.0/24) or range (192.168.1.1-254).'], 422);
-        }
-
-        // Limit to prevent abuse
-        if (count($ips) > 254) {
-            return response()->json(['error' => 'Scan range too large. Maximum 254 IPs per scan.'], 422);
-        }
-
-        $results = [];
-        foreach ($ips as $ip) {
-            $result = $this->ping->ping($ip, 1);
-            $hostname = null;
-
-            if ($result['success']) {
-                // Try reverse DNS
-                $hostname = @gethostbyaddr($ip);
-                if ($hostname === $ip) $hostname = null;
+            if (empty($ips)) {
+                return response()->json(['error' => 'Invalid subnet or range. Use CIDR (192.168.1.0/24) or range (192.168.1.1-254).'], 422);
             }
 
-            $results[] = [
-                'ip'          => $ip,
-                'alive'       => $result['success'],
-                'latency_ms'  => $result['latency'] ?? null,
-                'hostname'    => $hostname,
-            ];
+            // Limit to prevent abuse
+            if (count($ips) > 254) {
+                return response()->json(['error' => 'Scan range too large. Maximum 254 IPs per scan.'], 422);
+            }
+
+            $results = [];
+            foreach ($ips as $ip) {
+                try {
+                    $result = $this->ping->ping($ip, 1); // 1 packet for fast scanning
+                } catch (\Throwable $e) {
+                    $result = ['success' => false, 'latency' => null, 'packet_loss' => 100];
+                }
+
+                $hostname = null;
+                if ($result['success']) {
+                    // Try reverse DNS (briefly)
+                    $hostname = @gethostbyaddr($ip);
+                    if ($hostname === $ip) $hostname = null;
+                }
+
+                $results[] = [
+                    'ip'         => $ip,
+                    'alive'      => $result['success'],
+                    'latency_ms' => $result['latency'] ?? null,
+                    'hostname'   => $hostname,
+                ];
+            }
+
+            $alive = collect($results)->where('alive', true)->count();
+
+            return response()->json([
+                'total'   => count($results),
+                'alive'   => $alive,
+                'results' => $results,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['error' => collect($e->errors())->flatten()->first()], 422);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('IP Scanner error: ' . $e->getMessage());
+            return response()->json(['error' => 'Scan failed on server: ' . $e->getMessage()], 500);
         }
-
-        $alive = collect($results)->where('alive', true)->count();
-
-        return response()->json([
-            'total'   => count($results),
-            'alive'   => $alive,
-            'results' => $results,
-        ]);
     }
 
     /**

@@ -40,6 +40,52 @@ Schedule::command('identity:sync')
 // Other internal jobs
 Schedule::job(new \App\Jobs\RunNocAlertsJob)->everyFiveMinutes();
 Schedule::job(new \App\Jobs\CheckLicenseMonitorsJob)->hourly();
-Schedule::job(new \App\Jobs\CheckVpnStatusJob)->everyMinute()->withoutOverlapping(5);
-Schedule::job(new \App\Jobs\CheckHostAvailabilityJob)->everyMinute()->withoutOverlapping(2);
-Schedule::job(new \App\Jobs\CollectSnmpMetricsJob)->everyMinute()->withoutOverlapping(2);
+
+// Monitoring jobs run directly (not via queue) — shared hosting has no queue worker
+Schedule::call(function () {
+    try { (new \App\Jobs\CheckVpnStatusJob)->handle(); } catch (\Throwable $e) {}
+})->everyMinute()->withoutOverlapping(5)->name('check-vpn-status');
+
+Schedule::call(function () {
+    $service = app(\App\Services\PingService::class);
+    $hosts = \App\Models\MonitoredHost::where('ping_enabled', true)->get();
+    foreach ($hosts as $host) {
+        if ($host->last_ping_at && $host->last_ping_at->diffInSeconds(now()) < ($host->ping_interval_seconds ?? 60)) {
+            continue;
+        }
+        try {
+            $count = $host->ping_packet_count ?? 3;
+            $result = $service->ping($host->ip, $count);
+            \App\Models\HostCheck::create([
+                'host_id' => $host->id, 'check_type' => 'ping',
+                'latency_ms' => $result['latency'], 'packet_loss' => $result['packet_loss'],
+                'success' => $result['success'],
+            ]);
+            $host->status = $result['success'] ? 'up' : 'down';
+            $host->last_ping_at = now();
+            $host->last_checked_at = now();
+            $host->save();
+
+            if (!$result['success']) {
+                $event = \App\Models\NocEvent::firstOrCreate(
+                    ['source_id' => $host->id, 'event_type' => 'host_down', 'status' => 'active'],
+                    ['title' => "Host Down: {$host->name}", 'description' => "Ping failed for {$host->ip}.", 'severity' => 'critical', 'detected_at' => now()]
+                );
+                if ($event->wasRecentlyCreated && $host->alert_email) {
+                    \Illuminate\Support\Facades\Notification::route('mail', $host->alert_email)
+                        ->notify(new \App\Notifications\HostOfflineNotification($host));
+                }
+            } else {
+                \App\Models\NocEvent::where('source_id', $host->id)->where('event_type', 'host_down')->where('status', 'active')
+                    ->update(['status' => 'resolved', 'resolved_at' => now()]);
+            }
+        } catch (\Throwable $e) {}
+    }
+})->everyMinute()->withoutOverlapping(2)->name('check-host-ping');
+
+Schedule::call(function () {
+    $hosts = \App\Models\MonitoredHost::where('snmp_enabled', true)->get();
+    foreach ($hosts as $host) {
+        try { dispatch_sync(new \App\Jobs\CollectSnmpMetricsJob($host)); } catch (\Throwable $e) {}
+    }
+})->everyMinute()->withoutOverlapping(2)->name('collect-snmp-metrics');

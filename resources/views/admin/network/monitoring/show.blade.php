@@ -203,22 +203,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 label: 'Latency (ms)',
                 data: latencyData.map(d => d.latency_ms),
                 borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                backgroundColor: 'rgba(13, 110, 253, 0.08)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 2
+                tension: 0.3,
+                pointRadius: latencyData.length < 20 ? 4 : 2,
+                pointHoverRadius: 6,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.parsed.y} ms`
+                    }
+                }
+            },
             scales: {
-                y: { 
-                    beginAtZero: true, 
-                    suggestedMin: 0,
-                    suggestedMax: 100, // Provides some headroom when there's only 1 point
-                    grid: { color: 'rgba(0,0,0,0.05)' } 
+                y: {
+                    beginAtZero: false, // Auto-scale to actual values
+                    grace: '15%',       // Add 15% padding above/below
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    ticks: {
+                        callback: v => v + ' ms'
+                    }
                 },
                 x: { grid: { display: false } }
             }
