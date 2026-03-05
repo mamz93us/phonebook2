@@ -114,9 +114,23 @@
         <div class="card shadow-sm border-0 mb-4 bg-light-subtle">
             <div class="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
                 <h6 class="card-title mb-0 fw-bold text-muted text-uppercase small">Assigned MIB</h6>
-                <button class="btn btn-link btn-sm p-0 text-primary" data-bs-toggle="modal" data-bs-target="#assignMibModal">
-                    <i class="bi bi-pencil-square"></i>
-                </button>
+                <div>
+                    <form action="{{ route('admin.network.monitoring.hosts.force-poll', $host) }}" method="POST" class="d-inline">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-info me-2">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Poll Now
+                        </button>
+                    </form>
+                    @if($host->mib_id)
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignMibModal">
+                        <i class="bi bi-plus-circle me-1"></i> Link Sensors from MIB
+                    </button>
+                    @else
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignMibModal">
+                        <i class="bi bi-link me-1"></i> Assign MIB
+                    </button>
+                    @endif
+                </div>
             </div>
             <div class="card-body pt-0">
                 @if($host->mib)
@@ -274,10 +288,14 @@
                                 {{-- UPTIME DISPLAY --}}
                                 @php
                                     $rawVal = $latest->value;
-                                    // SNMP Timeticks are in centiseconds (hundredths of a second)
-                                    // If value > 8640000 (1 day in centiseconds), treat as centiseconds
-                                    // Otherwise treat as seconds
-                                    $totalSeconds = $rawVal > 8640000 ? (int)($rawVal / 100) : (int)$rawVal;
+                                    $unit = strtolower(trim($sensor->unit));
+                                    
+                                    // By default, system uptimes are returned as Timeticks (centiseconds)
+                                    // If the user explicitly set unit to 's' or 'seconds', we treat it as seconds.
+                                    // Otherwise, we divide by 100.
+                                    $isExplicitSeconds = in_array($unit, ['s', 'sec', 'seconds', 'second']);
+                                    $totalSeconds = $isExplicitSeconds ? (int)$rawVal : (int)($rawVal / 100);
+                                    
                                     $days = (int)floor($totalSeconds / 86400);
                                     $hours = (int)floor(($totalSeconds % 86400) / 3600);
                                     $mins = (int)floor(($totalSeconds % 3600) / 60);

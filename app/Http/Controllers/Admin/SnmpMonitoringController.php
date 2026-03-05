@@ -42,6 +42,13 @@ class SnmpMonitoringController extends Controller
         return view('admin.network.monitoring.show', compact('host', 'mibs', 'discoveredObjects'));
     }
 
+    public function forcePoll(MonitoredHost $host)
+    {
+        // Run the Snmp job synchronously on the web process to bypass CLI errors
+        \App\Jobs\CollectSnmpMetricsJob::dispatchSync($host);
+        return back()->with('success', 'Forced SNMP polling completed. Metrics should now be updated.');
+    }
+
     public function storeMibSensors(Request $request, MonitoredHost $host)
     {
         $request->validate([
