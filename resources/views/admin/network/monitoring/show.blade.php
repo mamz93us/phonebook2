@@ -85,8 +85,10 @@
                 <h5 class="card-title mb-0 fw-bold">Latency & Availability</h5>
                 <span class="text-muted small">Real-time Ping Statistics (24h)</span>
             </div>
-            <div class="card-body pt-0" style="height: 350px;">
-                <canvas id="latencyChart"></canvas>
+            <div class="card-body pt-0">
+                <div class="position-relative w-100" style="height: 350px; max-height: 350px;">
+                    <canvas id="latencyChart"></canvas>
+                </div>
             </div>
         </div>
     </div>

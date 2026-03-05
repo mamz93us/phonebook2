@@ -45,6 +45,7 @@ class CollectSnmpMetricsJob implements ShouldQueue
 
                 $session = new \SNMP($version, $host->ip, $host->snmp_community, 1000000, 2);
                 $session->exceptions_enabled = \SNMP::ERRNO_ANY;
+                $session->valueretrieval = \SNMP_VALUE_PLAIN;
                 
                 // Load specific MIB if associated
                 if ($host->mib_id && $host->mib) {
@@ -62,6 +63,8 @@ class CollectSnmpMetricsJob implements ShouldQueue
                         $rawResult = $session->get($sensor->oid);
                         if ($rawResult === false) continue;
                         
+                        Log::info("Polled {$sensor->oid} ({$sensor->name}) - Raw: " . var_export($rawResult, true));
+
                         $snmpSuccess = true;
                         $parsedValue = $this->parseValue($rawResult);
                         $finalValue = $parsedValue;
@@ -128,7 +131,11 @@ class CollectSnmpMetricsJob implements ShouldQueue
 
     protected function parseValue($value): float
     {
-        if (preg_match('/(\d+(\.\d+)?)/', $value, $matches)) {
+        // Extract numeric values from strings like "INTEGER: 123" or "Gauge32: 456" or "Timeticks: (12345) 1:23:45"
+        if (preg_match('/(?:Timeticks:\s*\()(\d+)(?:\))/', $value, $matches)) {
+            return (float)$matches[1];
+        }
+        if (preg_match('/(-?\d+(\.\d+)?)/', $value, $matches)) {
             return (float)$matches[1];
         }
         if (stripos($value, 'up') !== false) return 1;

@@ -21,6 +21,11 @@ class MibParser
         $content = Storage::disk('local')->get($filePath);
         $objects = [];
 
+        $moduleName = '';
+        if (preg_match('/^([a-zA-Z0-9\-]+)\s+DEFINITIONS\s*::=\s*BEGIN/m', $content, $modMatch)) {
+            $moduleName = $modMatch[1] . '::';
+        }
+
         // Simple regex to find OBJECT-TYPE definitions
         // Format: name OBJECT-TYPE ... ::= { parent index/name }
         $pattern = '/([a-zA-Z0-9\-]+)\s+OBJECT-TYPE\s+.*?::=\s*\{\s*([a-zA-Z0-9\-\s]+)\s+\}/s';
@@ -35,7 +40,7 @@ class MibParser
                 // but without a full library or snmptranslate, we can at least show these.
                 $objects[] = [
                     'name' => $name,
-                    'oid_suffix' => end($oidParts),
+                    'oid_suffix' => $moduleName . $name, // e.g. UCM-MIB::pbxTotalCalls
                     'parent' => $oidParts[count($oidParts) - 2] ?? 'unknown',
                     'full_definition' => $match[0]
                 ];
