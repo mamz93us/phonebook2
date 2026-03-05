@@ -45,7 +45,7 @@ class CollectSnmpMetricsJob implements ShouldQueue
 
                 $session = new \SNMP($version, $host->ip, $host->snmp_community, 1000000, 2);
                 $session->exceptions_enabled = \SNMP::ERRNO_ANY;
-                $session->valueretrieval = \SNMP_VALUE_PLAIN;
+                $session->valueretrieval = \SNMP_VALUE_LIBRARY;
                 
                 // Load specific MIB if associated
                 if ($host->mib_id && $host->mib) {

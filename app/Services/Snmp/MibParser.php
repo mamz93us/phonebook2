@@ -26,24 +26,76 @@ class MibParser
             $moduleName = $modMatch[1] . '::';
         }
 
-        // Simple regex to find OBJECT-TYPE definitions
-        // Format: name OBJECT-TYPE ... ::= { parent index/name }
-        $pattern = '/([a-zA-Z0-9\-]+)\s+OBJECT-TYPE\s+.*?::=\s*\{\s*([a-zA-Z0-9\-\s]+)\s+\}/s';
-        
+        $nodes = [
+            'iso' => '.1',
+            'org' => '.1.3',
+            'dod' => '.1.3.6',
+            'internet' => '.1.3.6.1',
+            'directory' => '.1.3.6.1.1',
+            'mgmt' => '.1.3.6.1.2',
+            'mib-2' => '.1.3.6.1.2.1',
+            'experimental' => '.1.3.6.1.3',
+            'private' => '.1.3.6.1.4',
+            'enterprises' => '.1.3.6.1.4.1',
+        ];
+
+        // Pass 1: Map all OIDs in the MIB (IDENTIFIER, TYPE, IDENTITY)
+        $pattern = '/([a-zA-Z0-9\-]+)\s+(?:OBJECT IDENTIFIER|OBJECT-TYPE|MODULE-IDENTITY|NOTIFICATION-TYPE)\s+.*?::=\s*\{\s*([a-zA-Z0-9\-\s]+)\s+\}/s';
+        $rawMap = [];
         if (preg_match_all($pattern, $content, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $name = $match[1];
-                $oidParts = preg_split('/\s+/', trim($match[2]));
+                $parts = preg_split('/\s+/', trim($match[2]));
+                $parent = $parts[0] ?? '';
+                $index = end($parts);
+                if (is_numeric($index)) {
+                    $rawMap[$name] = ['parent' => $parent, 'index' => $index];
+                }
+            }
+        }
+
+        // Pass 2: Extract just the OBJECT-TYPE sensors and build their absolute OIDs
+        $objPattern = '/([a-zA-Z0-9\-]+)\s+OBJECT-TYPE\s+.*?::=\s*\{\s*([a-zA-Z0-9\-\s]+)\s+\}/s';
+        if (preg_match_all($objPattern, $content, $objMatches, PREG_SET_ORDER)) {
+            foreach ($objMatches as $match) {
+                $name = $match[1];
                 
-                // For now, we store the name and the relative OID part
-                // In a real scenario, we might want to resolve the full OID, 
-                // but without a full library or snmptranslate, we can at least show these.
-                $objects[] = [
-                    'name' => $name,
-                    'oid_suffix' => $moduleName . $name, // e.g. UCM-MIB::pbxTotalCalls
-                    'parent' => $oidParts[count($oidParts) - 2] ?? 'unknown',
-                    'full_definition' => $match[0]
-                ];
+                $currentName = $name;
+                $oidChain = [];
+                $failed = false;
+                
+                while(true) {
+                    if (isset($nodes[$currentName])) {
+                        array_unshift($oidChain, ltrim($nodes[$currentName], '.'));
+                        break;
+                    }
+                    if (isset($rawMap[$currentName])) {
+                        array_unshift($oidChain, $rawMap[$currentName]['index']);
+                        $currentName = $rawMap[$currentName]['parent'];
+                    } else {
+                        // Dead end (parent not defined in this file and not a standard root)
+                        $failed = true;
+                        break;
+                    }
+                }
+                
+                if (!$failed) {
+                    $absoluteOid = '.' . implode('.', $oidChain);
+                    $objects[] = [
+                        'name' => $name,
+                        'oid_suffix' => $absoluteOid, // Guaranteed absolute numeric OID!
+                        'parent' => $rawMap[$name]['parent'] ?? 'unknown',
+                        'full_definition' => $match[0]
+                    ];
+                } else {
+                    // Fallback to textual OID if we couldn't resolve the tree
+                    $objects[] = [
+                        'name' => $name,
+                        'oid_suffix' => $moduleName . $name,
+                        'parent' => $rawMap[$name]['parent'] ?? 'unknown',
+                        'full_definition' => $match[0]
+                    ];
+                }
             }
         }
 

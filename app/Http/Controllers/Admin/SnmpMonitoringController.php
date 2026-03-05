@@ -44,6 +44,9 @@ class SnmpMonitoringController extends Controller
 
     public function forcePoll(MonitoredHost $host)
     {
+        // Cleanup old string-based sensors that were broken by the previous parser
+        \App\Models\SnmpSensor::where('oid', 'like', '%::%')->delete();
+        
         // Run the Snmp job synchronously on the web process to bypass CLI errors
         \App\Jobs\CollectSnmpMetricsJob::dispatchSync($host);
         return back()->with('success', 'Forced SNMP polling completed. Metrics should now be updated.');
