@@ -80,13 +80,13 @@
 <div class="row g-4 mb-4">
     <!-- Latency Graph -->
     <div class="col-lg-8">
-        <div class="card shadow-sm border-0 h-100 overflow-hidden">
+        <div class="card shadow-sm border-0 overflow-hidden">
             <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0 fw-bold">Latency & Availability</h5>
                 <span class="text-muted small">Real-time Ping Statistics (24h)</span>
             </div>
             <div class="card-body pt-0">
-                <div class="position-relative w-100" style="height: 350px; max-height: 350px;">
+                <div class="position-relative w-100" style="height: 250px;">
                     <canvas id="latencyChart"></canvas>
                 </div>
             </div>
@@ -273,13 +273,32 @@
                             @if($sensor->data_type === 'uptime')
                                 {{-- UPTIME DISPLAY --}}
                                 @php
-                                    $seconds = $latest->value / 100; // Timeticks to seconds
-                                    $dtF = new \DateTime('@0');
-                                    $dtT = new \DateTime("@$seconds");
-                                    $uptimeFormatted = $dtF->diff($dtT)->format('%a days, %h hrs, %i mins');
+                                    $rawVal = $latest->value;
+                                    // SNMP Timeticks are in centiseconds (hundredths of a second)
+                                    // If value > 8640000 (1 day in centiseconds), treat as centiseconds
+                                    // Otherwise treat as seconds
+                                    $totalSeconds = $rawVal > 8640000 ? (int)($rawVal / 100) : (int)$rawVal;
+                                    $days = (int)floor($totalSeconds / 86400);
+                                    $hours = (int)floor(($totalSeconds % 86400) / 3600);
+                                    $mins = (int)floor(($totalSeconds % 3600) / 60);
                                 @endphp
                                 <div class="text-center py-3">
-                                    <div class="display-6 fw-bold text-primary mb-2">{{ $uptimeFormatted }}</div>
+                                    <div class="d-flex align-items-center justify-content-center gap-3 mb-2">
+                                        <div class="text-center">
+                                            <div class="display-6 fw-bold text-primary">{{ $days }}</div>
+                                            <div class="text-muted small">days</div>
+                                        </div>
+                                        <span class="display-6 text-muted opacity-25">:</span>
+                                        <div class="text-center">
+                                            <div class="display-6 fw-bold text-primary">{{ $hours }}</div>
+                                            <div class="text-muted small">hrs</div>
+                                        </div>
+                                        <span class="display-6 text-muted opacity-25">:</span>
+                                        <div class="text-center">
+                                            <div class="display-6 fw-bold text-primary">{{ $mins }}</div>
+                                            <div class="text-muted small">min</div>
+                                        </div>
+                                    </div>
                                     <div class="text-muted small"><i class="bi bi-clock-history me-1"></i> System Uptime</div>
                                 </div>
 
@@ -358,32 +377,46 @@
                                 </span>
                             @endif
                             <div class="mt-auto">
-                                <div class="small text-muted mb-1">Inbound Traffic</div>
-                                <div class="h5 fw-bold sensor-value mb-3 text-info">
-                                    {{ number_format($sensors['Traffic In']->sensorMetrics->last()?->value ?? 0, 0) }} 
-                                    <small class="fs-6 opacity-50">bps</small>
-                                </div>
-                                <div class="small text-muted mb-1">Outbound Traffic</div>
-                                <div class="h5 fw-bold sensor-value text-primary">
-                                    {{ number_format($sensors['Traffic Out']->sensorMetrics->last()?->value ?? 0, 0) }}
-                                    <small class="fs-6 opacity-50">bps</small>
-                                </div>
+                                @if(isset($sensors['Traffic In']))
+                                    @php
+                                        $inVal = $sensors['Traffic In']->sensorMetrics->last()?->value ?? 0;
+                                        $inFormatted = $inVal > 1048576 ? number_format($inVal / 1048576, 2) . ' MB/s' : ($inVal > 1024 ? number_format($inVal / 1024, 2) . ' KB/s' : number_format($inVal, 0) . ' B/s');
+                                    @endphp
+                                    <div class="small text-muted mb-1">Inbound Traffic</div>
+                                    <div class="h5 fw-bold sensor-value mb-3 text-info">
+                                        {{ $inFormatted }}
+                                    </div>
+                                @endif
+                                @if(isset($sensors['Traffic Out']))
+                                    @php
+                                        $outVal = $sensors['Traffic Out']->sensorMetrics->last()?->value ?? 0;
+                                        $outFormatted = $outVal > 1048576 ? number_format($outVal / 1048576, 2) . ' MB/s' : ($outVal > 1024 ? number_format($outVal / 1024, 2) . ' KB/s' : number_format($outVal, 0) . ' B/s');
+                                    @endphp
+                                    <div class="small text-muted mb-1">Outbound Traffic</div>
+                                    <div class="h5 fw-bold sensor-value text-primary">
+                                        {{ $outFormatted }}
+                                    </div>
+                                @endif
                             </div>
                         </div>
                         <div class="col-md-9 p-3">
                             <div class="row g-3">
+                                @if(isset($sensors['Traffic In']))
                                 <div class="col-md-6">
-                                    <div class="text-muted small mb-2 fw-bold text-uppercase">Inbound (bps)</div>
+                                    <div class="text-muted small mb-2 fw-bold text-uppercase">Inbound Traffic</div>
                                     <div style="height: 100px;">
                                         <canvas id="chart-sensor-{{ $sensors['Traffic In']->id }}"></canvas>
                                     </div>
                                 </div>
+                                @endif
+                                @if(isset($sensors['Traffic Out']))
                                 <div class="col-md-6">
-                                    <div class="text-muted small mb-2 fw-bold text-uppercase">Outbound (bps)</div>
+                                    <div class="text-muted small mb-2 fw-bold text-uppercase">Outbound Traffic</div>
                                     <div style="height: 100px;">
                                         <canvas id="chart-sensor-{{ $sensors['Traffic Out']->id }}"></canvas>
                                     </div>
                                 </div>
+                                @endif
                             </div>
                         </div>
                     </div>
