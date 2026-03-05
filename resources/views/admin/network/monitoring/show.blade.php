@@ -85,8 +85,8 @@
                 <h5 class="card-title mb-0 fw-bold">Latency & Availability</h5>
                 <span class="text-muted small">Real-time Ping Statistics (24h)</span>
             </div>
-            <div class="card-body pt-0">
-                <canvas id="latencyChart" style="min-height: 300px;"></canvas>
+            <div class="card-body pt-0" style="height: 350px;">
+                <canvas id="latencyChart"></canvas>
             </div>
         </div>
     </div>
@@ -250,24 +250,86 @@
     @foreach($groupedSensors['General'] as $sensor)
         @php $latest = $sensor->sensorMetrics->last(); @endphp
         <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm border-0 glass-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
+            <div class="card shadow-sm border-0 glass-card h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
                             <h6 class="card-title mb-0 text-muted fw-bold small text-uppercase">{{ $sensor->name }}</h6>
                             <span class="badge bg-light text-muted fw-normal interface-pill border">{{ $sensor->data_type }}</span>
                         </div>
                         @if($latest)
                             <div class="text-end">
-                                <span class="h4 mb-0 fw-bold sensor-value text-primary">
-                                    {{ $latest->value }}<small class="fs-6 ms-1 fw-normal text-muted">{{ $sensor->unit }}</small>
-                                </span>
                                 <div class="text-muted x-small">Last polled: {{ $latest->recorded_at->diffForHumans() }}</div>
                             </div>
+                        @else
+                            <span class="badge bg-secondary-subtle text-secondary small">No Data</span>
                         @endif
                     </div>
-                    <div style="height: 120px;">
-                        <canvas id="chart-sensor-{{ $sensor->id }}"></canvas>
+                    
+                    <div class="mt-auto">
+                        @if($latest)
+                            @if($sensor->data_type === 'uptime')
+                                {{-- UPTIME DISPLAY --}}
+                                @php
+                                    $seconds = $latest->value / 100; // Timeticks to seconds
+                                    $dtF = new \DateTime('@0');
+                                    $dtT = new \DateTime("@$seconds");
+                                    $uptimeFormatted = $dtF->diff($dtT)->format('%a days, %h hrs, %i mins');
+                                @endphp
+                                <div class="text-center py-3">
+                                    <div class="display-6 fw-bold text-primary mb-2">{{ $uptimeFormatted }}</div>
+                                    <div class="text-muted small"><i class="bi bi-clock-history me-1"></i> System Uptime</div>
+                                </div>
+
+                            @elseif($sensor->data_type === 'boolean')
+                                {{-- BOOLEAN DISPLAY --}}
+                                @php
+                                    $isOk = $latest->value == 1; // Assuming 1=OK/UP, 0=FAIL/DOWN
+                                @endphp
+                                <div class="text-center py-4">
+                                    @if($isOk)
+                                        <div class="d-inline-flex align-items-center justify-content-center bg-success-subtle text-success rounded-circle mb-2" style="width: 60px; height: 60px;">
+                                            <i class="bi bi-check-lg fs-1"></i>
+                                        </div>
+                                        <div class="fw-bold text-success fs-5">Status OK</div>
+                                    @else
+                                        <div class="d-inline-flex align-items-center justify-content-center bg-danger-subtle text-danger rounded-circle mb-2" style="width: 60px; height: 60px;">
+                                            <i class="bi bi-x-lg fs-1"></i>
+                                        </div>
+                                        <div class="fw-bold text-danger fs-5">Status Critical</div>
+                                    @endif
+                                </div>
+
+                            @elseif($sensor->data_type === 'counter')
+                                {{-- COUNTER DISPLAY (Shows Rate) --}}
+                                <div class="text-center py-3">
+                                    <span class="display-5 fw-bold text-info">
+                                        {{ number_format($latest->value, 2) }}
+                                    </span>
+                                    <span class="fs-5 text-muted ms-1">{{ $sensor->unit ?: 'units/sec' }}</span>
+                                </div>
+                                <div style="height: 60px;">
+                                    <canvas id="chart-sensor-{{ $sensor->id }}"></canvas>
+                                </div>
+
+                            @else
+                                {{-- GAUGE DISPLAY --}}
+                                <div class="text-center mb-2">
+                                    <span class="h2 fw-bold text-dark">
+                                        {{ number_format($latest->value, 1) }}
+                                    </span>
+                                    <span class="fs-6 text-muted ms-1">{{ $sensor->unit }}</span>
+                                </div>
+                                <div style="height: 80px;">
+                                    <canvas id="chart-sensor-{{ $sensor->id }}"></canvas>
+                                </div>
+                            @endif
+                        @else
+                            <div class="text-center py-4 text-muted opacity-50">
+                                <i class="bi bi-hourglass-split fs-2 d-block mb-2"></i>
+                                <small>Waiting for initial poll...</small>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>

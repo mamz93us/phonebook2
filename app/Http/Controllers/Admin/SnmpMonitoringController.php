@@ -55,8 +55,14 @@ class SnmpMonitoringController extends Controller
         }
 
         foreach ($selectedSensors as $s) {
+            $oid = $s['oid'];
+            // Append .0 for scalar objects if not present and if it's not a generic interface traffic oid
+            if (!str_contains($oid, '.')) {
+                $oid .= '.0';
+            }
+
             $host->snmpSensors()->firstOrCreate(
-                ['oid' => $s['oid']],
+                ['oid' => $oid],
                 [
                     'name' => $s['name'],
                     'data_type' => $s['data_type'] ?? 'gauge',
