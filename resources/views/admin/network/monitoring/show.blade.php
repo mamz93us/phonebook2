@@ -141,7 +141,7 @@
             <div class="card-header bg-transparent py-3 border-0">
                 <h6 class="card-title mb-0 fw-bold text-muted text-uppercase small">Inventory Assets</h6>
             </div>
-            <div class="card-body p-0" style="max-height: 250px; overflow-y: auto;">
+            <div class="card-body p-0">
                 <div class="list-group list-group-flush small">
                     <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-3">
                         <div>
@@ -162,7 +162,7 @@
                         <div class="alert alert-warning py-1 small mb-2 border-0" style="background:rgba(255,193,7,0.1)">
                             <i class="bi bi-info-circle me-1"></i> Select objects to add them as monitored sensors.
                         </div>
-                        <div class="overflow-auto border rounded bg-white" style="max-height: 250px;">
+                        <div class="overflow-auto border rounded bg-white" style="max-height: 350px;">
                             <form action="{{ route('admin.network.monitoring.hosts.mib-sensors.store', $host) }}" method="POST" id="mibSensorsForm">
                                 @csrf
                                 <table class="table table-sm table-hover mb-0 small">
