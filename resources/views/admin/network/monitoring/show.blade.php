@@ -207,6 +207,19 @@
         box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
         background: rgba(255, 255, 255, 0.85);
     }
+    .scrollable-table {
+        max-height: 500px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0,0,0,0.1) transparent;
+    }
+    .scrollable-table::-webkit-scrollbar {
+        width: 6px;
+    }
+    .scrollable-table::-webkit-scrollbar-thumb {
+        background-color: rgba(0,0,0,0.1);
+        border-radius: 10px;
+    }
     .sensor-status-dot {
         width: 10px;
         height: 10px;
@@ -259,10 +272,13 @@
                             @if($sensor->data_type === 'uptime')
                                 {{-- UPTIME DISPLAY --}}
                                 @php
-                                    $rawVal = $latest->value;
+                                    $rawVal = (float)$latest->value;
                                     $unit = strtolower(trim($sensor->unit));
+                                    // sysUpTime is in centiseconds (1/100s)
+                                    // If raw value is very large (e.g. > 10^7), it's likely centiseconds
+                                    // If small, it might already be seconds. We assume centiseconds if no unit match.
                                     $isExplicitSeconds = in_array($unit, ['s', 'sec', 'seconds', 'second']);
-                                    $totalSeconds = $isExplicitSeconds ? (int)$rawVal : (int)($rawVal / 100);
+                                    $totalSeconds = $isExplicitSeconds ? $rawVal : ($rawVal / 100);
                                     
                                     $days = (int)floor($totalSeconds / 86400);
                                     $hours = (int)floor(($totalSeconds % 86400) / 3600);
@@ -329,9 +345,9 @@
         <h6 class="text-uppercase text-muted fw-bold small mb-3"><i class="bi bi-telephone-fill me-2"></i>PBX Extensions</h6>
         <div class="card shadow-sm border-0 glass-card">
             <div class="card-body p-0">
-                <div class="table-responsive">
+                <div class="table-responsive scrollable-table">
                     <table class="table table-hover align-middle mb-0 small">
-                        <thead class="bg-light">
+                        <thead class="bg-light sticky-top">
                             <tr>
                                 <th class="ps-3">Extension</th>
                                 <th>Status</th>
@@ -370,9 +386,9 @@
         <h6 class="text-uppercase text-muted fw-bold small mb-3"><i class="bi bi-shuffle me-2"></i>Trunk Lines</h6>
         <div class="card shadow-sm border-0 glass-card">
             <div class="card-body p-0">
-                <div class="table-responsive">
+                <div class="table-responsive scrollable-table">
                     <table class="table table-hover align-middle mb-0 small">
-                        <thead class="bg-light">
+                        <thead class="bg-light sticky-top">
                             <tr>
                                 <th class="ps-3">Trunk Name</th>
                                 <th>Status</th>
@@ -428,8 +444,9 @@
                             <div class="mt-auto">
                                 @if(isset($sensors['Traffic In']))
                                     @php
-                                        $inVal = $sensors['Traffic In']->sensorMetrics->last()?->value ?? 0;
-                                        $inFormatted = $inVal > 1048576 ? number_format($inVal / 1048576, 2) . ' MB/s' : ($inVal > 1024 ? number_format($inVal / 1024, 2) . ' KB/s' : number_format($inVal, 0) . ' B/s');
+                                        $inValBytes = $sensors['Traffic In']->sensorMetrics->last()?->value ?? 0;
+                                        $inValBits = $inValBytes * 8;
+                                        $inFormatted = $inValBits > 1000000 ? number_format($inValBits / 1000000, 2) . ' Mbps' : ($inValBits > 1000 ? number_format($inValBits / 1000, 2) . ' Kbps' : number_format($inValBits, 0) . ' bps');
                                     @endphp
                                     <div class="small text-muted mb-1">Inbound Traffic</div>
                                     <div class="h5 fw-bold sensor-value mb-3 text-info">
@@ -438,8 +455,9 @@
                                 @endif
                                 @if(isset($sensors['Traffic Out']))
                                     @php
-                                        $outVal = $sensors['Traffic Out']->sensorMetrics->last()?->value ?? 0;
-                                        $outFormatted = $outVal > 1048576 ? number_format($outVal / 1048576, 2) . ' MB/s' : ($outVal > 1024 ? number_format($outVal / 1024, 2) . ' KB/s' : number_format($outVal, 0) . ' B/s');
+                                        $outValBytes = $sensors['Traffic Out']->sensorMetrics->last()?->value ?? 0;
+                                        $outValBits = $outValBytes * 8;
+                                        $outFormatted = $outValBits > 1000000 ? number_format($outValBits / 1000000, 2) . ' Mbps' : ($outValBits > 1000 ? number_format($outValBits / 1000, 2) . ' Kbps' : number_format($outValBits, 0) . ' bps');
                                     @endphp
                                     <div class="small text-muted mb-1">Outbound Traffic</div>
                                     <div class="h5 fw-bold sensor-value text-primary">
