@@ -37,8 +37,9 @@ class SnmpClient
         };
 
         $community = $this->host->snmp_community ?? '';
-        $port = $this->host->snmp_port ?? 161;
-        $target = $this->host->ip . ':' . $port;
+        $port = (int) ($this->host->snmp_port ?? 161);
+        // Only append port if non-default — some PHP SNMP builds are picky about host:port
+        $target = $port !== 161 ? $this->host->ip . ':' . $port : $this->host->ip;
 
         $this->session = new \SNMP($version, $target, $community, 1000000, 2);
         $this->session->exceptions_enabled = \SNMP::ERRNO_ANY;

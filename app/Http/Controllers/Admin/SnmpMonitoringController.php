@@ -53,10 +53,10 @@ class SnmpMonitoringController extends Controller
         // Cleanup old string-based sensors that were broken by the previous parser
         SnmpSensor::where('oid', 'like', '%::%')->delete();
 
-        // Dispatch async to avoid blocking the web request
-        \App\Jobs\CollectSnmpMetricsJob::dispatch($host);
+        // Run synchronously so user sees results immediately (shared hosting — no queue worker)
+        \App\Jobs\CollectSnmpMetricsJob::dispatchSync($host);
 
-        return back()->with('success', 'SNMP polling queued. Metrics will update shortly.');
+        return back()->with('success', 'Forced SNMP polling completed. Metrics should now be updated.');
     }
 
     public function metrics(MonitoredHost $host): JsonResponse

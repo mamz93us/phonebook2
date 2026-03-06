@@ -77,17 +77,27 @@ class CollectSnmpMetricsJob implements ShouldQueue
                     $snmpSuccess = true;
                     $parsedValue = $this->parseValue($rawResult);
                     $finalValue = $parsedValue;
+                    $skipMetric = false;
 
                     // Calculate rate for counters using database-persisted last_raw_counter
                     if ($sensor->data_type === 'counter') {
+                        $isFirstPoll = ($sensor->last_raw_counter === null);
                         $finalValue = $this->calculateCounterRate($sensor, $parsedValue);
+                        // Skip storing metric on first poll — we have no previous value to compute rate
+                        if ($isFirstPoll) {
+                            $skipMetric = true;
+                        }
                     }
 
-                    SensorMetric::create([
-                        'sensor_id' => $sensor->id,
-                        'value' => $finalValue,
-                        'recorded_at' => now(),
-                    ]);
+                    if (!$skipMetric) {
+                        SensorMetric::create([
+                            'sensor_id' => $sensor->id,
+                            'value' => $finalValue,
+                            'recorded_at' => now(),
+                        ]);
+
+                        $this->checkThresholds($host, $sensor, $finalValue);
+                    }
 
                     // Reset sensor failure count on success
                     if ($sensor->status !== 'active' || $sensor->consecutive_failures > 0) {
@@ -96,8 +106,6 @@ class CollectSnmpMetricsJob implements ShouldQueue
                             'consecutive_failures' => 0,
                         ]);
                     }
-
-                    $this->checkThresholds($host, $sensor, $finalValue);
 
                 } catch (\Exception $e) {
                     Log::error("Failed to poll sensor on {$host->ip}", [

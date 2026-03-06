@@ -177,8 +177,9 @@
         </div>
 
         <div class="card shadow-sm border-0 bg-light-subtle">
-            <div class="card-header bg-transparent py-3 border-0">
-                <h6 class="card-title mb-0 fw-bold text-muted text-uppercase small">Inventory Assets</h6>
+            <div class="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0 fw-bold text-muted text-uppercase small">Sensors & Assets</h6>
+                <span class="badge bg-secondary-subtle text-secondary">{{ $host->snmpSensors->count() }} sensors</span>
             </div>
             <div class="card-body p-0">
                 <div class="list-group list-group-flush small">
@@ -201,7 +202,7 @@
                         <div class="alert alert-warning py-1 small mb-2 border-0" style="background:rgba(255,193,7,0.1)">
                             <i class="bi bi-info-circle me-1"></i> Select objects to add them as monitored sensors.
                         </div>
-                        <div class="overflow-auto border rounded bg-white" style="max-height: 350px;">
+                        <div class="overflow-auto border rounded bg-white" style="max-height: 200px;">
                             <form action="{{ route('admin.network.monitoring.hosts.mib-sensors.store', $host) }}" method="POST" id="mibSensorsForm">
                                 @csrf
                                 <table class="table table-sm table-hover mb-0 small">
@@ -242,32 +243,29 @@
                         </button>
                     </div>
                     @endif
-                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-3">
-                        <div>
-                            <span class="fw-bold d-block">System Uptime</span>
-                            <span class="text-muted x-small">RFC1213-MIB (.1.3.1.2.1.1.3.0)</span>
-                        </div>
-                        <span class="badge bg-white shadow-sm text-dark border">Native</span>
-                    </div>
-                    @foreach($host->snmpSensors as $sensor)
-                        <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-3">
-                            <div>
-                                <span class="fw-bold d-block">
+                </div>
+
+                {{-- Sensor list — scrollable container --}}
+                <div class="overflow-auto px-3 pb-2" style="max-height: 300px;">
+                    <div class="list-group list-group-flush small">
+                        @foreach($host->snmpSensors as $sensor)
+                            <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-0 py-1">
+                                <div class="text-truncate me-2">
                                     <span class="sensor-status-dot sensor-status-{{ $sensor->status ?? 'active' }}" title="{{ ucfirst($sensor->status ?? 'active') }}"></span>
-                                    {{ $sensor->name ?: 'Unnamed' }}
-                                </span>
-                                <span class="text-muted x-small text-truncate d-inline-block" style="max-width: 150px;">{{ $sensor->oid }}</span>
-                                @if($sensor->status !== 'active')
-                                    <span class="badge bg-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }}-subtle text-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }} x-small ms-1">{{ ucfirst($sensor->status) }}</span>
-                                @endif
+                                    <span class="fw-semibold">{{ $sensor->name ?: 'Unnamed' }}</span>
+                                    @if($sensor->status !== 'active')
+                                        <span class="badge bg-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }}-subtle text-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }} x-small ms-1">{{ ucfirst($sensor->status) }}</span>
+                                    @endif
+                                    <br><span class="text-muted x-small text-truncate d-inline-block" style="max-width: 180px;">{{ $sensor->oid }}</span>
+                                </div>
+                                <form action="{{ route('admin.network.monitoring.hosts.sensors.destroy', [$host, $sensor]) }}" method="POST" class="d-inline flex-shrink-0" onsubmit="return confirm('Remove sensor?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-link text-danger p-0" title="Delete Sensor"><i class="bi bi-trash-fill opacity-25"></i></button>
+                                </form>
                             </div>
-                            <form action="{{ route('admin.network.monitoring.hosts.sensors.destroy', [$host, $sensor]) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove sensor?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-link text-danger p-0" title="Delete Sensor"><i class="bi bi-trash-fill opacity-25"></i></button>
-                            </form>
-                        </div>
-                    @endforeach
+                        @endforeach
+                    </div>
                 </div>
             </div>
         </div>

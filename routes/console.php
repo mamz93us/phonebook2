@@ -83,40 +83,40 @@ Schedule::call(function () {
     }
 })->name('check-host-ping')->withoutOverlapping(2)->everyMinute();
 
-// SNMP Metrics Collection — dispatches one job per host every minute
+// SNMP Metrics Collection — runs inline per host every minute (shared hosting — no queue worker)
 Schedule::call(function () {
     $hosts = \App\Models\MonitoredHost::where('snmp_enabled', true)
         ->where('status', '!=', 'down')
         ->get();
     foreach ($hosts as $host) {
         try {
-            \App\Jobs\CollectSnmpMetricsJob::dispatch($host);
+            (new \App\Jobs\CollectSnmpMetricsJob($host))->handle();
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("SNMP collect dispatch failed for {$host->ip}: " . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error("SNMP collect failed for {$host->ip}: " . $e->getMessage());
         }
     }
 })->name('collect-snmp-metrics')->withoutOverlapping(2)->everyMinute();
 
-// SNMP Device Discovery — once per day
+// SNMP Device Discovery — once per day (runs inline)
 Schedule::call(function () {
     $hosts = \App\Models\MonitoredHost::where('snmp_enabled', true)->get();
     foreach ($hosts as $host) {
         try {
-            \App\Jobs\DiscoverSnmpDeviceJob::dispatch($host);
+            (new \App\Jobs\DiscoverSnmpDeviceJob($host))->handle();
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("SNMP discover dispatch failed for {$host->ip}: " . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error("SNMP discover failed for {$host->ip}: " . $e->getMessage());
         }
     }
 })->name('discover-snmp-devices')->withoutOverlapping(30)->daily();
 
-// SNMP Interface Discovery — once per day
+// SNMP Interface Discovery — once per day (runs inline)
 Schedule::call(function () {
     $hosts = \App\Models\MonitoredHost::where('snmp_enabled', true)->get();
     foreach ($hosts as $host) {
         try {
-            \App\Jobs\DiscoverSnmpInterfacesJob::dispatch($host);
+            (new \App\Jobs\DiscoverSnmpInterfacesJob($host))->handle();
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("SNMP interface discover dispatch failed for {$host->ip}: " . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error("SNMP interface discover failed for {$host->ip}: " . $e->getMessage());
         }
     }
 })->name('discover-snmp-interfaces')->withoutOverlapping(30)->daily();
