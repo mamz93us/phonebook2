@@ -99,13 +99,11 @@ class CollectSnmpMetricsJob implements ShouldQueue
                         $this->checkThresholds($host, $sensor, $finalValue);
                     }
 
-                    // Reset sensor failure count on success
-                    if ($sensor->status !== 'active' || $sensor->consecutive_failures > 0) {
-                        $sensor->update([
-                            'status' => 'active',
-                            'consecutive_failures' => 0,
-                        ]);
-                    }
+                    // Always reset sensor to active on successful poll
+                    $sensor->update([
+                        'status' => 'active',
+                        'consecutive_failures' => 0,
+                    ]);
 
                 } catch (\Exception $e) {
                     Log::error("Failed to poll sensor on {$host->ip}", [
@@ -195,15 +193,20 @@ class CollectSnmpMetricsJob implements ShouldQueue
     protected function recordSensorFailure(SnmpSensor $sensor, MonitoredHost $host): void
     {
         $failures = ($sensor->consecutive_failures ?? 0) + 1;
-        $newStatus = $failures >= 3 ? 'unreachable' : ($failures >= 5 ? 'error' : $sensor->status);
+        $newStatus = $sensor->status ?? 'active';
 
-        if ($failures >= 3 && $sensor->status === 'active') {
-            $newStatus = 'unreachable';
-            Log::warning("Sensor marked unreachable after {$failures} consecutive failures", [
-                'sensor' => $sensor->name,
-                'oid' => $sensor->oid,
-                'host' => $host->ip,
-            ]);
+        // Only mark unreachable after 10+ consecutive failures (not too aggressive)
+        if ($failures >= 20) {
+            $newStatus = 'error';
+        } elseif ($failures >= 10) {
+            if ($newStatus === 'active') {
+                $newStatus = 'unreachable';
+                Log::warning("Sensor marked unreachable after {$failures} consecutive failures", [
+                    'sensor' => $sensor->name,
+                    'oid' => $sensor->oid,
+                    'host' => $host->ip,
+                ]);
+            }
         }
 
         $sensor->update([

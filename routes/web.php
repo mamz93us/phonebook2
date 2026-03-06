@@ -409,6 +409,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::middleware(['auth', 'permission:manage-network-settings'])->prefix('network/monitoring')->name('network.monitoring.')->group(function () {
         Route::get('/',             [SnmpMonitoringController::class, 'index'])->name('index');
         Route::get('/hosts/{host}', [SnmpMonitoringController::class, 'show'])->name('show');
+        Route::get('/hosts/{host}/settings', [SnmpMonitoringController::class, 'settings'])->name('hosts.settings');
         Route::post('/hosts/{host}/discover-device', [SnmpMonitoringController::class, 'discoverDevice'])->name('hosts.discover-device');
         Route::post('/hosts/{host}/discover-interfaces', [SnmpMonitoringController::class, 'discoverInterfaces'])->name('hosts.discover-interfaces');
         Route::post('/hosts/{host}/sensors', [SnmpMonitoringController::class, 'storeSensor'])->name('hosts.sensors.store');

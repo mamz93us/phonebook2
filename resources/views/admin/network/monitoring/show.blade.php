@@ -94,9 +94,9 @@
             </button>
         </form>
         @endif
-        <button class="btn btn-primary btn-sm px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#addSensorModal">
-            <i class="bi bi-plus-lg me-1"></i> Add Sensor
-        </button>
+        <a href="{{ route('admin.network.monitoring.hosts.settings', $host) }}" class="btn btn-outline-secondary btn-sm px-3 shadow-sm">
+            <i class="bi bi-gear me-1"></i> Settings
+        </a>
     </div>
 </div>
 
@@ -136,136 +136,29 @@
 
         <div class="card shadow-sm border-0 mb-4 bg-light-subtle">
             <div class="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
-                <h6 class="card-title mb-0 fw-bold text-muted text-uppercase small">Assigned MIB</h6>
-                <div>
-                    <form action="{{ route('admin.network.monitoring.hosts.force-poll', $host) }}" method="POST" class="d-inline">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-info me-2">
-                            <i class="bi bi-arrow-clockwise me-1"></i> Poll Now
-                        </button>
-                    </form>
-                    @if($host->mib_id)
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignMibModal">
-                        <i class="bi bi-plus-circle me-1"></i> Link Sensors from MIB
-                    </button>
-                    @else
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignMibModal">
-                        <i class="bi bi-link me-1"></i> Assign MIB
-                    </button>
-                    @endif
-                </div>
+                <h6 class="card-title mb-0 fw-bold text-muted text-uppercase small">Quick Actions</h6>
             </div>
             <div class="card-body pt-0">
+                <form action="{{ route('admin.network.monitoring.hosts.force-poll', $host) }}" method="POST" class="mb-2">
+                    @csrf
+                    <button type="submit" class="btn btn-outline-info w-100">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Force Poll Now
+                    </button>
+                </form>
+                <a href="{{ route('admin.network.monitoring.hosts.settings', $host) }}" class="btn btn-outline-secondary w-100 mb-2">
+                    <i class="bi bi-gear me-1"></i> Manage Sensors & MIB
+                </a>
                 @if($host->mib)
-                    <div class="d-flex align-items-center mb-2">
-                        <i class="bi bi-file-earmark-code fs-4 text-primary me-2"></i>
-                        <div>
-                            <div class="fw-bold">{{ $host->mib->name }}</div>
-                            <div class="x-small text-muted">{{ basename($host->mib->file_path) }}</div>
+                    <div class="d-flex align-items-center mt-3 mb-1">
+                        <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                        <div class="small">
+                            <span class="fw-bold">{{ $host->mib->name }}</span>
+                            <span class="text-muted d-block x-small">{{ basename($host->mib->file_path) }}</span>
                         </div>
-                    </div>
-                    <a href="{{ route('admin.network.monitoring.mibs.view', $host->mib) }}" class="btn btn-outline-info btn-xs w-100 mt-2">
-                        <i class="bi bi-eye me-1"></i> Preview OIDs
-                    </a>
-                @else
-                    <div class="text-center py-3">
-                        <i class="bi bi-file-earmark-x fs-2 text-muted opacity-25 d-block mb-1"></i>
-                        <span class="x-small text-muted">No custom MIB linked</span>
                     </div>
                 @endif
-            </div>
-        </div>
-
-        <div class="card shadow-sm border-0 bg-light-subtle">
-            <div class="card-header bg-transparent py-3 border-0 d-flex justify-content-between align-items-center">
-                <h6 class="card-title mb-0 fw-bold text-muted text-uppercase small">Sensors & Assets</h6>
-                <span class="badge bg-secondary-subtle text-secondary">{{ $host->snmpSensors->count() }} sensors</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush small">
-                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-3">
-                        <div>
-                            <span class="text-muted small d-block">Assigned MIB</span>
-                            <span class="fw-bold">{{ $host->mib->name ?? 'None' }}</span>
-                        </div>
-                        <button class="btn btn-sm btn-outline-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#assignMibModal">
-                            {{ $host->mib_id ? 'Change' : 'Link MIB' }}
-                        </button>
-                    </div>
-
-                    @if(!empty($discoveredObjects))
-                    <div class="list-group-item bg-transparent border-0 px-3 pb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="text-muted small fw-bold text-uppercase">MIB Object Explorer</span>
-                            <span class="badge bg-info-subtle text-info">{{ count($discoveredObjects) }} Objects</span>
-                        </div>
-                        <div class="alert alert-warning py-1 small mb-2 border-0" style="background:rgba(255,193,7,0.1)">
-                            <i class="bi bi-info-circle me-1"></i> Select objects to add them as monitored sensors.
-                        </div>
-                        <div class="overflow-auto border rounded bg-white" style="max-height: 200px;">
-                            <form action="{{ route('admin.network.monitoring.hosts.mib-sensors.store', $host) }}" method="POST" id="mibSensorsForm">
-                                @csrf
-                                <table class="table table-sm table-hover mb-0 small">
-                                    <thead class="table-light sticky-top">
-                                        <tr>
-                                            <th width="30"></th>
-                                            <th>Object Name</th>
-                                            <th>ID</th>
-                                            <th width="80">Type</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach($discoveredObjects as $index => $obj)
-                                        <tr>
-                                            <td>
-                                                <input type="checkbox" name="sensors[{{ $index }}][enabled]" value="1" class="form-check-input ms-1">
-                                                <input type="hidden" name="sensors[{{ $index }}][oid]" value="{{ $obj['oid_suffix'] }}">
-                                                <input type="hidden" name="sensors[{{ $index }}][name]" value="{{ $obj['name'] }}">
-                                            </td>
-                                            <td><span class="fw-bold text-dark">{{ $obj['name'] }}</span></td>
-                                            <td class="text-muted font-monospace">{{ $obj['oid_suffix'] }}</td>
-                                            <td>
-                                                <select name="sensors[{{ $index }}][data_type]" class="form-select form-select-sm py-0 x-small" style="height:22px">
-                                                    <option value="gauge">Gauge</option>
-                                                    <option value="counter">Counter</option>
-                                                    <option value="uptime">Uptime</option>
-                                                    <option value="boolean">Boolean</option>
-                                                </select>
-                                            </td>
-                                        </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </form>
-                        </div>
-                        <button type="submit" form="mibSensorsForm" class="btn btn-primary btn-sm w-100 mt-2 shadow-sm">
-                            <i class="bi bi-plus-circle me-1"></i> Add Selected Sensors
-                        </button>
-                    </div>
-                    @endif
-                </div>
-
-                {{-- Sensor list — scrollable container --}}
-                <div class="overflow-auto px-3 pb-2" style="max-height: 300px;">
-                    <div class="list-group list-group-flush small">
-                        @foreach($host->snmpSensors as $sensor)
-                            <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-0 py-1">
-                                <div class="text-truncate me-2">
-                                    <span class="sensor-status-dot sensor-status-{{ $sensor->status ?? 'active' }}" title="{{ ucfirst($sensor->status ?? 'active') }}"></span>
-                                    <span class="fw-semibold">{{ $sensor->name ?: 'Unnamed' }}</span>
-                                    @if($sensor->status !== 'active')
-                                        <span class="badge bg-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }}-subtle text-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }} x-small ms-1">{{ ucfirst($sensor->status) }}</span>
-                                    @endif
-                                    <br><span class="text-muted x-small text-truncate d-inline-block" style="max-width: 180px;">{{ $sensor->oid }}</span>
-                                </div>
-                                <form action="{{ route('admin.network.monitoring.hosts.sensors.destroy', [$host, $sensor]) }}" method="POST" class="d-inline flex-shrink-0" onsubmit="return confirm('Remove sensor?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-link text-danger p-0" title="Delete Sensor"><i class="bi bi-trash-fill opacity-25"></i></button>
-                                </form>
-                            </div>
-                        @endforeach
-                    </div>
+                <div class="text-muted small mt-2">
+                    <i class="bi bi-cpu me-1"></i> {{ $host->snmpSensors->count() }} sensors configured
                 </div>
             </div>
         </div>

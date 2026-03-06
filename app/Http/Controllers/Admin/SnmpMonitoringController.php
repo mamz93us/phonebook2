@@ -27,7 +27,7 @@ class SnmpMonitoringController extends Controller
         return view('admin.network.monitoring.index', compact('hosts', 'branches', 'tunnels', 'mibs', 'snmpLoaded'));
     }
 
-    public function show(MonitoredHost $host, \App\Services\Snmp\MibParser $parser)
+    public function show(MonitoredHost $host)
     {
         $host->load([
             'branch',
@@ -37,15 +37,23 @@ class SnmpMonitoringController extends Controller
             'snmpSensors.sensorMetrics' => fn($q) => $q->where('recorded_at', '>=', now()->subHours(24))->orderBy('recorded_at')
         ]);
 
+        $snmpLoaded = SnmpClient::isSnmpExtensionLoaded();
+
+        return view('admin.network.monitoring.show', compact('host', 'snmpLoaded'));
+    }
+
+    public function settings(MonitoredHost $host, \App\Services\Snmp\MibParser $parser)
+    {
+        $host->load(['mib', 'snmpSensors']);
+
         $discoveredObjects = [];
         if ($host->mib) {
             $discoveredObjects = $parser->parseObjects($host->mib->file_path);
         }
 
         $mibs = Mib::orderBy('name')->get();
-        $snmpLoaded = SnmpClient::isSnmpExtensionLoaded();
 
-        return view('admin.network.monitoring.show', compact('host', 'mibs', 'discoveredObjects', 'snmpLoaded'));
+        return view('admin.network.monitoring.settings', compact('host', 'mibs', 'discoveredObjects'));
     }
 
     public function forcePoll(MonitoredHost $host)

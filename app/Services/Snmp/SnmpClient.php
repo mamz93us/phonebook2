@@ -60,7 +60,14 @@ class SnmpClient
             $this->connect();
         }
 
-        return @$this->session->get($oid);
+        try {
+            $result = @$this->session->get($oid);
+            return $result !== false ? $result : false;
+        } catch (\SNMPException $e) {
+            // OID not found, timeout, or other SNMP error — return false instead of throwing
+            Log::debug("SnmpClient::get failed for OID {$oid} on {$this->host->ip}: {$e->getMessage()}");
+            return false;
+        }
     }
 
     public function walk(string $oid): array|false
@@ -73,7 +80,13 @@ class SnmpClient
             $this->connect();
         }
 
-        return @$this->session->walk($oid);
+        try {
+            $result = @$this->session->walk($oid);
+            return $result !== false ? $result : false;
+        } catch (\SNMPException $e) {
+            Log::debug("SnmpClient::walk failed for OID {$oid} on {$this->host->ip}: {$e->getMessage()}");
+            return false;
+        }
     }
 
     public function setOidOutputFormat(int $format): self
