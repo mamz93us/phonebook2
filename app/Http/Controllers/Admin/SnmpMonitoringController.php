@@ -167,7 +167,8 @@ class SnmpMonitoringController extends Controller
 
         foreach ($selectedSensors as $s) {
             $oid = $s['oid'];
-            if (!str_contains($oid, '.')) {
+            // Append .0 for scalar OIDs if not already present, ensuring numerical OIDs get the suffix
+            if (!str_ends_with($oid, '.0')) {
                 $oid .= '.0';
             }
 
