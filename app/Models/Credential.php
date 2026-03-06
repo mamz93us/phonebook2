@@ -21,8 +21,24 @@ class Credential extends Model
     ];
 
     protected $casts = [
-        'password' => 'encrypted',   // Laravel built-in encrypted cast
+        // 'password' => 'encrypted', // handled manually with error catching
     ];
+
+    public function getPasswordAttribute($value)
+    {
+        if (empty($value)) return '';
+        try {
+            return decrypt($value);
+        } catch (\Exception $e) {
+            \Log::error("Decryption failed for credential {$this->id} ({$this->title}). MAC probably invalid.");
+            return '********';
+        }
+    }
+
+    public function setPasswordAttribute($value)
+    {
+        $this->attributes['password'] = encrypt($value);
+    }
 
     protected $hidden = ['password'];  // never included in toArray/toJson by default
 

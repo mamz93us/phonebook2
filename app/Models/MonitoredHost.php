@@ -36,11 +36,15 @@ class MonitoredHost extends Model
         return $this->belongsTo(Mib::class);
     }
 
+    protected $hidden = [
+        'snmp_community',
+    ];
+
     protected $casts = [
         'ping_enabled' => 'boolean',
         'snmp_enabled' => 'boolean',
         'alert_enabled' => 'boolean',
-        'snmp_community' => 'encrypted',
+        // 'snmp_community' removed from casts to handle manually with error catching
         'last_ping_at' => 'datetime',
         'last_snmp_at' => 'datetime',
         'last_checked_at' => 'datetime',
@@ -54,6 +58,22 @@ class MonitoredHost extends Model
     public function vpnTunnel(): BelongsTo
     {
         return $this->belongsTo(VpnTunnel::class, 'vpn_id');
+    }
+
+    public function getSnmpCommunityAttribute($value)
+    {
+        if (empty($value)) return 'public';
+        try {
+            return decrypt($value);
+        } catch (\Exception $e) {
+            \Log::warning("Decryption failed for host {$this->id} ({$this->name}) community string. MAC probably invalid. Defaulting to public.");
+            return 'public';
+        }
+    }
+
+    public function setSnmpCommunityAttribute($value)
+    {
+        $this->attributes['snmp_community'] = encrypt($value);
     }
 
     public function hostChecks(): HasMany
