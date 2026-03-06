@@ -1,5 +1,9 @@
 @extends('layouts.admin')
 
+@push('styles')
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&display=swap" rel="stylesheet">
+@endpush
+
 @section('content')
 <style>
     .glass-card {
