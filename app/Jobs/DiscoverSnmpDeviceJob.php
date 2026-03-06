@@ -74,7 +74,7 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
                 $this->host->type = 'server';
                 $this->createSensor('Load Average 1m', '1.3.6.1.4.1.2021.10.1.3.1', 'gauge', null, null, null, 'system');
                 $this->createSensor('CPU Idle', '1.3.6.1.4.1.2021.11.11.0', 'gauge', '%', null, null, 'system');
-            } elseif (stripos($sysDescr, 'Grandstream') !== false || stripos($sysDescr, 'UCM63') !== false || stripos($sysName, 'UCM63') !== false) {
+            } elseif (stripos($sysDescr, 'Grandstream') !== false || stripos($sysDescr, 'UCM') !== false || stripos($sysName, 'UCM') !== false) {
                 $discoveredType = 'grandstream';
                 $this->host->type = 'server';
                 // Grandstream specific sensors from GS-UCM63XX-SNMP-MIB
