@@ -147,7 +147,12 @@ class SnmpClient
             return false;
         }
 
-        return $output;
+        // Strip "OID = " part if present
+        if (preg_match('/^.*?=\s*(.+)$/', trim($output), $m)) {
+            return trim($m[1]);
+        }
+
+        return trim($output);
     }
 
     protected function cliWalk(string $oid): array|false

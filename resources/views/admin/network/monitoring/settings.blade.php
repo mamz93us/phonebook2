@@ -118,18 +118,29 @@
                                 @foreach($discoveredObjects as $index => $obj)
                                 <tr>
                                     <td>
-                                        <input type="checkbox" name="sensors[{{ $index }}][enabled]" value="1" class="form-check-input ms-1">
+                                        <input type="checkbox" name="sensors[{{ $index }}][enabled]" value="1" class="form-check-input ms-1" {{ (str_contains($obj['name'], 'Entry') || str_contains($obj['name'], 'Table')) ? 'disabled' : '' }}>
                                         <input type="hidden" name="sensors[{{ $index }}][oid]" value="{{ $obj['oid_suffix'] }}">
                                         <input type="hidden" name="sensors[{{ $index }}][name]" value="{{ $obj['name'] }}">
+                                        <input type="hidden" name="sensors[{{ $index }}][unit]" value="{{ $obj['units'] }}">
                                     </td>
-                                    <td><span class="fw-bold text-dark">{{ $obj['name'] }}</span></td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ $obj['name'] }}</div>
+                                        @if($obj['units']) <span class="badge bg-secondary-subtle text-secondary x-small">{{ $obj['units'] }}</span> @endif
+                                    </td>
                                     <td class="text-muted font-monospace small">{{ $obj['oid_suffix'] }}</td>
                                     <td>
-                                        <select name="sensors[{{ $index }}][data_type]" class="form-select form-select-sm py-0 x-small" style="height:22px">
-                                            <option value="gauge">Gauge</option>
-                                            <option value="counter">Counter</option>
-                                            <option value="uptime">Uptime</option>
-                                            <option value="boolean">Boolean</option>
+                                        @php
+                                            $syntax = strtolower($obj['syntax'] ?? '');
+                                            $defaultType = 'gauge';
+                                            if (str_contains($syntax, 'counter')) $defaultType = 'counter';
+                                            elseif (str_contains($syntax, 'timeticks')) $defaultType = 'uptime';
+                                            elseif (str_contains($syntax, 'truthvalue')) $defaultType = 'boolean';
+                                        @endphp
+                                        <select name="sensors[{{ $index }}][data_type]" class="form-select form-select-sm py-0 x-small border-{{ $obj['syntax'] ? 'info-subtle' : 'light' }}" style="height:22px">
+                                            <option value="gauge" {{ $defaultType == 'gauge' ? 'selected' : '' }}>Gauge</option>
+                                            <option value="counter" {{ $defaultType == 'counter' ? 'selected' : '' }}>Counter</option>
+                                            <option value="uptime" {{ $defaultType == 'uptime' ? 'selected' : '' }}>Uptime</option>
+                                            <option value="boolean" {{ $defaultType == 'boolean' ? 'selected' : '' }}>Boolean</option>
                                         </select>
                                     </td>
                                 </tr>

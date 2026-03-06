@@ -55,10 +55,12 @@ class MibParser
         }
 
         // Pass 2: Extract just the OBJECT-TYPE sensors and build their absolute OIDs
-        $objPattern = '/([a-zA-Z0-9\-]+)\s+OBJECT-TYPE\s+.*?::=\s*\{\s*([a-zA-Z0-9\-\s]+)\s+\}/s';
+        $objPattern = '/([a-zA-Z0-9\-]+)\s+OBJECT-TYPE\s+SYNTAX\s+([a-zA-Z0-9\s\{\}]+?)(?:\s+UNITS\s+"([^"]+)")?\s+.*?::=\s*\{\s*([a-zA-Z0-9\-\s]+)\s+\}/s';
         if (preg_match_all($objPattern, $content, $objMatches, PREG_SET_ORDER)) {
             foreach ($objMatches as $match) {
                 $name = $match[1];
+                $syntax = trim($match[2]);
+                $units = $match[3] ?? null;
                 
                 $currentName = $name;
                 $oidChain = [];
@@ -85,6 +87,8 @@ class MibParser
                         'name' => $name,
                         'oid_suffix' => $absoluteOid, // Guaranteed absolute numeric OID!
                         'parent' => $rawMap[$name]['parent'] ?? 'unknown',
+                        'syntax' => $syntax,
+                        'units' => $units,
                         'full_definition' => $match[0]
                     ];
                 } else {
@@ -93,6 +97,8 @@ class MibParser
                         'name' => $name,
                         'oid_suffix' => $moduleName . $name,
                         'parent' => $rawMap[$name]['parent'] ?? 'unknown',
+                        'syntax' => $syntax,
+                        'units' => $units,
                         'full_definition' => $match[0]
                     ];
                 }

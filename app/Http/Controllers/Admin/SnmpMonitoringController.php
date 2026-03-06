@@ -167,9 +167,16 @@ class SnmpMonitoringController extends Controller
 
         foreach ($selectedSensors as $s) {
             $oid = $s['oid'];
-            // Append .0 for scalar OIDs if not already present, ensuring numerical OIDs get the suffix
-            if (!str_ends_with($oid, '.0')) {
-                $oid .= '.0';
+            
+            // Smarter OID formatting: 
+            // 1. If it's a numeric OID (starts with .) and is likely a scalar (doesn't end in .0 and isn't a table entry)
+            // 2. We'll append .0 if it's numeric and doesn't have it.
+            // 3. User can always override manually if needed, but for MIB imports, scalars usually need .0
+            if (str_starts_with($oid, '.') && !str_ends_with($oid, '.0')) {
+                // If the name doesn't contain "Table" or "Entry", it's likely a scalar or a leaf
+                if (!str_contains($s['name'], 'Table') && !str_contains($s['name'], 'Entry')) {
+                    $oid .= '.0';
+                }
             }
 
             $host->snmpSensors()->firstOrCreate(

@@ -166,22 +166,67 @@
 </div>
 
 @php
-    $groupedSensors = ['General' => [], 'Interfaces' => []];
-    foreach($host->snmpSensors->where('graph_enabled', true) as $sensor) {
+    $groupedSensors = ['General' => [], 'Interfaces' => [], 'Extensions' => [], 'Trunks' => []];
+    foreach($host->snmpSensors as $sensor) {
         $name = $sensor->name ?: $sensor->oid;
+        
+        // Group by explicitly set sensor_group first
+        if ($sensor->sensor_group && isset($groupedSensors[$sensor->sensor_group])) {
+            $groupedSensors[$sensor->sensor_group][] = $sensor;
+            continue;
+        }
+
         if (preg_match('/^(.*)\s+-\s+(Traffic In|Traffic Out|Status)$/', $name, $matches)) {
             $interfaceName = $matches[1];
             $type = $matches[2];
             $groupedSensors['Interfaces'][$interfaceName][$type] = $sensor;
+        } elseif ($sensor->sensor_group === 'Extensions' || str_starts_with($name, 'Ext ')) {
+            $groupedSensors['Extensions'][] = $sensor;
+        } elseif ($sensor->sensor_group === 'Trunks' || str_starts_with($name, 'Trunk ')) {
+            $groupedSensors['Trunks'][] = $sensor;
         } else {
             $groupedSensors['General'][] = $sensor;
         }
     }
 @endphp
 
+<style>
+    .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        transition: all 0.3s ease;
+    }
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+        background: rgba(255, 255, 255, 0.85);
+    }
+    .sensor-status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+    .sensor-status-active { background-color: #00f2fe; box-shadow: 0 0 10px rgba(0, 242, 254, 0.5); }
+    .sensor-status-unreachable { background-color: #f9d423; box-shadow: 0 0 10px rgba(249, 212, 35, 0.5); }
+    .sensor-status-error { background-color: #ff0844; box-shadow: 0 0 10px rgba(255, 8, 68, 0.5); }
+    
+    .metric-value {
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+    .pb-glow-text {
+        text-shadow: 0 0 15px rgba(13, 110, 253, 0.2);
+    }
+</style>
+
 <!-- General Sensors -->
 @if(!empty($groupedSensors['General']))
-<h6 class="text-uppercase text-muted fw-bold small mb-3">Host System Sensors</h6>
+<h6 class="text-uppercase text-muted fw-bold small mb-3"><i class="bi bi-cpu-fill me-2"></i>System & Performance Sensors</h6>
 <div class="row g-4 mb-5">
     @foreach($groupedSensors['General'] as $sensor)
         @php $latest = $sensor->sensorMetrics->last(); @endphp
@@ -195,9 +240,6 @@
                                 {{ $sensor->name }}
                             </h6>
                             <span class="badge bg-light text-muted fw-normal interface-pill border">{{ $sensor->data_type }}</span>
-                            @if($sensor->status !== 'active')
-                                <span class="badge bg-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }}-subtle text-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }} interface-pill">{{ ucfirst($sensor->status) }}</span>
-                            @endif
                         </div>
                         @if($latest)
                             <div class="text-end">
@@ -215,10 +257,6 @@
                                 @php
                                     $rawVal = $latest->value;
                                     $unit = strtolower(trim($sensor->unit));
-                                    
-                                    // By default, system uptimes are returned as Timeticks (centiseconds)
-                                    // If the user explicitly set unit to 's' or 'seconds', we treat it as seconds.
-                                    // Otherwise, we divide by 100.
                                     $isExplicitSeconds = in_array($unit, ['s', 'sec', 'seconds', 'second']);
                                     $totalSeconds = $isExplicitSeconds ? (int)$rawVal : (int)($rawVal / 100);
                                     
@@ -229,77 +267,140 @@
                                 <div class="text-center py-3">
                                     <div class="d-flex align-items-center justify-content-center gap-3 mb-2">
                                         <div class="text-center">
-                                            <div class="display-6 fw-bold text-primary">{{ $days }}</div>
+                                            <div class="display-6 fw-bold text-primary metric-value">{{ $days }}</div>
                                             <div class="text-muted small">days</div>
                                         </div>
                                         <span class="display-6 text-muted opacity-25">:</span>
                                         <div class="text-center">
-                                            <div class="display-6 fw-bold text-primary">{{ $hours }}</div>
+                                            <div class="display-6 fw-bold text-primary metric-value">{{ $hours }}</div>
                                             <div class="text-muted small">hrs</div>
                                         </div>
                                         <span class="display-6 text-muted opacity-25">:</span>
                                         <div class="text-center">
-                                            <div class="display-6 fw-bold text-primary">{{ $mins }}</div>
+                                            <div class="display-6 fw-bold text-primary metric-value">{{ $mins }}</div>
                                             <div class="text-muted small">min</div>
                                         </div>
                                     </div>
                                     <div class="text-muted small"><i class="bi bi-clock-history me-1"></i> System Uptime</div>
                                 </div>
-
                             @elseif($sensor->data_type === 'boolean')
-                                {{-- BOOLEAN DISPLAY --}}
-                                @php
-                                    $isOk = $latest->value == 1; // Assuming 1=OK/UP, 0=FAIL/DOWN
-                                @endphp
-                                <div class="text-center py-4">
-                                    @if($isOk)
-                                        <div class="d-inline-flex align-items-center justify-content-center bg-success-subtle text-success rounded-circle mb-2" style="width: 60px; height: 60px;">
-                                            <i class="bi bi-check-lg fs-1"></i>
-                                        </div>
-                                        <div class="fw-bold text-success fs-5">Status OK</div>
-                                    @else
-                                        <div class="d-inline-flex align-items-center justify-content-center bg-danger-subtle text-danger rounded-circle mb-2" style="width: 60px; height: 60px;">
-                                            <i class="bi bi-x-lg fs-1"></i>
-                                        </div>
-                                        <div class="fw-bold text-danger fs-5">Status Critical</div>
-                                    @endif
-                                </div>
-
-                            @elseif($sensor->data_type === 'counter')
-                                {{-- COUNTER DISPLAY (Shows Rate) --}}
                                 <div class="text-center py-3">
-                                    <span class="display-5 fw-bold text-info">
-                                        {{ number_format($latest->value, 2) }}
-                                    </span>
-                                    <span class="fs-5 text-muted ms-1">{{ $sensor->unit ?: 'units/sec' }}</span>
+                                    <div class="display-5 fw-bold {{ $latest->value == 1 ? 'text-success' : 'text-danger' }}">
+                                        <i class="bi bi-{{ $latest->value == 1 ? 'check-circle' : 'exclamation-circle' }}-fill"></i>
+                                        {{ $latest->value == 1 ? 'ACTIVE' : 'INACTIVE' }}
+                                    </div>
                                 </div>
-                                <div style="height: 60px;">
-                                    <canvas id="chart-sensor-{{ $sensor->id }}"></canvas>
-                                </div>
-
                             @else
-                                {{-- GAUGE DISPLAY --}}
-                                <div class="text-center mb-2">
-                                    <span class="h2 fw-bold text-dark">
-                                        {{ number_format($latest->value, 1) }}
-                                    </span>
-                                    <span class="fs-6 text-muted ms-1">{{ $sensor->unit }}</span>
-                                </div>
-                                <div style="height: 80px;">
-                                    <canvas id="chart-sensor-{{ $sensor->id }}"></canvas>
+                                <div class="text-center py-3">
+                                    <div class="display-5 fw-bold text-dark metric-value">
+                                        {{ number_format($latest->value, ($latest->value == (int)$latest->value ? 0 : 2)) }}<span class="fs-4 text-muted ms-1">{{ $sensor->unit }}</span>
+                                    </div>
                                 </div>
                             @endif
                         @else
                             <div class="text-center py-4 text-muted opacity-50">
-                                <i class="bi bi-hourglass-split fs-2 d-block mb-2"></i>
-                                <small>Waiting for initial poll...</small>
+                                <i class="bi bi-hourglass-top fs-2 d-block mb-1"></i>
+                                <div class="small">Waiting for poll...</div>
                             </div>
                         @endif
                     </div>
+
+                    @if($sensor->graph_enabled)
+                        <div class="mt-3" style="height: 60px;">
+                            <canvas id="chart-sensor-{{ $sensor->id }}"></canvas>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
     @endforeach
+</div>
+@endif
+
+<!-- Extension & Trunk Sensors -->
+@if(!empty($groupedSensors['Extensions']) || !empty($groupedSensors['Trunks']))
+<div class="row g-4 mb-5">
+    @if(!empty($groupedSensors['Extensions']))
+    <div class="col-lg-6">
+        <h6 class="text-uppercase text-muted fw-bold small mb-3"><i class="bi bi-telephone-fill me-2"></i>PBX Extensions</h6>
+        <div class="card shadow-sm border-0 glass-card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-3">Extension</th>
+                                <th>Status</th>
+                                <th class="text-end pe-3">Last Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($groupedSensors['Extensions'] as $sensor)
+                                @php $latest = $sensor->sensorMetrics->last(); @endphp
+                                <tr>
+                                    <td class="ps-3 fw-bold">{{ $sensor->name }}</td>
+                                    <td>
+                                        @if($latest)
+                                            <span class="badge bg-{{ $latest->value == 1 ? 'success' : 'danger' }}-subtle text-{{ $latest->value == 1 ? 'success' : 'danger' }} px-3 rounded-pill">
+                                                <i class="bi bi-circle-fill me-1 x-small"></i> {{ $latest->value == 1 ? 'Registered' : 'Unavailable' }}
+                                            </span>
+                                        @else
+                                            <span class="badge bg-secondary-subtle text-secondary px-3 rounded-pill">Unknown</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end pe-3 text-muted x-small">
+                                        {{ $latest ? $latest->recorded_at->diffForHumans() : 'Never' }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if(!empty($groupedSensors['Trunks']))
+    <div class="col-lg-6">
+        <h6 class="text-uppercase text-muted fw-bold small mb-3"><i class="bi bi-shuffle me-2"></i>Trunk Lines</h6>
+        <div class="card shadow-sm border-0 glass-card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-3">Trunk Name</th>
+                                <th>Status</th>
+                                <th class="text-end pe-3">Last Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($groupedSensors['Trunks'] as $sensor)
+                                @php $latest = $sensor->sensorMetrics->last(); @endphp
+                                <tr>
+                                    <td class="ps-3 fw-bold">{{ $sensor->name }}</td>
+                                    <td>
+                                        @if($latest)
+                                            <span class="badge bg-{{ $latest->value == 1 ? 'success' : 'danger' }}-subtle text-{{ $latest->value == 1 ? 'success' : 'danger' }} px-3 rounded-pill">
+                                                <i class="bi bi-{{ $latest->value == 1 ? 'check' : 'x' }}-lg me-1"></i> {{ $latest->value == 1 ? 'Up' : 'Down' }}
+                                            </span>
+                                        @else
+                                            <span class="badge bg-secondary-subtle text-secondary px-3 rounded-pill">Unknown</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end pe-3 text-muted x-small">
+                                        {{ $latest ? $latest->recorded_at->diffForHumans() : 'Never' }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>
 @endif
 

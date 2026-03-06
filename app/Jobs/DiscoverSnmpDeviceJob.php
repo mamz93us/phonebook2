@@ -90,6 +90,11 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
             $this->host->discovered_type = $discoveredType;
             $this->host->save();
 
+            // Grandstream specific table discovery
+            if ($discoveredType === 'grandstream') {
+                $this->discoverUcmResources($client);
+            }
+
             Log::info("SNMP Discovery completed for {$this->host->ip}", [
                 'discovered_type' => $discoveredType,
                 'sysName' => $sysName,
@@ -107,6 +112,42 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
             ]);
         } finally {
             $client?->close();
+        }
+    }
+
+    protected function discoverUcmResources(SnmpClient $client): void
+    {
+        Log::info("Discovering UCM Extensions and Trunks on {$this->host->ip}");
+
+        // 1. Extensions Table
+        // OID for sExternsionsNum (Extension list)
+        $extNums = $client->walk('1.3.6.1.4.1.12581.2.4.1.1.2');
+        if ($extNums) {
+            foreach ($extNums as $fullOid => $extNumRaw) {
+                $extNum = $this->cleanString($extNumRaw);
+                // Extract index from OID (last part)
+                if (preg_match('/\.(\d+)$/', $fullOid, $m)) {
+                    $index = $m[1];
+                    // Status OID: .1.3.6.1.4.1.12581.2.4.1.1.3.[index]
+                    $statusOid = "1.3.6.1.4.1.12581.2.4.1.1.3.{$index}";
+                    $this->createSensor("Ext {$extNum} - Status", $statusOid, 'boolean', null, null, null, 'Extensions');
+                }
+            }
+        }
+
+        // 2. Trunks Table
+        // OID for sTrunksName (Trunk list)
+        $trunkNames = $client->walk('1.3.6.1.4.1.12581.2.5.1.1.2');
+        if ($trunkNames) {
+            foreach ($trunkNames as $fullOid => $trunkNameRaw) {
+                $trunkName = $this->cleanString($trunkNameRaw);
+                if (preg_match('/\.(\d+)$/', $fullOid, $m)) {
+                    $index = $m[1];
+                    // Status OID: .1.3.6.1.4.1.12581.2.5.1.1.4.[index]
+                    $statusOid = "1.3.6.1.4.1.12581.2.5.1.1.4.{$index}";
+                    $this->createSensor("Trunk {$trunkName} - Status", $statusOid, 'boolean', null, null, null, 'Trunks');
+                }
+            }
         }
     }
 
