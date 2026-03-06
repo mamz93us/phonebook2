@@ -38,8 +38,9 @@ class SnmpMonitoringController extends Controller
         ]);
 
         $snmpLoaded = SnmpClient::isSnmpExtensionLoaded();
+        $mibs = Mib::orderBy('name')->get();
 
-        return view('admin.network.monitoring.show', compact('host', 'snmpLoaded'));
+        return view('admin.network.monitoring.show', compact('host', 'snmpLoaded', 'mibs'));
     }
 
     public function settings(MonitoredHost $host, \App\Services\Snmp\MibParser $parser)
