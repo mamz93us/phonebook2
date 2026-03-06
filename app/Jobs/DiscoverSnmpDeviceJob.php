@@ -34,11 +34,22 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
 
         $client = null;
         try {
+            Log::info("Starting SNMP Discovery for {$this->host->ip}");
             $client = new SnmpClient($this->host);
-            $client->connect();
 
-            $sysNameRaw = $client->get('1.3.6.1.2.1.1.5.0');
+            // Try to get basic info
             $sysDescrRaw = $client->get('1.3.6.1.2.1.1.1.0');
+            $sysNameRaw = $client->get('1.3.6.1.2.1.1.5.0');
+
+            if ($sysDescrRaw === false && $sysNameRaw === false) {
+                $communityUsed = $this->host->snmp_community; // This calls the accessor
+                Log::error("SNMP Discovery failed: No response from {$this->host->ip} for basic OIDs (sysDescr, sysName). Check community string or host availability.", [
+                    'community' => $communityUsed,
+                    'port' => $this->host->snmp_port ?? 161,
+                    'version' => $this->host->snmp_version,
+                ]);
+                return;
+            }
 
             Log::info("SNMP Discovery: Raw responses from {$this->host->ip}", [
                 'sysName' => $sysNameRaw,
