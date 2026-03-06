@@ -48,6 +48,14 @@ class DiscoverSnmpInterfacesJob implements ShouldQueue
 
             $discoveredCount = 0;
 
+            // Check if HC counters are supported (SNMP v2c/v3 usually)
+            // We check the first interface specifically
+            reset($interfaces);
+            $firstOid = key($interfaces);
+            $firstParts = explode('.', $firstOid);
+            $firstIndex = (int) end($firstParts);
+            $hcSupported = ($client->get("1.3.6.1.2.1.31.1.1.1.6.{$firstIndex}") !== false);
+
             foreach ($interfaces as $oid => $descr) {
                 // Determine port index
                 $parts = explode('.', $oid);
@@ -59,25 +67,48 @@ class DiscoverSnmpInterfacesJob implements ShouldQueue
                     continue;
                 }
 
-                // Traffic In (ifHCInOctets) .1.3.6.1.2.1.31.1.1.1.6
-                $this->createSensor(
-                    $cleanName . ' - Traffic In',
-                    "1.3.6.1.2.1.31.1.1.1.6.{$index}",
-                    'counter',
-                    'bytes/sec',
-                    $index,
-                    'interface_traffic'
-                );
+                if ($hcSupported) {
+                    // Traffic In (ifHCInOctets) .1.3.6.1.2.1.31.1.1.1.6
+                    $this->createSensor(
+                        $cleanName . ' - Traffic In',
+                        "1.3.6.1.2.1.31.1.1.1.6.{$index}",
+                        'counter',
+                        'bytes/sec',
+                        $index,
+                        'interface_traffic'
+                    );
 
-                // Traffic Out (ifHCOutOctets) .1.3.6.1.2.1.31.1.1.1.10
-                $this->createSensor(
-                    $cleanName . ' - Traffic Out',
-                    "1.3.6.1.2.1.31.1.1.1.10.{$index}",
-                    'counter',
-                    'bytes/sec',
-                    $index,
-                    'interface_traffic'
-                );
+                    // Traffic Out (ifHCOutOctets) .1.3.6.1.2.1.31.1.1.1.10
+                    $this->createSensor(
+                        $cleanName . ' - Traffic Out',
+                        "1.3.6.1.2.1.31.1.1.1.10.{$index}",
+                        'counter',
+                        'bytes/sec',
+                        $index,
+                        'interface_traffic'
+                    );
+                } else {
+                    // Fallback to 32-bit counters if HC not supported
+                    // Traffic In (ifInOctets) .1.3.6.1.2.1.2.2.1.10
+                    $this->createSensor(
+                        $cleanName . ' - Traffic In',
+                        "1.3.6.1.2.1.2.2.1.10.{$index}",
+                        'counter',
+                        'bytes/sec',
+                        $index,
+                        'interface_traffic'
+                    );
+
+                    // Traffic Out (ifOutOctets) .1.3.6.1.2.1.2.2.1.16
+                    $this->createSensor(
+                        $cleanName . ' - Traffic Out',
+                        "1.3.6.1.2.1.2.2.1.16.{$index}",
+                        'counter',
+                        'bytes/sec',
+                        $index,
+                        'interface_traffic'
+                    );
+                }
 
                 // Port Status (ifOperStatus) .1.3.6.1.2.1.2.2.1.8
                 $this->createSensor(

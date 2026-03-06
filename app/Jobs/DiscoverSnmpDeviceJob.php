@@ -65,8 +65,22 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
                 $this->host->name = $sysName;
             }
 
-            // Always create Uptime sensor
-            $this->createSensor('System Uptime', '1.3.6.1.2.1.1.3.0', 'uptime', null, null, null, 'system');
+            // Sync Uptime: Try hrSystemUptime (.1.3.6.1.2.1.25.1.1.0) first as it matches actual system uptime better.
+            // Fallback to sysUpTime (.1.3.6.1.2.1.1.3.0) which is time since SNMP service start.
+            $testHrUptime = $client->get('1.3.6.1.2.1.25.1.1.0');
+            $uptimeOid = ($testHrUptime !== false) ? '1.3.6.1.2.1.25.1.1.0' : '1.3.6.1.2.1.1.3.0';
+            
+            // Re-use or create the System Uptime sensor
+            $this->host->snmpSensors()->updateOrCreate(
+                ['name' => 'System Uptime'],
+                [
+                    'oid' => $uptimeOid,
+                    'data_type' => 'uptime',
+                    'poll_interval' => 60,
+                    'graph_enabled' => true,
+                    'sensor_group' => 'system'
+                ]
+            );
 
             // --- Vendor Detection based on sysDescr ---
             $discoveredType = 'generic';
@@ -76,6 +90,10 @@ class DiscoverSnmpDeviceJob implements ShouldQueue
                 $this->host->type = 'switch';
                 $this->createSensor('CPU Usage (5m)', '1.3.6.1.4.1.9.9.109.1.1.1.1.8.1', 'gauge', '%', 85, 95, 'system');
                 $this->createSensor('Free Memory', '1.3.6.1.4.1.9.9.48.1.1.1.6.1', 'gauge', 'bytes', null, null, 'system');
+            } elseif (stripos($sysDescr, 'Sophos') !== false || stripos($sysDescr, 'SFOS') !== false) {
+                $discoveredType = 'sophos';
+                $this->host->type = 'firewall';
+                // Sophos specific sensors if desired
             } elseif (stripos($sysDescr, 'Printer') !== false || stripos($sysDescr, 'HP LaserJet') !== false || stripos($sysDescr, 'Lexmark') !== false) {
                 $discoveredType = 'printer';
                 $this->host->type = 'printer';
