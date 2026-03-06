@@ -4,146 +4,238 @@ namespace App\Jobs;
 
 use App\Models\MonitoredHost;
 use App\Models\SensorMetric;
+use App\Models\SnmpSensor;
 use App\Models\NocEvent;
+use App\Services\Snmp\SnmpClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
 
 class CollectSnmpMetricsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    protected ?MonitoredHost $singleHost;
+
+    public function __construct(?MonitoredHost $host = null)
+    {
+        $this->singleHost = $host;
+    }
+
     public function handle(): void
     {
-        // Fetch hosts with SNMP enabled and not hard-down
-        $hosts = MonitoredHost::with(['snmpSensors', 'mib'])
-            ->where('snmp_enabled', true)
-            ->where('status', '!=', 'down')
-            ->get();
+        if ($this->singleHost) {
+            $hosts = collect([$this->singleHost->load(['snmpSensors', 'mib'])]);
+        } else {
+            $hosts = MonitoredHost::with(['snmpSensors', 'mib'])
+                ->where('snmp_enabled', true)
+                ->where('status', '!=', 'down')
+                ->get();
+        }
+
+        if (!SnmpClient::isSnmpExtensionLoaded()) {
+            Log::warning("CollectSnmpMetricsJob: PHP SNMP extension not loaded — will attempt CLI fallback.");
+        }
 
         foreach ($hosts as $host) {
-            if ($host->snmpSensors->isEmpty()) {
-                continue;
+            $this->pollHost($host);
+        }
+    }
+
+    protected function pollHost(MonitoredHost $host): void
+    {
+        if ($host->snmpSensors->isEmpty()) {
+            return;
+        }
+
+        $client = null;
+        try {
+            $client = new SnmpClient($host);
+            $client->connect();
+
+            $snmpSuccess = false;
+
+            foreach ($host->snmpSensors as $sensor) {
+                try {
+                    $rawResult = $client->get($sensor->oid);
+
+                    if ($rawResult === false) {
+                        $this->recordSensorFailure($sensor, $host);
+                        continue;
+                    }
+
+                    Log::info("Polled {$sensor->oid} ({$sensor->name}) on {$host->ip}", [
+                        'raw' => $rawResult,
+                        'host' => $host->ip,
+                        'snmp_version' => $host->snmp_version,
+                        'port' => $host->snmp_port ?? 161,
+                    ]);
+
+                    $snmpSuccess = true;
+                    $parsedValue = $this->parseValue($rawResult);
+                    $finalValue = $parsedValue;
+
+                    // Calculate rate for counters using database-persisted last_raw_counter
+                    if ($sensor->data_type === 'counter') {
+                        $finalValue = $this->calculateCounterRate($sensor, $parsedValue);
+                    }
+
+                    SensorMetric::create([
+                        'sensor_id' => $sensor->id,
+                        'value' => $finalValue,
+                        'recorded_at' => now(),
+                    ]);
+
+                    // Reset sensor failure count on success
+                    if ($sensor->status !== 'active' || $sensor->consecutive_failures > 0) {
+                        $sensor->update([
+                            'status' => 'active',
+                            'consecutive_failures' => 0,
+                        ]);
+                    }
+
+                    $this->checkThresholds($host, $sensor, $finalValue);
+
+                } catch (\Exception $e) {
+                    Log::error("Failed to poll sensor on {$host->ip}", [
+                        'oid' => $sensor->oid,
+                        'name' => $sensor->name,
+                        'snmp_version' => $host->snmp_version,
+                        'port' => $host->snmp_port ?? 161,
+                        'error' => $e->getMessage(),
+                    ]);
+                    $this->recordSensorFailure($sensor, $host);
+                }
             }
 
-            try {
-                if (!extension_loaded('snmp')) {
-                    Log::warning("CollectSnmpMetricsJob: SNMP extension not loaded on server.");
-                    return;
+            if ($snmpSuccess) {
+                $host->last_snmp_at = now();
+                if ($host->status === 'degraded') {
+                    $host->status = 'up';
                 }
+                $host->save();
+            }
 
-                $version = match($host->snmp_version) {
-                    'v1' => \SNMP::VERSION_1,
-                    'v3' => \SNMP::VERSION_3,
-                    default => \SNMP::VERSION_2c,
-                };
+        } catch (\Exception $e) {
+            Log::error("SNMP session failed", [
+                'host' => $host->ip,
+                'snmp_version' => $host->snmp_version,
+                'port' => $host->snmp_port ?? 161,
+                'community_set' => !empty($host->snmp_community),
+                'error' => $e->getMessage(),
+            ]);
+            if ($host->status === 'up') {
+                $host->update(['status' => 'degraded']);
+            }
+        } finally {
+            $client?->close();
+        }
+    }
 
-                $session = new \SNMP($version, $host->ip, $host->snmp_community, 1000000, 2);
-                $session->exceptions_enabled = \SNMP::ERRNO_ANY;
-                $session->valueretrieval = \SNMP_VALUE_LIBRARY;
-                
-                // Load specific MIB if associated
-                if ($host->mib_id && $host->mib) {
-                    $path = $host->mib->file_path;
-                    if (Storage::disk('local')->exists($path)) {
-                        @snmp_read_mib(Storage::disk('local')->path($path));
-                    }
-                }
+    protected function calculateCounterRate(SnmpSensor $sensor, float $currentValue): float
+    {
+        $lastRaw = $sensor->last_raw_counter;
+        $lastTime = $sensor->last_recorded_at;
 
-                // Track if we successfully polled at least one sensor
-                $snmpSuccess = false;
+        // Persist current raw counter and timestamp to database
+        $sensor->update([
+            'last_raw_counter' => $currentValue,
+            'last_recorded_at' => now(),
+        ]);
 
-                foreach ($host->snmpSensors as $sensor) {
-                    try {
-                        $rawResult = $session->get($sensor->oid);
-                        if ($rawResult === false) continue;
-                        
-                        Log::info("Polled {$sensor->oid} ({$sensor->name}) - Raw: " . var_export($rawResult, true));
+        if ($lastRaw === null || $lastTime === null) {
+            return 0;
+        }
 
-                        $snmpSuccess = true;
-                        $parsedValue = $this->parseValue($rawResult);
-                        $finalValue = $parsedValue;
+        $timeDiff = now()->timestamp - $lastTime->timestamp;
+        if ($timeDiff <= 0) {
+            return 0;
+        }
 
-                        // Calculate rate for counters using Cache
-                        if ($sensor->data_type === 'counter') {
-                            $cacheKey = "snmp_sensor_raw_{$sensor->id}";
-                            $lastData = Cache::get($cacheKey);
+        $diffValue = $currentValue - $lastRaw;
 
-                            Cache::put($cacheKey, [
-                                'value' => $parsedValue,
-                                'time' => now()->timestamp,
-                            ], 300); // 5 minutes cache
+        // Handle counter wraparound
+        if ($diffValue < 0) {
+            // Try 32-bit wraparound first (most common for SNMP counters)
+            $wrap32 = (pow(2, 32) - $lastRaw) + $currentValue;
+            // Try 64-bit wraparound for HC counters
+            $wrap64 = (pow(2, 64) - $lastRaw) + $currentValue;
 
-                            $rateValue = 0;
-                            if ($lastData) {
-                                $diffTime = now()->timestamp - $lastData['time'];
-                                if ($diffTime > 0) {
-                                    $diffValue = $parsedValue - $lastData['value'];
-                                    // Handle counter wrap-around (drop negative spikes)
-                                    if ($diffValue < 0) {
-                                        $diffValue = 0; 
-                                    }
-                                    $rateValue = $diffValue / $diffTime;
-                                }
-                            }
-                            $finalValue = $rateValue;
-                        }
-
-                        // Store metrics if graph is enabled or we just need the data point
-                        SensorMetric::create([
-                            'sensor_id' => $sensor->id,
-                            'value' => $finalValue,
-                            'recorded_at' => now(),
-                        ]);
-
-                        // Threshold Alerting Logic
-                        $this->checkThresholds($host, $sensor, $finalValue);
-
-                    } catch (\Exception $e) {
-                        Log::error("Failed to poll sensor {$sensor->oid} on host {$host->ip}: " . $e->getMessage());
-                    }
-                }
-
-                // Update last SNMP time if successful
-                if ($snmpSuccess) {
-                    $host->last_snmp_at = now();
-                    // Recover from degraded if applicable
-                    if ($host->status === 'degraded') {
-                        $host->status = 'up';
-                    }
-                    $host->save();
-                }
-
-            } catch (\Exception $e) {
-                Log::error("SNMP session failed for host {$host->ip}: " . $e->getMessage());
-                // Mark host degraded if it was up
-                if ($host->status === 'up') {
-                    $host->update(['status' => 'degraded']);
-                }
+            // Use the smaller wrap value — a 32-bit counter wrapping is far more likely
+            // than a legitimate 64-bit value jump, unless the previous value was very large
+            if ($lastRaw > pow(2, 32)) {
+                $diffValue = $wrap64;
+            } else {
+                $diffValue = $wrap32;
             }
         }
+
+        $rate = $diffValue / $timeDiff;
+
+        // Clamp unreasonable spikes: cap at 10 Gbps equivalent for traffic counters
+        // or 1 billion units/sec for generic counters
+        $maxRate = 1250000000; // ~10 Gbps in bytes/sec
+        $rate = min($rate, $maxRate);
+        $rate = max($rate, 0);
+
+        return $rate;
+    }
+
+    protected function recordSensorFailure(SnmpSensor $sensor, MonitoredHost $host): void
+    {
+        $failures = ($sensor->consecutive_failures ?? 0) + 1;
+        $newStatus = $failures >= 3 ? 'unreachable' : ($failures >= 5 ? 'error' : $sensor->status);
+
+        if ($failures >= 3 && $sensor->status === 'active') {
+            $newStatus = 'unreachable';
+            Log::warning("Sensor marked unreachable after {$failures} consecutive failures", [
+                'sensor' => $sensor->name,
+                'oid' => $sensor->oid,
+                'host' => $host->ip,
+            ]);
+        }
+
+        $sensor->update([
+            'consecutive_failures' => $failures,
+            'status' => $newStatus,
+        ]);
     }
 
     protected function parseValue($value): float
     {
-        // Extract numeric values from strings like "INTEGER: 123" or "Gauge32: 456" or "Timeticks: (12345) 1:23:45"
-        if (preg_match('/(?:Timeticks:\s*\()(\d+)(?:\))/', $value, $matches)) {
-            return (float)$matches[1];
+        if (!is_string($value)) {
+            return 0;
         }
+
+        // Timeticks: (12345) 1:23:45.67 → extract centisecond value
+        if (preg_match('/Timeticks:\s*\((\d+)\)/', $value, $matches)) {
+            return (float) $matches[1];
+        }
+
+        // Counter64, Counter32, Gauge32, INTEGER, etc.
         if (preg_match('/(-?\d+(\.\d+)?)/', $value, $matches)) {
-            return (float)$matches[1];
+            return (float) $matches[1];
         }
-        if (stripos($value, 'up') !== false) return 1;
-        if (stripos($value, 'down') !== false) return 0;
+
+        // STRING-like status conversions
+        $lower = strtolower($value);
+        if (str_contains($lower, 'up') || str_contains($lower, 'running') || str_contains($lower, 'active')) {
+            Log::debug("parseValue: Converted string to 1 (up)", ['raw' => $value]);
+            return 1;
+        }
+        if (str_contains($lower, 'down') || str_contains($lower, 'inactive') || str_contains($lower, 'notconnect')) {
+            Log::debug("parseValue: Converted string to 0 (down)", ['raw' => $value]);
+            return 0;
+        }
+
+        Log::debug("parseValue: Could not parse value, defaulting to 0", ['raw' => $value]);
         return 0;
     }
 
-    protected function checkThresholds(MonitoredHost $host, \App\Models\SnmpSensor $sensor, float $value): void
+    protected function checkThresholds(MonitoredHost $host, SnmpSensor $sensor, float $value): void
     {
         $severity = null;
         if ($sensor->critical_threshold !== null && $value >= $sensor->critical_threshold) {
@@ -152,12 +244,12 @@ class CollectSnmpMetricsJob implements ShouldQueue
             $severity = 'warning';
         }
 
+        $sensorName = $sensor->name ?: $sensor->description ?: $sensor->oid;
+        $eventTitle = "SNMP Threshold Exceeded: {$host->name} - {$sensorName}";
+
         if ($severity) {
-            $sensorName = $sensor->name ?: $sensor->description ?: $sensor->oid;
-            $eventTitle = "SNMP Threshold Exceeded: {$host->name} - {$sensorName}";
             $message = "Sensor value {$value} {$sensor->unit} exceeded {$severity} threshold limit.";
 
-            // Look for existing active event
             $existingEvent = NocEvent::where('source_id', $host->id)
                 ->where('event_type', 'snmp_threshold')
                 ->where('status', 'active')
@@ -175,6 +267,16 @@ class CollectSnmpMetricsJob implements ShouldQueue
                     'detected_at' => now(),
                 ]);
             }
+        } else {
+            // Auto-resolve active threshold events when value drops below thresholds
+            NocEvent::where('source_id', $host->id)
+                ->where('event_type', 'snmp_threshold')
+                ->where('status', 'active')
+                ->where('title', $eventTitle)
+                ->update([
+                    'status' => 'resolved',
+                    'resolved_at' => now(),
+                ]);
         }
     }
 }

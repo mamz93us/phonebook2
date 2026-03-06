@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Mib;
 use App\Models\MonitoredHost;
+use App\Models\SnmpSensor;
 use App\Models\VpnTunnel;
+use App\Services\Snmp\SnmpClient;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -19,15 +22,16 @@ class SnmpMonitoringController extends Controller
         $branches = Branch::orderBy('name')->get();
         $tunnels = VpnTunnel::orderBy('name')->get();
         $mibs = Mib::orderBy('name')->get();
-        
-        return view('admin.network.monitoring.index', compact('hosts', 'branches', 'tunnels', 'mibs'));
+        $snmpLoaded = SnmpClient::isSnmpExtensionLoaded();
+
+        return view('admin.network.monitoring.index', compact('hosts', 'branches', 'tunnels', 'mibs', 'snmpLoaded'));
     }
 
     public function show(MonitoredHost $host, \App\Services\Snmp\MibParser $parser)
     {
         $host->load([
-            'branch', 
-            'vpnTunnel', 
+            'branch',
+            'vpnTunnel',
             'mib',
             'hostChecks' => fn($q) => $q->latest('checked_at')->limit(144),
             'snmpSensors.sensorMetrics' => fn($q) => $q->where('recorded_at', '>=', now()->subHours(24))->orderBy('recorded_at')
@@ -39,17 +43,105 @@ class SnmpMonitoringController extends Controller
         }
 
         $mibs = Mib::orderBy('name')->get();
-        return view('admin.network.monitoring.show', compact('host', 'mibs', 'discoveredObjects'));
+        $snmpLoaded = SnmpClient::isSnmpExtensionLoaded();
+
+        return view('admin.network.monitoring.show', compact('host', 'mibs', 'discoveredObjects', 'snmpLoaded'));
     }
 
     public function forcePoll(MonitoredHost $host)
     {
         // Cleanup old string-based sensors that were broken by the previous parser
-        \App\Models\SnmpSensor::where('oid', 'like', '%::%')->delete();
-        
-        // Run the Snmp job synchronously on the web process to bypass CLI errors
-        \App\Jobs\CollectSnmpMetricsJob::dispatchSync($host);
-        return back()->with('success', 'Forced SNMP polling completed. Metrics should now be updated.');
+        SnmpSensor::where('oid', 'like', '%::%')->delete();
+
+        // Dispatch async to avoid blocking the web request
+        \App\Jobs\CollectSnmpMetricsJob::dispatch($host);
+
+        return back()->with('success', 'SNMP polling queued. Metrics will update shortly.');
+    }
+
+    public function metrics(MonitoredHost $host): JsonResponse
+    {
+        $host->load([
+            'snmpSensors.sensorMetrics' => fn($q) => $q->where('recorded_at', '>=', now()->subHours(24))->orderBy('recorded_at'),
+            'hostChecks' => fn($q) => $q->where('checked_at', '>=', now()->subHours(24))->orderBy('checked_at'),
+        ]);
+
+        $sensorData = [];
+        foreach ($host->snmpSensors as $sensor) {
+            $sensorData[] = [
+                'id' => $sensor->id,
+                'name' => $sensor->name,
+                'oid' => $sensor->oid,
+                'data_type' => $sensor->data_type,
+                'unit' => $sensor->unit,
+                'status' => $sensor->status,
+                'sensor_group' => $sensor->sensor_group,
+                'interface_index' => $sensor->interface_index,
+                'warning_threshold' => $sensor->warning_threshold,
+                'critical_threshold' => $sensor->critical_threshold,
+                'metrics' => $sensor->sensorMetrics->map(fn($m) => [
+                    'value' => $m->value,
+                    'recorded_at' => $m->recorded_at->toIso8601String(),
+                ]),
+            ];
+        }
+
+        $pingData = $host->hostChecks->map(fn($c) => [
+            'latency_ms' => $c->latency_ms,
+            'packet_loss' => $c->packet_loss,
+            'success' => $c->success,
+            'checked_at' => $c->checked_at ?? $c->created_at?->toIso8601String(),
+        ]);
+
+        return response()->json([
+            'host' => [
+                'id' => $host->id,
+                'name' => $host->name,
+                'ip' => $host->ip,
+                'status' => $host->status,
+                'type' => $host->type,
+                'discovered_type' => $host->discovered_type,
+                'last_snmp_at' => $host->last_snmp_at?->toIso8601String(),
+                'last_ping_at' => $host->last_ping_at?->toIso8601String(),
+            ],
+            'sensors' => $sensorData,
+            'ping' => $pingData,
+        ]);
+    }
+
+    public function snmpHealth()
+    {
+        $snmpLoaded = SnmpClient::isSnmpExtensionLoaded();
+
+        $totalHosts = MonitoredHost::where('snmp_enabled', true)->count();
+        $unreachableHosts = MonitoredHost::where('snmp_enabled', true)
+            ->whereIn('status', ['down', 'degraded'])
+            ->count();
+
+        $staleSensorMinutes = 10;
+        $staleSensors = SnmpSensor::whereHas('host', fn($q) => $q->where('snmp_enabled', true))
+            ->where(function ($q) use ($staleSensorMinutes) {
+                $q->whereNull('last_recorded_at')
+                  ->orWhere('last_recorded_at', '<', now()->subMinutes($staleSensorMinutes));
+            })
+            ->count();
+
+        $unreachableSensors = SnmpSensor::where('status', '!=', 'active')->count();
+
+        $hosts = MonitoredHost::with('snmpSensors')
+            ->where('snmp_enabled', true)
+            ->orderBy('status')
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.network.monitoring.health', compact(
+            'snmpLoaded',
+            'totalHosts',
+            'unreachableHosts',
+            'staleSensors',
+            'unreachableSensors',
+            'hosts'
+        ));
     }
 
     public function storeMibSensors(Request $request, MonitoredHost $host)
@@ -66,7 +158,6 @@ class SnmpMonitoringController extends Controller
 
         foreach ($selectedSensors as $s) {
             $oid = $s['oid'];
-            // Append .0 for scalar objects if not present and if it's not a generic interface traffic oid
             if (!str_contains($oid, '.')) {
                 $oid .= '.0';
             }
@@ -101,12 +192,19 @@ class SnmpMonitoringController extends Controller
             'snmp_enabled'   => 'boolean',
             'snmp_port'      => 'nullable|integer',
             'snmp_version'   => 'required_if:snmp_enabled,1|in:v1,v2c,v3',
-            'snmp_community' => 'required_if:snmp_enabled,1|string',
+            'snmp_community' => 'nullable|string',
             'mib_id'         => 'nullable|exists:mibs,id',
         ]);
 
         $data = $request->except(['_token', '_method']);
         $data['alert_enabled'] = $request->boolean('alert_enabled', false);
+
+        // Ensure snmp_community is always a string
+        $data['snmp_community'] = $data['snmp_community'] ?? '';
+
+        // Ensure snmp_port has a default
+        $data['snmp_port'] = $data['snmp_port'] ?? 161;
+
         if (empty($data['ping_interval_seconds'])) {
             $data['ping_interval_seconds'] = 60;
         }
@@ -143,17 +241,20 @@ class SnmpMonitoringController extends Controller
         $data['ping_enabled'] = $request->boolean('ping_enabled', false);
         $data['snmp_enabled'] = $request->boolean('snmp_enabled', false);
         $data['alert_enabled'] = $request->boolean('alert_enabled', false);
-        
+
+        // Ensure snmp_community is always a string
+        if (!isset($data['snmp_community']) || $data['snmp_community'] === null) {
+            $data['snmp_community'] = '';
+        }
+
+        // Ensure snmp_port has a default
+        $data['snmp_port'] = $data['snmp_port'] ?? 161;
+
         if (empty($data['ping_interval_seconds'])) {
             $data['ping_interval_seconds'] = 60;
         }
-
         if (empty($data['ping_packet_count'])) {
             $data['ping_packet_count'] = 3;
-        }
-
-        if (empty($data['snmp_community'])) {
-            unset($data['snmp_community']);
         }
 
         $host->update($data);

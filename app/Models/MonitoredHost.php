@@ -14,6 +14,7 @@ class MonitoredHost extends Model
         'name',
         'ip',
         'type',
+        'discovered_type',
         'ping_enabled',
         'ping_interval_seconds',
         'ping_packet_count',

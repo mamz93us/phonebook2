@@ -21,7 +21,27 @@
         font-size: 0.7rem;
         padding: 0.2rem 0.5rem;
     }
+    .sensor-status-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 4px;
+    }
+    .sensor-status-active { background-color: #198754; }
+    .sensor-status-unreachable { background-color: #ffc107; }
+    .sensor-status-error { background-color: #dc3545; }
 </style>
+
+@if(isset($snmpLoaded) && !$snmpLoaded)
+<div class="alert alert-warning border-0 shadow-sm d-flex align-items-center mb-3">
+    <i class="bi bi-exclamation-triangle-fill fs-5 me-3 text-warning"></i>
+    <div>
+        <strong>SNMP Extension Not Loaded</strong> &mdash;
+        <span class="small">Using CLI fallback for SNMP polling.</span>
+    </div>
+</div>
+@endif
 
 <div class="mb-4 d-flex justify-content-between align-items-end">
     <div>
@@ -44,6 +64,9 @@
             </span>
             <code class="text-muted pe-3 border-end me-3 bg-light px-2 rounded">{{ $host->ip }}</code>
             <span class="text-muted small">Type: <span class="fw-bold text-dark">{{ strtoupper($host->type) }}</span></span>
+            @if($host->discovered_type)
+                <span class="badge bg-info-subtle text-info ms-2">{{ ucfirst($host->discovered_type) }}</span>
+            @endif
         </div>
     </div>
     <div class="d-flex gap-2 align-items-center">
@@ -229,8 +252,14 @@
                     @foreach($host->snmpSensors as $sensor)
                         <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-0 px-3">
                             <div>
-                                <span class="fw-bold d-block">{{ $sensor->name ?: 'Unnamed' }}</span>
+                                <span class="fw-bold d-block">
+                                    <span class="sensor-status-dot sensor-status-{{ $sensor->status ?? 'active' }}" title="{{ ucfirst($sensor->status ?? 'active') }}"></span>
+                                    {{ $sensor->name ?: 'Unnamed' }}
+                                </span>
                                 <span class="text-muted x-small text-truncate d-inline-block" style="max-width: 150px;">{{ $sensor->oid }}</span>
+                                @if($sensor->status !== 'active')
+                                    <span class="badge bg-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }}-subtle text-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }} x-small ms-1">{{ ucfirst($sensor->status) }}</span>
+                                @endif
                             </div>
                             <form action="{{ route('admin.network.monitoring.hosts.sensors.destroy', [$host, $sensor]) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove sensor?');">
                                 @csrf
@@ -270,8 +299,14 @@
                 <div class="card-body d-flex flex-column">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <h6 class="card-title mb-0 text-muted fw-bold small text-uppercase">{{ $sensor->name }}</h6>
+                            <h6 class="card-title mb-0 text-muted fw-bold small text-uppercase">
+                                <span class="sensor-status-dot sensor-status-{{ $sensor->status ?? 'active' }}"></span>
+                                {{ $sensor->name }}
+                            </h6>
                             <span class="badge bg-light text-muted fw-normal interface-pill border">{{ $sensor->data_type }}</span>
+                            @if($sensor->status !== 'active')
+                                <span class="badge bg-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }}-subtle text-{{ $sensor->status === 'unreachable' ? 'warning' : 'danger' }} interface-pill">{{ ucfirst($sensor->status) }}</span>
+                            @endif
                         </div>
                         @if($latest)
                             <div class="text-end">
@@ -533,6 +568,7 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     Chart.defaults.font.family = "'Inter', sans-serif";
@@ -541,7 +577,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1. Latency Chart
     const latencyCtx = document.getElementById('latencyChart').getContext('2d');
     const latencyData = @json($host->hostChecks ? $host->hostChecks->take(144)->sortBy('checked_at')->values() : []);
-    
+
     new Chart(latencyCtx, {
         type: 'line',
         data: {
@@ -588,15 +624,59 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 2. Sensor Metric Charts
+    // 2. Sensor Metric Charts with threshold annotations
     @foreach($host->snmpSensors->where('graph_enabled', true) as $sensor)
         (function() {
             const ctx = document.getElementById('chart-sensor-{{ $sensor->id }}');
             if (!ctx) return;
-            
+
             const sensorData = @json($sensor->sensorMetrics->map(fn($m) => ['t' => $m->recorded_at->toIso8601String(), 'y' => $m->value])->values());
             const color = '{{ str_contains($sensor->name, "Out") ? "#6610f2" : "#0dcaf0" }}';
-            
+            const warnThreshold = {{ $sensor->warning_threshold !== null ? $sensor->warning_threshold : 'null' }};
+            const critThreshold = {{ $sensor->critical_threshold !== null ? $sensor->critical_threshold : 'null' }};
+
+            // Build threshold annotations
+            const annotations = {};
+            if (warnThreshold !== null) {
+                annotations.warningLine = {
+                    type: 'line',
+                    yMin: warnThreshold,
+                    yMax: warnThreshold,
+                    borderColor: 'rgba(255, 193, 7, 0.6)',
+                    borderWidth: 1,
+                    borderDash: [4, 4],
+                    label: {
+                        display: false
+                    }
+                };
+                annotations.warningBox = {
+                    type: 'box',
+                    yMin: warnThreshold,
+                    yMax: critThreshold !== null ? critThreshold : undefined,
+                    backgroundColor: 'rgba(255, 193, 7, 0.05)',
+                    borderWidth: 0
+                };
+            }
+            if (critThreshold !== null) {
+                annotations.criticalLine = {
+                    type: 'line',
+                    yMin: critThreshold,
+                    yMax: critThreshold,
+                    borderColor: 'rgba(220, 53, 69, 0.6)',
+                    borderWidth: 1,
+                    borderDash: [4, 4],
+                    label: {
+                        display: false
+                    }
+                };
+                annotations.criticalBox = {
+                    type: 'box',
+                    yMin: critThreshold,
+                    backgroundColor: 'rgba(220, 53, 69, 0.05)',
+                    borderWidth: 0
+                };
+            }
+
             new Chart(ctx.getContext('2d'), {
                 type: 'line',
                 data: {
@@ -621,7 +701,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true },
+                        annotation: {
+                            annotations: annotations
+                        }
+                    },
                     scales: {
                         y: { display: false, beginAtZero: true },
                         x: { type: 'time', display: false }

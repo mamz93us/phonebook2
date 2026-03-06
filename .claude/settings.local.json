@@ -6,7 +6,9 @@
       "Bash(git push:*)",
       "Bash(php artisan make:migration:*)",
       "Bash(php artisan:*)",
-      "Bash(composer require:*)"
+      "Bash(composer require:*)",
+      "Bash(grep -l \"monitored_hosts\\\\|snmp_sensors\\\\|sensor_metrics\" /c/Users/MohamedZahran/Downloads/phonebook/phonebook2/database/migrations/*.php)",
+      "Bash(xargs grep -l \"monitored_hosts\\\\|snmp_sensors\\\\|sensor_metrics\")"
     ]
   }
 }

@@ -18,12 +18,22 @@ class SnmpSensor extends Model
         'warning_threshold',
         'critical_threshold',
         'graph_enabled',
+        'last_raw_counter',
+        'last_recorded_at',
+        'status',
+        'sensor_group',
+        'interface_index',
+        'consecutive_failures',
     ];
 
     protected $casts = [
         'graph_enabled' => 'boolean',
         'warning_threshold' => 'float',
         'critical_threshold' => 'float',
+        'last_raw_counter' => 'float',
+        'last_recorded_at' => 'datetime',
+        'consecutive_failures' => 'integer',
+        'interface_index' => 'integer',
     ];
 
     public function host(): BelongsTo

@@ -423,6 +423,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/hosts/{host}/mib-assign', [SnmpMonitoringController::class, 'updateMibAssignment'])->name('hosts.mib-assign');
         Route::post('/hosts/{host}/force-poll', [SnmpMonitoringController::class, 'forcePoll'])->name('hosts.force-poll');
         Route::post('/hosts/{host}/mib-sensors', [SnmpMonitoringController::class, 'storeMibSensors'])->name('hosts.mib-sensors.store');
+        Route::get('/hosts/{host}/metrics', [SnmpMonitoringController::class, 'metrics'])->name('hosts.metrics');
+        Route::get('/health', [SnmpMonitoringController::class, 'snmpHealth'])->name('health');
     });
 
     // ─── Workers Dashboard ─────────────────────────────────────────

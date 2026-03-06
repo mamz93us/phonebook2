@@ -7,6 +7,9 @@
         <p class="text-muted small mb-0">Infrastructure Health & Performance Monitoring</p>
     </div>
     <div class="d-flex gap-2">
+        <a href="{{ route('admin.network.monitoring.health') }}" class="btn btn-outline-info">
+            <i class="bi bi-heart-pulse me-1"></i> SNMP Health
+        </a>
         <a href="{{ route('admin.network.monitoring.mibs') }}" class="btn btn-outline-secondary">
             <i class="bi bi-file-earmark-medical me-1"></i> Managed MIBs
         </a>
@@ -15,6 +18,16 @@
         </a>
     </div>
 </div>
+
+@if(isset($snmpLoaded) && !$snmpLoaded)
+<div class="alert alert-warning border-0 shadow-sm d-flex align-items-center mb-4">
+    <i class="bi bi-exclamation-triangle-fill fs-5 me-3 text-warning"></i>
+    <div>
+        <strong>SNMP Extension Not Loaded</strong> &mdash;
+        <span class="small">The PHP <code>snmp</code> extension is not available. SNMP polling will use CLI fallback. Install <code>php-snmp</code> for best performance.</span>
+    </div>
+</div>
+@endif
 
 <div class="row g-4">
     @foreach($hosts as $host)

@@ -3,13 +3,13 @@
 namespace App\Jobs;
 
 use App\Models\MonitoredHost;
+use App\Services\Snmp\SnmpClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class DiscoverSnmpInterfacesJob implements ShouldQueue
 {
@@ -25,41 +25,33 @@ class DiscoverSnmpInterfacesJob implements ShouldQueue
             return;
         }
 
-        if (!extension_loaded('snmp')) {
-            Log::error("SNMP Interface Discovery failed for {$this->host->ip}: PHP SNMP extension is not installed/enabled on this server.");
-            return;
+        if (!SnmpClient::isSnmpExtensionLoaded()) {
+            Log::warning("DiscoverSnmpInterfacesJob: PHP SNMP extension not loaded — will attempt CLI fallback.", [
+                'host' => $this->host->ip,
+            ]);
         }
 
-        // Load specific MIB if associated
-        if ($this->host->mib_id && $this->host->mib) {
-            $path = $this->host->mib->file_path;
-            if (Storage::disk('local')->exists($path)) {
-                @snmp_read_mib(Storage::disk('local')->path($path));
-            }
-        }
-
+        $client = null;
         try {
-            $version = match($this->host->snmp_version) {
-                'v1' => \SNMP::VERSION_1,
-                'v3' => \SNMP::VERSION_3,
-                default => \SNMP::VERSION_2c,
-            };
-
-            $session = new \SNMP($version, $this->host->ip, $this->host->snmp_community);
-            $session->oid_output_format = \SNMP_OID_OUTPUT_NUMERIC;
-            $session->valueretrieval = \SNMP_VALUE_PLAIN;
+            $client = new SnmpClient($this->host);
+            $client->connect();
+            $client->setOidOutputFormat(\SNMP_OID_OUTPUT_NUMERIC ?? 3);
+            $client->setValueRetrieval(\SNMP_VALUE_PLAIN ?? 4);
 
             // Walk IF-MIB::ifDescr (.1.3.6.1.2.1.2.2.1.2)
-            $interfaces = @$session->walk('1.3.6.1.2.1.2.2.1.2');
-            
+            $interfaces = $client->walk('1.3.6.1.2.1.2.2.1.2');
+
             if (!$interfaces) {
+                Log::info("DiscoverSnmpInterfacesJob: No interfaces found for {$this->host->ip}");
                 return;
             }
+
+            $discoveredCount = 0;
 
             foreach ($interfaces as $oid => $descr) {
                 // Determine port index
                 $parts = explode('.', $oid);
-                $index = end($parts);
+                $index = (int) end($parts);
                 $cleanName = trim(trim($descr, '"'));
 
                 // Skip loopback and null interfaces
@@ -72,7 +64,9 @@ class DiscoverSnmpInterfacesJob implements ShouldQueue
                     $cleanName . ' - Traffic In',
                     "1.3.6.1.2.1.31.1.1.1.6.{$index}",
                     'counter',
-                    'bytes/sec'
+                    'bytes/sec',
+                    $index,
+                    'interface_traffic'
                 );
 
                 // Traffic Out (ifHCOutOctets) .1.3.6.1.2.1.31.1.1.1.10
@@ -80,25 +74,49 @@ class DiscoverSnmpInterfacesJob implements ShouldQueue
                     $cleanName . ' - Traffic Out',
                     "1.3.6.1.2.1.31.1.1.1.10.{$index}",
                     'counter',
-                    'bytes/sec'
+                    'bytes/sec',
+                    $index,
+                    'interface_traffic'
                 );
-                
+
                 // Port Status (ifOperStatus) .1.3.6.1.2.1.2.2.1.8
                 $this->createSensor(
                     $cleanName . ' - Status',
                     "1.3.6.1.2.1.2.2.1.8.{$index}",
                     'boolean',
-                    'status' // 1 = up, 2 = down
+                    'status',
+                    $index,
+                    'interface_status'
                 );
+
+                $discoveredCount++;
             }
 
+            Log::info("DiscoverSnmpInterfacesJob completed for {$this->host->ip}", [
+                'interfaces_found' => $discoveredCount,
+                'port' => $this->host->snmp_port ?? 161,
+            ]);
+
         } catch (\Exception $e) {
-            Log::error("DiscoverSnmpInterfacesJob failed for {$this->host->ip}: " . $e->getMessage());
+            Log::error("DiscoverSnmpInterfacesJob failed", [
+                'host' => $this->host->ip,
+                'port' => $this->host->snmp_port ?? 161,
+                'version' => $this->host->snmp_version,
+                'error' => $e->getMessage(),
+            ]);
+        } finally {
+            $client?->close();
         }
     }
 
-    protected function createSensor(string $name, string $oid, string $dataType, string $unit): void
-    {
+    protected function createSensor(
+        string $name,
+        string $oid,
+        string $dataType,
+        string $unit,
+        int $interfaceIndex,
+        string $sensorGroup
+    ): void {
         $this->host->snmpSensors()->firstOrCreate(
             ['oid' => $oid],
             [
@@ -107,6 +125,8 @@ class DiscoverSnmpInterfacesJob implements ShouldQueue
                 'unit' => $unit,
                 'poll_interval' => 60,
                 'graph_enabled' => true,
+                'interface_index' => $interfaceIndex,
+                'sensor_group' => $sensorGroup,
             ]
         );
     }

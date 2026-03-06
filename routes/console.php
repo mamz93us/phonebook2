@@ -83,9 +83,40 @@ Schedule::call(function () {
     }
 })->name('check-host-ping')->withoutOverlapping(2)->everyMinute();
 
+// SNMP Metrics Collection — dispatches one job per host every minute
+Schedule::call(function () {
+    $hosts = \App\Models\MonitoredHost::where('snmp_enabled', true)
+        ->where('status', '!=', 'down')
+        ->get();
+    foreach ($hosts as $host) {
+        try {
+            \App\Jobs\CollectSnmpMetricsJob::dispatch($host);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("SNMP collect dispatch failed for {$host->ip}: " . $e->getMessage());
+        }
+    }
+})->name('collect-snmp-metrics')->withoutOverlapping(2)->everyMinute();
+
+// SNMP Device Discovery — once per day
 Schedule::call(function () {
     $hosts = \App\Models\MonitoredHost::where('snmp_enabled', true)->get();
     foreach ($hosts as $host) {
-        try { dispatch_sync(new \App\Jobs\CollectSnmpMetricsJob($host)); } catch (\Throwable $e) {}
+        try {
+            \App\Jobs\DiscoverSnmpDeviceJob::dispatch($host);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("SNMP discover dispatch failed for {$host->ip}: " . $e->getMessage());
+        }
     }
-})->name('collect-snmp-metrics')->withoutOverlapping(2)->everyMinute();
+})->name('discover-snmp-devices')->withoutOverlapping(30)->daily();
+
+// SNMP Interface Discovery — once per day
+Schedule::call(function () {
+    $hosts = \App\Models\MonitoredHost::where('snmp_enabled', true)->get();
+    foreach ($hosts as $host) {
+        try {
+            \App\Jobs\DiscoverSnmpInterfacesJob::dispatch($host);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("SNMP interface discover dispatch failed for {$host->ip}: " . $e->getMessage());
+        }
+    }
+})->name('discover-snmp-interfaces')->withoutOverlapping(30)->daily();
