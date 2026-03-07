@@ -27,6 +27,17 @@
             @enderror
         </div>
 
+        <!-- Job Title Field - NEW -->
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Job Title</label>
+            <input type="text" name="job_title" class="form-control"
+                   value="{{ old('job_title', $contact->job_title) }}" 
+                   placeholder="e.g., Software Engineer, Sales Manager">
+            @error('job_title')
+                <span class="text-danger small">{{ $message }}</span>
+            @enderror
+        </div>
+
         <div class="col-md-6 mb-3">
             <label class="form-label">Phone Number</label>
             <input type="text" name="phone" class="form-control"

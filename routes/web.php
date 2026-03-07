@@ -58,7 +58,8 @@ Route::get('/contacts', [PublicContactController::class, 'index'])
 
 Route::get('/contacts/print', [PublicContactController::class, 'print'])
     ->name('public.contacts.print');
-
+// Compact print layout (landscape)
+Route::get('/contacts/print-compact', [PhonebookController::class, 'printCompact'])->name('public.contacts.print.compact');
 /*
 |--------------------------------------------------------------------------
 | Microsoft SSO

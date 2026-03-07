@@ -5,10 +5,75 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\Contact;
 use App\Models\PhoneRequestLog;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 
 class PhonebookController extends Controller
 {
+    /**
+     * Display public contacts page
+     */
+    public function index(Request $request)
+    {
+        $query = Contact::with('branch')->orderBy('first_name');
+
+        // Search functionality
+        if ($request->has('search') && $request->search !== '') {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $contacts = $query->paginate(12);
+        $settings = Setting::get();
+
+        return view('contacts.index', compact('contacts', 'settings'));
+    }
+
+    /**
+     * Full print layout
+     */
+    public function print(Request $request)
+    {
+        $query = Contact::with('branch')->orderBy('first_name');
+
+        // Filter by branch if specified
+        if ($request->has('branch_id') && $request->branch_id) {
+            $query->where('branch_id', $request->branch_id);
+        }
+
+        $contacts = $query->get();
+        $branches = Branch::orderBy('name')->get();
+        $selectedBranch = $request->branch_id ? Branch::find($request->branch_id) : null;
+        $settings = Setting::first();
+
+        return view('contacts.print', compact('contacts', 'branches', 'selectedBranch', 'settings'));
+    }
+
+    /**
+     * Compact print layout (5 columns, landscape)
+     */
+    public function printCompact(Request $request)
+    {
+        $query = Contact::with('branch')->orderBy('first_name');
+
+        // Filter by branch if specified
+        if ($request->has('branch_id') && $request->branch_id) {
+            $query->where('branch_id', $request->branch_id);
+        }
+
+        $contacts = $query->get();
+        $branches = Branch::orderBy('name')->get();
+        $selectedBranch = $request->branch_id ? Branch::find($request->branch_id) : null;
+        $settings = Setting::first();
+
+        return view('contacts.print-compact', compact('contacts', 'branches', 'selectedBranch', 'settings'));
+    }
+
     /**
      * Generate phonebook.xml for Grandstream UCM
      */
@@ -93,7 +158,6 @@ class PhonebookController extends Controller
         }
 
         $xmlString .= "</AddressBook>";
-
         return response($xmlString, 200)
             ->header('Content-Type', 'text/xml; charset=utf-8');
     }

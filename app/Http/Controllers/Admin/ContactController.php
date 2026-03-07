@@ -110,6 +110,7 @@ class ContactController extends Controller
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name'  => 'nullable|string|max:255',
+            'job_title'  => 'nullable|string|max:255',  // ADD THIS
             'phone'      => 'required|string|max:50',
             'email'      => [
                 'nullable',
@@ -122,7 +123,7 @@ class ContactController extends Controller
         ]);
 
         Contact::create($request->only([
-            'first_name', 'last_name', 'phone', 'email', 'branch_id'
+            'first_name', 'last_name', 'job_title', 'phone', 'email', 'branch_id'  // ADD 'job_title' HERE
         ]));
 
         return redirect()
@@ -147,6 +148,7 @@ class ContactController extends Controller
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name'  => 'nullable|string|max:255',
+            'job_title'  => 'nullable|string|max:255',  // ADD THIS
             'phone'      => 'required|string|max:50',
             'email'      => [
                 'nullable',
@@ -161,7 +163,7 @@ class ContactController extends Controller
         ]);
 
         $contact->update($request->only([
-            'first_name', 'last_name', 'phone', 'email', 'branch_id'
+            'first_name', 'last_name', 'job_title', 'phone', 'email', 'branch_id'  // ADD 'job_title' HERE
         ]));
 
         return redirect()
